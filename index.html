@@ -195,6 +195,20 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <div class="login-switch">계정이 없으신가요? <a onclick="toggleAuthMode()"><span id="switch-link">회원가입</span></a></div>
     </div>
   </div>
+  <!-- 요금제 상품 표시 -->
+  <div style="background:linear-gradient(135deg,#111827,#1a2235);border:1px solid #ffd700;border-radius:12px;padding:14px 24px;text-align:center;max-width:420px;width:100%;">
+    <div style="font-size:.6rem;color:#ffd700;letter-spacing:2px;margin-bottom:4px;">💎 PREMIUM PLAN</div>
+    <div style="font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:#fff;margin-bottom:2px;">MapDong 프리미엄</div>
+    <div style="font-size:.75rem;color:#7a9bb5;margin-bottom:8px;">수도권 500+ 행정동 무제한 퀴즈 · 30일</div>
+    <div style="font-family:'Black Han Sans',sans-serif;font-size:1.8rem;color:#ffd700;">5,000<span style="font-size:.9rem;color:#7a9bb5;">원 / 월</span></div>
+    <div style="font-size:.65rem;color:#7a9bb5;margin-top:6px;">무료 체험 300문제 후 결제</div>
+    <!-- 사업자 정보 -->
+<div style="text-align:center;font-size:.62rem;color:#4a6a85;line-height:1.8;max-width:420px;width:100%;padding:0 10px;">
+  <span>상호명: 워크트래블허브</span> &nbsp;|&nbsp;
+  <span>사업자등록번호: 690-17-02022</span> &nbsp;|&nbsp;
+  <span>대표자: 김강별</span>
+</div>
+  </div>
 </div>
 
 <!-- ② 본인인증 화면 -->
@@ -257,6 +271,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     </div>
   </div>
   <div style="color:var(--text-dim);font-size:.82rem">선택 동 합계: <span style="color:var(--accent);font-weight:700" id="scnt">0</span>개</div>
+</div>
   <button class="sbtn" onclick="startQuiz()">퀴즈 시작! 🚀</button>
 </div>
 
@@ -1053,5 +1068,6 @@ async function handlePaymentCallback(){
   } catch(e){ toast('결제 처리 중 오류가 발생했습니다', 'error'); }
 }
 </script>
+</div>
 </body>
 </html>
