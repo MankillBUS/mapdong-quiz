@@ -1,65 +1,113 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <!-- Supabase 클라이언트 라이브러리 -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<script>
-  // Supabase 초기화 (당신 프로젝트 URL과 Anon Key 넣기)
-  const supabaseUrl = 'https://emgsueepzioudqnitkyn.supabase.co';  // ← 여기 바꾸기
-  const supabaseAnonKey = 'sb_secret_r7vSiSfnhoaaQlszw010eA_ti4prXvW';             // ← 여기 바꾸기
-
-  const supabase = Supabase.createClient(supabaseUrl, supabaseAnonKey);
-</script>
-
-
-<div id="auth-section">
-  <button onclick="signInWithGoogle()">Google로 로그인</button>
-  <button onclick="signOut()">로그아웃</button>
-  <p id="user-info">로그인되지 않음</p>
-</div>
-
-<script>
-  async function signInWithGoogle() {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin + '/quiz'  // 로그인 후 돌아올 페이지
-      }
-    });
-    if (error) console.error('로그인 에러:', error);
-  }
-
-  async function signOut() {
-    await supabase.auth.signOut();
-    updateUserInfo();
-  }
-
-  function updateUserInfo() {
-    const user = supabase.auth.getUser();
-    if (user) {
-      document.getElementById('user-info').textContent = `환영합니다, ${user.email}`;
-    } else {
-      document.getElementById('user-info').textContent = '로그인되지 않음';
-    }
-  }
-
-  // 페이지 로드 시 사용자 상태 체크
-  supabase.auth.onAuthStateChange((event, session) => {
-    updateUserInfo();
-  });
-</script>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>수도권 동(洞) 위치 퀴즈</title>
+<title>MapDong · 수도권 동(洞) 위치 퀴즈</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://js.tosspayments.com/v1/payment"></script>
 <style>
-:root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1e3a5f;--accent:#00d4ff;--accent2:#ff3c6e;--accent3:#39ff14;--text:#e8f4fd;--text-dim:#7a9bb5;}
+:root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1e3a5f;--accent:#00d4ff;--accent2:#ff3c6e;--accent3:#39ff14;--text:#e8f4fd;--text-dim:#7a9bb5;--gold:#ffd700;}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+
+/* ── 전체화면 레이어 ── */
+.fs-screen{position:fixed;inset:0;z-index:8000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;padding:20px;background:var(--bg);}
+.fs-screen.hidden{display:none!important;}
+
+/* ── 로그인 ── */
+.login-card{background:linear-gradient(135deg,var(--surface),var(--surface2));border:1px solid var(--border);border-radius:20px;padding:40px 44px;max-width:420px;width:100%;text-align:center;box-shadow:0 0 60px rgba(0,212,255,.1);}
+.login-logo{font-family:'Black Han Sans',sans-serif;font-size:2.2rem;color:var(--accent);text-shadow:0 0 20px var(--accent);margin-bottom:4px;}
+.login-logo span{color:var(--accent2);}
+.login-sub{font-size:.8rem;color:var(--text-dim);margin-bottom:28px;line-height:1.6;}
+.btn-google{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;background:#fff;color:#1a1a2e;border:none;border-radius:12px;padding:14px 20px;font-size:.95rem;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;margin-bottom:12px;}
+.btn-google:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(255,255,255,.2);}
+.btn-google svg{width:21px;height:21px;flex-shrink:0;}
+.login-divider{display:flex;align-items:center;gap:12px;margin:14px 0;color:var(--text-dim);font-size:.73rem;}
+.login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+.login-email-form{display:flex;flex-direction:column;gap:10px;}
+.login-input{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:12px 16px;font-size:.9rem;font-family:'Noto Sans KR',sans-serif;outline:none;transition:border-color .2s;width:100%;}
+.login-input:focus{border-color:var(--accent);}
+.login-input::placeholder{color:var(--text-dim);}
+.login-err{background:rgba(255,60,110,.1);border:1px solid var(--accent2);border-radius:8px;padding:10px 14px;font-size:.78rem;color:var(--accent2);display:none;margin-top:2px;text-align:left;}
+.login-err.show{display:block;}
+.login-err.ok{color:var(--accent3);background:rgba(57,255,20,.08);border-color:var(--accent3);}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;border:none;border-radius:10px;padding:12px 28px;font-size:.95rem;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;width:100%;}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,212,255,.4);}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.login-switch{font-size:.78rem;color:var(--text-dim);margin-top:6px;}
+.login-switch a{color:var(--accent);cursor:pointer;}
+
+/* ── 본인인증 ── */
+.verify-card{background:linear-gradient(135deg,var(--surface),var(--surface2));border:1px solid var(--border);border-radius:20px;padding:36px 40px;max-width:480px;width:100%;text-align:center;}
+.verify-icon{font-size:3rem;margin-bottom:10px;}
+.verify-title{font-family:'Black Han Sans',sans-serif;font-size:1.6rem;color:var(--text);margin-bottom:8px;}
+.verify-desc{font-size:.82rem;color:var(--text-dim);line-height:1.7;margin-bottom:20px;}
+.verify-carriers{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-bottom:20px;}
+.carrier-tag{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 13px;font-size:.75rem;color:var(--text-dim);}
+.verify-notice{background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.18);border-radius:10px;padding:12px 16px;font-size:.74rem;color:var(--text-dim);line-height:1.6;margin-bottom:20px;text-align:left;}
+.verify-notice strong{color:var(--accent);}
+.btn-verify{background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;border:none;border-radius:12px;padding:14px;width:100%;font-size:1rem;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;margin-bottom:10px;}
+.btn-verify:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,212,255,.4);}
+.btn-verify:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:8px 16px;font-size:.78rem;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ── 결제 페이월 ── */
+.pay-card{background:linear-gradient(135deg,var(--surface),var(--surface2));border:2px solid var(--gold);border-radius:20px;padding:40px 44px;max-width:440px;width:100%;text-align:center;box-shadow:0 0 60px rgba(255,215,0,.12);}
+.pay-icon{font-size:3rem;margin-bottom:10px;}
+.pay-title{font-family:'Black Han Sans',sans-serif;font-size:1.5rem;color:var(--text);margin-bottom:6px;}
+.pay-used{font-size:.82rem;color:var(--text-dim);margin-bottom:18px;}
+.pay-divider{height:1px;background:var(--border);margin:18px 0;}
+.pay-plan-label{font-size:.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;}
+.pay-price{font-family:'Black Han Sans',sans-serif;font-size:2.8rem;color:var(--gold);line-height:1;margin-bottom:18px;}
+.pay-price span{font-size:1rem;color:var(--text-dim);}
+.pay-features{list-style:none;text-align:left;display:flex;flex-direction:column;gap:8px;margin-bottom:22px;}
+.pay-features li{display:flex;align-items:center;gap:10px;font-size:.82rem;color:var(--text-dim);}
+.pay-features li::before{content:'✓';color:var(--accent3);font-weight:700;flex-shrink:0;}
+.btn-pay{width:100%;background:linear-gradient(135deg,var(--gold),#e6a800);color:#000;border:none;border-radius:12px;padding:16px;font-size:1.05rem;font-weight:900;font-family:'Black Han Sans',sans-serif;cursor:pointer;transition:all .2s;letter-spacing:1px;}
+.btn-pay:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(255,215,0,.4);}
+.btn-pay:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.pay-secure{font-size:.7rem;color:var(--text-dim);margin-top:10px;display:flex;align-items:center;justify-content:center;gap:5px;}
+
+/* ── 유저 칩 & 드롭다운 ── */
+#user-chip{display:none;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 11px 4px 5px;cursor:pointer;transition:all .2s;position:relative;}
+#user-chip:hover{border-color:var(--accent);}
+#user-chip.visible{display:flex;}
+.user-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:#000;flex-shrink:0;}
+.user-name{font-size:.7rem;font-weight:600;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.user-badge{font-size:.56rem;padding:2px 6px;border-radius:10px;font-weight:700;}
+.user-badge.premium{background:var(--gold);color:#000;}
+.user-badge.trial{background:var(--surface);border:1px solid var(--text-dim);color:var(--text-dim);}
+#user-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px;min-width:190px;z-index:9999;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5);}
+#user-dropdown.show{display:block;}
+.dd-info{padding:8px 10px 10px;border-bottom:1px solid var(--border);margin-bottom:6px;}
+.dd-email{font-size:.68rem;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dd-status{font-size:.7rem;margin-top:4px;}
+.dd-status.premium{color:var(--gold);}
+.dd-status.trial{color:var(--text-dim);}
+.dd-btn{display:block;width:100%;text-align:left;background:none;border:none;color:var(--text-dim);padding:8px 10px;border-radius:8px;font-size:.77rem;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .15s;}
+.dd-btn:hover{background:var(--surface2);color:var(--text);}
+.dd-btn.danger:hover{color:var(--accent2);}
+
+/* ── 체험판 진행바 (사이드바) ── */
+#trial-bar{background:var(--surface2);border:1px solid rgba(255,215,0,.25);border-radius:10px;padding:10px;}
+.trial-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.trial-label{font-size:.58rem;color:var(--gold);text-transform:uppercase;letter-spacing:1px;font-weight:700;}
+.trial-count{font-size:.7rem;color:var(--text-dim);}
+.trial-count strong{color:var(--text);}
+.trial-bg{background:var(--bg);border-radius:10px;height:6px;overflow:hidden;}
+.trial-fill{height:100%;background:linear-gradient(90deg,var(--gold),#ff8c00);border-radius:10px;transition:width .4s;}
+#trial-bar.hidden{display:none;}
+
+/* ── 토스트 ── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);z-index:99999;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 22px;font-size:.82rem;color:var(--text);box-shadow:0 8px 30px rgba(0,0,0,.5);transition:transform .3s ease;white-space:nowrap;pointer-events:none;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+#toast.success{border-color:var(--accent3);color:var(--accent3);}
+#toast.error{border-color:var(--accent2);color:var(--accent2);}
 #header{background:linear-gradient(135deg,#0d1929,#111827);border-bottom:2px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:1000;position:relative;}
 #header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);}
 .logo{font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:var(--accent);text-shadow:0 0 15px var(--accent);letter-spacing:2px;}
@@ -129,8 +177,68 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 </head>
 <body>
 
+<!-- ① 로그인 화면 -->
+<div id="screen-login" class="fs-screen">
+  <div class="login-card">
+    <div class="login-logo">Map<span>Dong</span></div>
+    <div class="login-sub">수도권 동(洞) 위치 퀴즈<br>로그인 후 무료 300문제 체험 가능</div>
+    <button class="btn-google" onclick="signInGoogle()">
+      <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Google로 계속하기
+    </button>
+    <div class="login-divider">또는 이메일로 계속</div>
+    <div class="login-email-form">
+      <input class="login-input" id="inp-email" type="email" placeholder="이메일 주소">
+      <input class="login-input" id="inp-pw" type="password" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doEmailAuth()">
+      <div class="login-err" id="login-err"></div>
+      <button class="btn-primary" id="btn-email-auth" onclick="doEmailAuth()">로그인</button>
+      <div class="login-switch">계정이 없으신가요? <a onclick="toggleAuthMode()"><span id="switch-link">회원가입</span></a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ② 본인인증 화면 -->
+<div id="screen-verify" class="fs-screen hidden">
+  <div class="verify-card">
+    <div class="verify-icon">🪪</div>
+    <div class="verify-title">본인인증이 필요합니다</div>
+    <div class="verify-desc">서비스 이용을 위해 휴대폰 본인인증을 완료해주세요.<br><strong style="color:var(--accent)">최초 1회</strong> 인증으로 계속 이용 가능합니다.</div>
+    <div class="verify-carriers">
+      <span class="carrier-tag">📱 SKT</span><span class="carrier-tag">📱 KT</span><span class="carrier-tag">📱 LG U+</span>
+      <span class="carrier-tag">📱 알뜰폰(SKT)</span><span class="carrier-tag">📱 알뜰폰(KT)</span><span class="carrier-tag">📱 알뜰폰(LG)</span>
+    </div>
+    <div class="verify-notice">
+      <strong>개인정보 처리안내</strong><br>
+      수집항목: 이름, 생년월일, 통신사 · 수집목적: 중복가입 방지<br>
+      전화번호는 암호화 저장되며 원문은 보관하지 않습니다.
+    </div>
+    <button class="btn-verify" id="btn-verify" onclick="startNiceAuth()">📲 휴대폰 본인인증 시작</button>
+    <button class="btn-ghost" onclick="signOut()">다른 계정으로 로그인</button>
+  </div>
+</div>
+
+<!-- ③ 결제 페이월 화면 -->
+<div id="screen-paywall" class="fs-screen hidden">
+  <div class="pay-card">
+    <div class="pay-icon">🎯</div>
+    <div class="pay-title">체험판 기능을 모두 사용하셨습니다</div>
+    <div class="pay-used">무료 체험 <strong style="color:var(--gold)">300문제</strong>를 모두 풀었습니다!</div>
+    <div class="pay-divider"></div>
+    <div class="pay-plan-label">계속하려면 플랜 결제</div>
+    <div class="pay-price">5,000<span>원 / 월</span></div>
+    <ul class="pay-features">
+      <li>무제한 문제 풀기 (30일간)</li>
+      <li>수도권 전 지역 500+ 행정동</li>
+      <li>정답률 · 연속 스트릭 통계</li>
+      <li>지역별 필터 & 진행률 추적</li>
+    </ul>
+    <button class="btn-pay" id="btn-pay" onclick="startPayment()">💳 결제하기 (5,000원)</button>
+    <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
+  </div>
+</div>
+
 <!-- 시작 화면 -->
-<div id="start">
+<div id="start" class="fs-screen hidden">
   <div class="st">🗺 수도권<br><span style="color:var(--accent2)">동(洞)</span> 위치 퀴즈</div>
   <div class="ss">지도에서 문제의 동(洞) 위치를 클릭하세요<br>정답 기준 반경 1.5km · 무한 반복 학습</div>
   <div style="text-align:center">
@@ -154,13 +262,28 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 <!-- 헤더 -->
 <div id="header">
-  <div class="logo">수도권 <span>동(洞)</span> 퀴즈</div>
+  <div class="logo">Map<span>Dong</span></div>
+  <div id="header-right" style="display:flex;align-items:center;gap:10px;">
   <div id="stats-bar">
     <div class="sb"><div class="sl">문제</div><div class="sv" id="sQ">-</div></div>
     <div class="sb"><div class="sl">정답</div><div class="sv" style="color:#39ff14" id="sC">0</div></div>
     <div class="sb"><div class="sl">오답</div><div class="sv" style="color:#ff3c6e" id="sW">0</div></div>
     <div class="sb"><div class="sl">정답률</div><div class="sv" id="sR">-</div></div>
     <div class="sb"><div class="sl">연속</div><div class="sv" style="color:var(--accent3)" id="sS">0</div></div>
+  </div>
+  <div id="user-chip" onclick="toggleDropdown()">
+    <div class="user-avatar" id="user-avatar">?</div>
+    <span class="user-name" id="user-name">-</span>
+    <span class="user-badge trial" id="user-badge">체험판</span>
+    <div id="user-dropdown">
+      <div class="dd-info">
+        <div class="dd-email" id="dd-email">-</div>
+        <div class="dd-status trial" id="dd-status">체험판 이용 중</div>
+      </div>
+      <button class="dd-btn" onclick="showPaywall(event)">💳 프리미엄 업그레이드</button>
+      <button class="dd-btn danger" onclick="signOut()">로그아웃</button>
+    </div>
+  </div>
   </div>
 </div>
 
@@ -174,6 +297,13 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <div class="qh" id="qH"></div>
     </div>
     <div class="panel"><div class="pt">🗾 활성 지역</div><div class="rbw" id="rbw"></div></div>
+    <div id="trial-bar">
+      <div class="trial-header">
+        <span class="trial-label">🎁 무료 체험</span>
+        <span class="trial-count"><strong id="trial-used">0</strong> / 300</span>
+      </div>
+      <div class="trial-bg"><div class="trial-fill" id="trial-fill" style="width:0%"></div></div>
+    </div>
     <div class="panel">
       <div class="pt">📊 진행률</div>
       <div style="font-size:.7rem;color:var(--text-dim);margin-top:3px"><span id="pT">0/0</span></div>
@@ -209,6 +339,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <button class="mbt" id="mbt-no" style="display:none;background:linear-gradient(135deg,#ff3c6e,#bb1144);" onclick="closeNoModal()">확인 · 다음 문제 →</button>
   </div>
 </div>
+
+<div id="toast"></div>
 
 <script>
 const DB={
@@ -462,22 +594,21 @@ updateCnt();
 
 function startQuiz(){
   const s=document.querySelectorAll('.stag.sel');
-  if(!s.length){alert('지역을 선택하세요!');return;}
+  if(!s.length){toast('지역을 선택하세요!','error');return;}
   allDongs=[];
   s.forEach(t=>{
     const r=t.dataset.r;
     if(DB[r])DB[r].dongs.forEach(d=>allDongs.push({...d,rk:r,rn:DB[r].name}));
   });
-  document.getElementById('start').style.display='none';
+  document.getElementById('start').classList.add('hidden');
   initMap(); buildFilter(); reshuffle(); nextQ();
 }
 
 function initMap(){
   map=L.map('map',{center:[37.55,127.00],zoom:10,scrollWheelZoom:true});
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  maxZoom: 19
-}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19
+  }).addTo(map);
   map.on('click',onMapClick);
   // 모달이 열려있어도 지도 스크롤 줌 항상 동작하도록
   map.scrollWheelZoom.enable();
@@ -512,19 +643,10 @@ function reshuffle(){
 }
 
 function nextQ(){
-  // ok 모달 확인 버튼에서 호출 — wrongL은 유지
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
   tempL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
   tempL=[]; canAns=true;
-  if(!queue.length)reshuffle();
-  cur=queue.pop(); qCnt++;
-  document.getElementById('qN').textContent='문제 #'+qCnt;
-  document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
-  document.getElementById('qD').textContent=cur.d;
-  document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
-  updStats();
-
   if(!queue.length)reshuffle();
   cur=queue.pop(); qCnt++;
   document.getElementById('qN').textContent='문제 #'+qCnt;
@@ -537,8 +659,12 @@ function nextQ(){
 function onMapClick(e){
   if(!cur||!canAns)return;
   canAns=false;
-  const dist=getDist(e.latlng.lat,e.latlng.lng,cur.lat,cur.lng);
-  if(dist<=1.5)doOk(dist); else doNo(dist);
+  // 플레이 횟수 증가 (300회 초과 시 페이월)
+  incrementPlays().then(result => {
+    if(!result.ok){ canAns=true; return; }
+    const dist=getDist(e.latlng.lat,e.latlng.lng,cur.lat,cur.lng);
+    if(dist<=1.5)doOk(dist); else doNo(dist);
+  });
 }
 
 function getDist(a,b,c,d){
@@ -656,6 +782,275 @@ function addR(ok,q,skip){
   e.innerHTML=`<div class="rd ${ok?'ok':'no'}"></div><span style="color:#e8f4fd;font-weight:600">${q.d}</span><span style="color:var(--text-dim)"> · ${q.gu}${skip?' (건너뜀)':''}</span>`;
   l.insertBefore(e,l.firstChild);
   while(l.children.length>25)l.removeChild(l.lastChild);
+}
+
+/* ════════════════════════════════════════════
+   Supabase + 인증 + 결제 로직
+   ⚠️ 배포 전 아래 두 값을 실제 키로 교체하세요
+════════════════════════════════════════════ */
+const SUPABASE_URL  = 'https://emgsueepzioudqnitkyn.supabase.co';
+const SUPABASE_KEY  = 'sb_publishable_OyNLjJihJafrkO0bjK_-TQ_zpEeiaLF';   // Supabase > Settings > API > anon public
+const TOSS_CLIENT_KEY = 'YOUR_TOSS_CLIENT_KEY';   // 토스 대시보드 > 클라이언트 키
+const EDGE = `${SUPABASE_URL}/functions/v1`;
+
+const sb = Supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let userProfile = null;
+let authMode    = 'login';
+let toastTimer;
+
+/* ── 토스트 ── */
+function toast(msg, type=''){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (type ? ' '+type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 3200);
+}
+
+/* ── 화면 전환 ── */
+const SCREENS = ['screen-login','screen-verify','screen-paywall','start'];
+function showOnly(id){
+  SCREENS.forEach(s => {
+    const el = document.getElementById(s);
+    if(el) el.classList.toggle('hidden', s !== id);
+  });
+}
+
+/* ── 로그인 ── */
+async function signInGoogle(){
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin }
+  });
+  if(error) toast('구글 로그인 실패: ' + error.message, 'error');
+}
+
+function toggleAuthMode(){
+  authMode = authMode === 'login' ? 'signup' : 'login';
+  const isLogin = authMode === 'login';
+  document.getElementById('btn-email-auth').textContent = isLogin ? '로그인' : '회원가입';
+  document.getElementById('switch-link').textContent    = isLogin ? '회원가입' : '로그인';
+  const err = document.getElementById('login-err');
+  err.className = 'login-err'; err.textContent = '';
+}
+
+async function doEmailAuth(){
+  const email = document.getElementById('inp-email').value.trim();
+  const pw    = document.getElementById('inp-pw').value;
+  const errEl = document.getElementById('login-err');
+  errEl.className = 'login-err'; errEl.textContent = '';
+  if(!email || !pw){
+    errEl.textContent = '이메일과 비밀번호를 입력해주세요.';
+    errEl.className = 'login-err show'; return;
+  }
+  const btn = document.getElementById('btn-email-auth');
+  btn.disabled = true; btn.textContent = '처리 중...';
+  const res = authMode === 'login'
+    ? await sb.auth.signInWithPassword({ email, password: pw })
+    : await sb.auth.signUp({ email, password: pw });
+  btn.disabled = false; btn.textContent = authMode === 'login' ? '로그인' : '회원가입';
+  if(res.error){
+    const msg = res.error.message.includes('Invalid login') ? '이메일 또는 비밀번호가 틀렸습니다.'
+              : res.error.message.includes('already registered') ? '이미 가입된 이메일입니다.'
+              : res.error.message;
+    errEl.textContent = msg; errEl.className = 'login-err show';
+  } else if(authMode === 'signup' && res.data?.user && !res.data.session){
+    errEl.textContent = '✅ 인증 메일을 발송했습니다. 이메일을 확인해주세요.';
+    errEl.className = 'login-err show ok';
+  }
+}
+
+async function signOut(){
+  await sb.auth.signOut();
+  currentUser = null; userProfile = null;
+  document.getElementById('user-chip').classList.remove('visible');
+  showOnly('screen-login');
+  toast('로그아웃되었습니다');
+}
+
+/* ── 세션 감지 & 라우팅 ── */
+sb.auth.onAuthStateChange(async(event, session) => {
+  if(session?.user){
+    currentUser = session.user;
+    await loadProfile();
+    routeUser();
+    handlePaymentCallback();
+  } else {
+    currentUser = null; userProfile = null;
+    document.getElementById('user-chip').classList.remove('visible');
+    showOnly('screen-login');
+  }
+});
+
+async function loadProfile(){
+  const { data } = await sb.from('user_profiles')
+    .select('*').eq('user_id', currentUser.id).maybeSingle();
+  userProfile = data;
+  renderUserChip();
+}
+
+function isActivePremium(){
+  return userProfile?.is_premium && userProfile?.premium_until
+      && new Date(userProfile.premium_until) > new Date();
+}
+
+function renderUserChip(){
+  if(!currentUser) return;
+  const email   = currentUser.email || '';
+  const name    = currentUser.user_metadata?.name || email.split('@')[0] || '사용자';
+  const isPrem  = isActivePremium();
+  const chip    = document.getElementById('user-chip');
+  chip.classList.add('visible');
+  document.getElementById('user-avatar').textContent = name[0].toUpperCase();
+  document.getElementById('user-name').textContent   = name;
+  document.getElementById('dd-email').textContent    = email;
+  const badge  = document.getElementById('user-badge');
+  const status = document.getElementById('dd-status');
+  const tbar   = document.getElementById('trial-bar');
+  if(isPrem){
+    const until = new Date(userProfile.premium_until).toLocaleDateString('ko-KR');
+    badge.textContent  = '프리미엄'; badge.className = 'user-badge premium';
+    status.textContent = `✨ 프리미엄 · ${until}까지`; status.className = 'dd-status premium';
+    if(tbar) tbar.classList.add('hidden');
+  } else {
+    const used = userProfile?.plays_count || 0;
+    badge.textContent  = '체험판'; badge.className = 'user-badge trial';
+    status.textContent = `체험판 · ${used}/300 사용`; status.className = 'dd-status trial';
+    if(tbar){ tbar.classList.remove('hidden'); updateTrialBar(used); }
+  }
+}
+
+function updateTrialBar(used){
+  const pct = Math.min(Math.round(used / 300 * 100), 100);
+  document.getElementById('trial-used').textContent = used;
+  document.getElementById('trial-fill').style.width = pct + '%';
+  document.getElementById('trial-fill').style.background = pct >= 80
+    ? 'linear-gradient(90deg,#ff8c00,#ff3c6e)'
+    : 'linear-gradient(90deg,var(--gold),#ff8c00)';
+}
+
+function routeUser(){
+  if(!userProfile?.is_verified){ showOnly('screen-verify'); return; }
+  if(!isActivePremium() && (userProfile?.plays_count||0) >= 300){ showOnly('screen-paywall'); return; }
+  showOnly('start');
+}
+
+function toggleDropdown(){
+  document.getElementById('user-dropdown').classList.toggle('show');
+}
+document.addEventListener('click', e => {
+  const chip = document.getElementById('user-chip');
+  if(chip && !chip.contains(e.target))
+    document.getElementById('user-dropdown').classList.remove('show');
+});
+
+/* ── 플레이 횟수 증가 ── */
+async function incrementPlays(){
+  if(!currentUser || isActivePremium()) return { ok: true };
+  const { data, error } = await sb.rpc('increment_plays', { p_user_id: currentUser.id });
+  if(error){ console.error(error); return { ok: true }; }
+  if(data?.code === 'TRIAL_EXCEEDED'){
+    userProfile.plays_count = 300;
+    renderUserChip();
+    showPaywall();
+    return { ok: false };
+  }
+  if(data?.plays_count !== undefined){
+    userProfile.plays_count = data.plays_count;
+    updateTrialBar(data.plays_count);
+  }
+  return { ok: true };
+}
+
+/* ── 나이스 본인인증 ── */
+async function startNiceAuth(){
+  if(!currentUser){ toast('로그인이 필요합니다', 'error'); return; }
+  const btn = document.getElementById('btn-verify');
+  btn.disabled = true; btn.textContent = '인증창 여는 중...';
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const token = session?.access_token;
+    const res = await fetch(`${EDGE}/nice-request`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+    });
+    if(!res.ok){
+      toast('⚙️ 인증 서버 준비 중. Edge Function 배포 후 이용 가능합니다.', 'error');
+      btn.disabled = false; btn.textContent = '📲 휴대폰 본인인증 시작'; return;
+    }
+    const { enc_data, token_version_id, integrity_value } = await res.json();
+    const popup = window.open('', 'nice-auth', 'width=500,height=550,left=200,top=100');
+    const form  = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'https://nice.checkplus.co.kr/CheckPlusSafeModel/checkplus.cb';
+    form.target = 'nice-auth';
+    [['m','checkplusService'],['token_version_id',token_version_id],['enc_data',enc_data],['integrity_value',integrity_value]]
+      .forEach(([k,v]) => { const i=document.createElement('input'); i.type='hidden'; i.name=k; i.value=v; form.appendChild(i); });
+    document.body.appendChild(form); form.submit(); document.body.removeChild(form);
+    const timer = setInterval(async () => {
+      if(popup.closed){
+        clearInterval(timer);
+        await loadProfile();
+        if(userProfile?.is_verified){ toast('✅ 본인인증 완료!', 'success'); routeUser(); }
+        else toast('인증이 완료되지 않았습니다. 다시 시도해주세요.', 'error');
+        btn.disabled = false; btn.textContent = '📲 휴대폰 본인인증 시작';
+      }
+    }, 500);
+  } catch(e){
+    toast('인증 요청 중 오류: ' + e.message, 'error');
+    btn.disabled = false; btn.textContent = '📲 휴대폰 본인인증 시작';
+  }
+}
+
+/* ── 결제 ── */
+function showPaywall(e){
+  if(e) e.stopPropagation();
+  document.getElementById('user-dropdown').classList.remove('show');
+  showOnly('screen-paywall');
+}
+
+async function startPayment(){
+  if(!currentUser){ toast('로그인이 필요합니다', 'error'); return; }
+  const btn = document.getElementById('btn-pay');
+  btn.disabled = true; btn.textContent = '결제창 여는 중...';
+  try {
+    const tossPayments = TossPayments(TOSS_CLIENT_KEY);
+    const orderId = `mapdong_${currentUser.id}_${Date.now()}`;
+    const name    = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || '사용자';
+    await tossPayments.requestPayment('카드', {
+      amount: 5000, orderId, orderName: 'MapDong 프리미엄 1개월',
+      customerName: name, customerEmail: currentUser.email,
+      successUrl: `${window.location.origin}?payment=success&orderId=${orderId}`,
+      failUrl:    `${window.location.origin}?payment=fail`,
+    });
+  } catch(e){
+    toast(e.code === 'USER_CANCEL' ? '결제를 취소하셨습니다' : '결제 오류: ' + e.message,
+          e.code === 'USER_CANCEL' ? '' : 'error');
+    btn.disabled = false; btn.textContent = '💳 결제하기 (5,000원)';
+  }
+}
+
+async function handlePaymentCallback(){
+  const params = new URLSearchParams(window.location.search);
+  if(params.get('payment') !== 'success') return;
+  const paymentKey = params.get('paymentKey');
+  const orderId    = params.get('orderId');
+  const amount     = params.get('amount');
+  window.history.replaceState({}, '', window.location.pathname);
+  if(!paymentKey || !orderId) return;
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res  = await fetch(`${EDGE}/toss-payment`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentKey, orderId, amount: Number(amount) })
+    });
+    const data = await res.json();
+    if(res.ok){ toast('🎉 ' + (data.message||'프리미엄 활성화 완료!'), 'success'); await loadProfile(); routeUser(); }
+    else toast('결제 확인 실패: ' + data.error, 'error');
+  } catch(e){ toast('결제 처리 중 오류가 발생했습니다', 'error'); }
 }
 </script>
 </body>
