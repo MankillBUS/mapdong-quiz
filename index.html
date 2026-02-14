@@ -1,6 +1,55 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+  <!-- Supabase 클라이언트 라이브러리 -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+  // Supabase 초기화 (당신 프로젝트 URL과 Anon Key 넣기)
+  const supabaseUrl = 'https://emgsueepzioudqnitkyn.supabase.co';  // ← 여기 바꾸기
+  const supabaseAnonKey = 'sb_secret_r7vSiSfnhoaaQlszw010eA_ti4prXvW';             // ← 여기 바꾸기
+
+  const supabase = Supabase.createClient(supabaseUrl, supabaseAnonKey);
+</script>
+
+
+<div id="auth-section">
+  <button onclick="signInWithGoogle()">Google로 로그인</button>
+  <button onclick="signOut()">로그아웃</button>
+  <p id="user-info">로그인되지 않음</p>
+</div>
+
+<script>
+  async function signInWithGoogle() {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + '/quiz'  // 로그인 후 돌아올 페이지
+      }
+    });
+    if (error) console.error('로그인 에러:', error);
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    updateUserInfo();
+  }
+
+  function updateUserInfo() {
+    const user = supabase.auth.getUser();
+    if (user) {
+      document.getElementById('user-info').textContent = `환영합니다, ${user.email}`;
+    } else {
+      document.getElementById('user-info').textContent = '로그인되지 않음';
+    }
+  }
+
+  // 페이지 로드 시 사용자 상태 체크
+  supabase.auth.onAuthStateChange((event, session) => {
+    updateUserInfo();
+  });
+</script>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>수도권 동(洞) 위치 퀴즈</title>
