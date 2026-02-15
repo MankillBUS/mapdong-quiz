@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MapDong · 테스트버전</title>
+<title>MapDong · 수도권 동(洞) 위치 퀴즈</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<!-- supabase 스킵 -->
-<!-- tosspayments 스킵 -->
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://js.tosspayments.com/v1/payment"></script>
 <style>
 :root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1e3a5f;--accent:#00d4ff;--accent2:#ff3c6e;--accent3:#39ff14;--text:#e8f4fd;--text-dim:#7a9bb5;--gold:#ffd700;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -117,6 +117,23 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .bg-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#39ff14);border-radius:10px;transition:width .4s ease;}
 .bg-pct{font-weight:800;color:#39ff14;min-width:34px;text-align:right;}
 .bg-cnt{color:var(--text-dim);white-space:nowrap;}
+
+/* ── 구 맞추기 모드 ── */
+.gu-mode-row{text-align:center;margin:10px 0 4px;}
+.gu-mode-btn{
+  background:rgba(255,200,0,.1);border:2px solid rgba(255,200,0,.3);
+  color:#ffd700;font-size:.88rem;font-weight:700;
+  padding:8px 22px;border-radius:20px;cursor:pointer;
+  transition:.25s;letter-spacing:.5px;
+}
+.gu-mode-btn:hover{background:rgba(255,200,0,.2);}
+.gu-mode-btn.on{background:#ffd700;color:#000;border-color:#ffd700;box-shadow:0 0 20px rgba(255,215,0,.4);}
+#gu-mode-badge{
+  display:inline-block;background:rgba(0,0,0,.3);color:inherit;
+  font-size:.7rem;padding:1px 7px;border-radius:10px;margin-left:6px;
+}
+.gu-mode-btn.on #gu-mode-badge{background:rgba(0,0,0,.2);}
+.gu-mode-hint{font-size:.72rem;color:var(--text-dim);margin:5px 0 0;text-align:center;}
 
 /* ── 폴리곤 로딩 화면 ── */
 .loading-box{display:flex;flex-direction:column;align-items:center;gap:12px;padding:40px 32px;max-width:340px;width:90%;background:rgba(13,25,41,.95);border-radius:20px;border:1px solid rgba(0,212,255,.2);box-shadow:0 0 40px rgba(0,212,255,.15);}
@@ -254,7 +271,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 <body>
 
 <!-- ① 로그인 화면 -->
-<div id="screen-login" class="fs-screen hidden">
+<div id="screen-login" class="fs-screen">
   <div class="login-card">
     <div class="login-logo">Map<span>Dong</span></div>
     <div class="login-sub">수도권 동(洞) 위치 퀴즈<br>로그인 후 무료 300문제 체험 가능</div>
@@ -379,7 +396,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 </div>
 
 <!-- 시작 화면 -->
-<div id="start" class="fs-screen">
+<div id="start" class="fs-screen hidden">
   <div class="st">🗺 수도권<br><span style="color:var(--accent2)">동(洞)</span> 위치 퀴즈</div>
   <div class="ss">지도에서 문제의 동(洞) 위치를 클릭하세요<br>정답 기준 반경 1.5km · 무한 반복 학습</div>
   <div style="text-align:center">
@@ -397,7 +414,16 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <div class="stag" data-r="hwaseong">화성시</div>
     </div>
   </div>
-  <div style="color:var(--text-dim);font-size:.82rem">선택 동 합계: <span style="color:var(--accent);font-weight:700" id="scnt">0</span>개</div>
+
+  <!-- 구 맞추기 모드 토글 -->
+  <div class="gu-mode-row">
+    <button id="btn-gu-mode" class="gu-mode-btn" onclick="toggleGuMode()">
+      🏢 구 맞추기 모드 <span id="gu-mode-badge">OFF</span>
+    </button>
+    <p class="gu-mode-hint" id="gu-mode-hint">구가 있는 도시를 선택하면 구(區) 위치 퀴즈로 전환됩니다</p>
+  </div>
+
+  <div style="color:var(--text-dim);font-size:.82rem">선택 문제 수: <span style="color:var(--accent);font-weight:700" id="scnt">0</span>개</div>
 
   <!-- 난이도 설정 -->
   <div class="difficulty-row">
@@ -752,6 +778,76 @@ const DB={
   ]},
 };
 
+/* ── 구(區) 퀴즈 DB ── */
+const GU_DB = {
+  seoul_gu:{name:"서울특별시",center:[37.565,126.978],zoom:11,color:"#00d4ff",mode:"gu",gus:[
+    {gu:"종로구",d:"종로구",lat:37.581,lng:126.988},
+    {gu:"중구",d:"중구",lat:37.562,lng:126.996},
+    {gu:"용산구",d:"용산구",lat:37.537,lng:126.979},
+    {gu:"성동구",d:"성동구",lat:37.551,lng:127.041},
+    {gu:"광진구",d:"광진구",lat:37.544,lng:127.084},
+    {gu:"동대문구",d:"동대문구",lat:37.583,lng:127.05},
+    {gu:"중랑구",d:"중랑구",lat:37.597,lng:127.092},
+    {gu:"성북구",d:"성북구",lat:37.599,lng:127.024},
+    {gu:"강북구",d:"강북구",lat:37.641,lng:127.022},
+    {gu:"도봉구",d:"도봉구",lat:37.66,lng:127.048},
+    {gu:"노원구",d:"노원구",lat:37.64,lng:127.071},
+    {gu:"은평구",d:"은평구",lat:37.61,lng:126.923},
+    {gu:"서대문구",d:"서대문구",lat:37.578,lng:126.938},
+    {gu:"마포구",d:"마포구",lat:37.556,lng:126.926},
+    {gu:"양천구",d:"양천구",lat:37.527,lng:126.873},
+    {gu:"강서구",d:"강서구",lat:37.556,lng:126.835},
+    {gu:"구로구",d:"구로구",lat:37.5,lng:126.877},
+    {gu:"금천구",d:"금천구",lat:37.468,lng:126.901},
+    {gu:"영등포구",d:"영등포구",lat:37.511,lng:126.906},
+    {gu:"동작구",d:"동작구",lat:37.503,lng:126.949},
+    {gu:"관악구",d:"관악구",lat:37.479,lng:126.944},
+    {gu:"서초구",d:"서초구",lat:37.487,lng:127.015},
+    {gu:"강남구",d:"강남구",lat:37.5,lng:127.055},
+    {gu:"송파구",d:"송파구",lat:37.506,lng:127.118},
+    {gu:"강동구",d:"강동구",lat:37.55,lng:127.148}
+  ]},
+  incheon_gu:{name:"인천광역시",center:[37.456,126.705],zoom:11,color:"#ff3c6e",mode:"gu",gus:[
+    {gu:"중구",d:"중구",lat:37.472,lng:126.631},
+    {gu:"동구",d:"동구",lat:37.478,lng:126.646},
+    {gu:"미추홀구",d:"미추홀구",lat:37.45,lng:126.669},
+    {gu:"연수구",d:"연수구",lat:37.407,lng:126.682},
+    {gu:"남동구",d:"남동구",lat:37.434,lng:126.721},
+    {gu:"부평구",d:"부평구",lat:37.495,lng:126.731},
+    {gu:"계양구",d:"계양구",lat:37.534,lng:126.732},
+    {gu:"서구",d:"서구",lat:37.559,lng:126.72}
+  ]},
+  suwon_gu:{name:"수원시",center:[37.264,127.029],zoom:12,color:"#39ff14",mode:"gu",gus:[
+    {gu:"장안구",d:"장안구",lat:37.303,lng:127.024},
+    {gu:"권선구",d:"권선구",lat:37.256,lng:127.007},
+    {gu:"팔달구",d:"팔달구",lat:37.275,lng:127.022},
+    {gu:"영통구",d:"영통구",lat:37.262,lng:127.053}
+  ]},
+  seongnam_gu:{name:"성남시",center:[37.420,127.127],zoom:12,color:"#ffd700",mode:"gu",gus:[
+    {gu:"수정구",d:"수정구",lat:37.444,lng:127.13},
+    {gu:"중원구",d:"중원구",lat:37.44,lng:127.164},
+    {gu:"분당구",d:"분당구",lat:37.382,lng:127.117}
+  ]},
+  goyang_gu:{name:"고양시",center:[37.658,126.832],zoom:12,color:"#9b59b6",mode:"gu",gus:[
+    {gu:"덕양구",d:"덕양구",lat:37.624,lng:126.837},
+    {gu:"일산동구",d:"일산동구",lat:37.664,lng:126.77},
+    {gu:"일산서구",d:"일산서구",lat:37.648,lng:126.725}
+  ]},
+  yongin_gu:{name:"용인시",center:[37.234,127.203],zoom:12,color:"#e74c3c",mode:"gu",gus:[
+    {gu:"처인구",d:"처인구",lat:37.245,lng:127.208},
+    {gu:"기흥구",d:"기흥구",lat:37.264,lng:127.121},
+    {gu:"수지구",d:"수지구",lat:37.309,lng:127.08}
+  ]},
+  bucheon_gu:{name:"부천시",center:[37.504,126.766],zoom:12,color:"#00ced1",mode:"gu",gus:[
+    {gu:"소사구",d:"소사구",lat:37.475,lng:126.802},
+    {gu:"원미구",d:"원미구",lat:37.501,lng:126.779},
+    {gu:"오정구",d:"오정구",lat:37.536,lng:126.779}
+  ]},
+  anyang_gu:{name:"안양시",center:[37.394,126.957],zoom:12,color:"#ff69b4",mode:"gu",gus:[
+    {gu:"만안구",d:"만안구",lat:37.404,lng:126.913},
+    {gu:"동안구",d:"동안구",lat:37.401,lng:126.975}
+  ]},
+};
 // ─── 상태 ─────────────────────────────────────────────
 let map, allDongs=[], queue=[], cur=null, canAns=true;
 let totC=0,totW=0,streak=0,qCnt=0,sessAns=0;
@@ -761,10 +857,33 @@ let totC=0,totW=0,streak=0,qCnt=0,sessAns=0;
 document.querySelectorAll('.stag').forEach(t=>{
   t.onclick=()=>{t.classList.toggle('sel');updateCnt();};
 });
+let guMode = false;  // 구 맞추기 모드 전역 상태
+
+function toggleGuMode(){
+  guMode = !guMode;
+  const btn = document.getElementById('btn-gu-mode');
+  const badge = document.getElementById('gu-mode-badge');
+  const hint = document.getElementById('gu-mode-hint');
+  btn.classList.toggle('on', guMode);
+  badge.textContent = guMode ? 'ON' : 'OFF';
+  hint.textContent = guMode
+    ? '✅ 선택한 도시의 구(區) 위치만 출제됩니다 (동 문제 제외)'
+    : '구가 있는 도시를 선택하면 구(區) 위치 퀴즈로 전환됩니다';
+  updateCnt();
+}
+
 function updateCnt(){
-  const s=document.querySelectorAll('.stag.sel');
-  let n=0; s.forEach(t=>{if(DB[t.dataset.r])n+=DB[t.dataset.r].dongs.length;});
-  document.getElementById('scnt').textContent=n;
+  const sel = document.querySelectorAll('.stag.sel');
+  let n = 0;
+  sel.forEach(t=>{
+    const r = t.dataset.r;
+    if(guMode && GU_DB[r+'_gu']){
+      n += GU_DB[r+'_gu'].gus.length;  // 구 모드: 구 개수
+    } else if(DB[r]){
+      n += DB[r].dongs.length;           // 동 모드: 동 개수
+    }
+  });
+  document.getElementById('scnt').textContent = n;
 }
 updateCnt();
 
@@ -786,9 +905,26 @@ async function startQuiz(){
   const s=document.querySelectorAll('.stag.sel');
   if(!s.length){toast('지역을 선택하세요!','error');return;}
   allDongs=[];
-  s.forEach(t=>{
+  const sel=document.querySelectorAll('.stag.sel');
+  sel.forEach(t=>{
     const r=t.dataset.r;
-    if(DB[r])DB[r].dongs.forEach(d=>allDongs.push({...d,rk:r,rn:DB[r].name}));
+    if(guMode){
+      // 구 맞추기 모드: 해당 도시의 구만 출제, 동 제외
+      const guKey = r+'_gu';
+      if(GU_DB[guKey]){
+        GU_DB[guKey].gus.forEach(g=>allDongs.push({
+          gu:g.gu, d:g.d, lat:g.lat, lng:g.lng,
+          rk:guKey, rn:GU_DB[guKey].name, mode:'gu'
+        }));
+      }
+      // 구가 없는 도시(화성시 등)는 동 그대로 출제
+      if(!GU_DB[guKey] && DB[r]){
+        DB[r].dongs.forEach(d=>allDongs.push({...d,rk:r,rn:DB[r].name,mode:'dong'}));
+      }
+    } else {
+      // 동 맞추기 모드: 동만 출제
+      if(DB[r]) DB[r].dongs.forEach(d=>allDongs.push({...d,rk:r,rn:DB[r].name,mode:'dong'}));
+    }
   });
 
   document.getElementById('start').classList.add('hidden');
@@ -813,7 +949,7 @@ async function startBgCache(){
 
   for(let i=0;i<total;i+=BATCH){
     const batch=allDongs.slice(i,i+BATCH);
-    await Promise.all(batch.map(d=>fetchDongGeo(d.d,d.gu,d.rn)));
+    await Promise.all(batch.map(d=>fetchDongGeo(d.d,d.gu,d.rn,d.mode==='gu')));
     done=Math.min(done+BATCH,total);
     const pct=Math.round(done/total*100);
     if(el.bar)  el.bar.style.width=pct+'%';
@@ -876,9 +1012,15 @@ function nextQ(){
   if(!queue.length)reshuffle();
   cur=queue.pop(); qCnt++;
   document.getElementById('qN').textContent='문제 #'+qCnt;
-  document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
-  document.getElementById('qD').textContent=cur.d;
-  document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
+  if(cur.mode==='gu'){
+    document.getElementById('qR').textContent='📍 '+cur.rn;
+    document.getElementById('qD').textContent=cur.d;
+    document.getElementById('qH').textContent='💡 이 구는 어디에 있을까요?';
+  } else {
+    document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
+    document.getElementById('qD').textContent=cur.d;
+    document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
+  }
   updStats();
 }
 
@@ -1077,47 +1219,59 @@ function getDongNames(dong){
 }
 
 /* Overpass API로 행정동 경계 조회 */
-async function fetchDongGeo(dong, gu, rn){
-  const key = `${rn}|${gu}|${dong}`;
-  if(key in geoCache) return geoCache[key];
+/* bbox를 lat±d, lng±d 로 확장 */
+function expandBbox(bbox, d){
+  const [s,w,n,e] = bbox.split(',').map(Number);
+  return `${(s-d).toFixed(3)},${(w-d).toFixed(3)},${(n+d).toFixed(3)},${(e+d).toFixed(3)}`;
+}
 
-  const bbox = CITY_BBOX[rn] || '37.0,126.4,37.8,127.6';
-  const names = getDongNames(dong);
+async function fetchDongGeo(dong, gu, rn, isGu=false){
+  const cacheKey = isGu ? `GU|${rn}|${dong}` : `${rn}|${gu}|${dong}`;
+  if(cacheKey in geoCache) return geoCache[cacheKey];
 
-  for(const name of names){
-    // admin_level:8 = 읍면동, admin_level:7 = 읍면 (경기 일부)
-    const q =
-      `[out:json][timeout:20];`+
-      `(`+
-        `relation["name"="${name}"]["boundary"="administrative"]["admin_level"~"7|8"](${bbox});`+
-        `relation["name"="${name}"]["place"~"suburb|quarter"](${bbox});`+
-        `way["name"="${name}"]["boundary"="administrative"]["admin_level"~"7|8"](${bbox});`+
-      `);`+
-      `out geom;`;
+  const baseBbox = CITY_BBOX[rn] || '37.0,126.4,37.8,127.6';
+  const names = isGu ? [dong] : getDongNames(dong);
+  const alFilter = isGu ? '"admin_level"~"4|5"' : '"admin_level"~"7|8|9"';
+  // 실패 시 bbox 확장 단계: 기본 → +0.05° → +0.15° → 전국
+  const bboxSteps = [baseBbox, expandBbox(baseBbox,0.05), expandBbox(baseBbox,0.15), '34.0,124.0,38.5,130.0'];
 
-    try{
-      const res = await fetch('https://overpass-api.de/api/interpreter',{
-        method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body:'data='+encodeURIComponent(q)
-      });
-      if(!res.ok) continue;
-      const data = await res.json();
-      if(!data.elements?.length) continue;
+  // bbox 확장 단계: 기본 → +0.05° → +0.15° → 전국
+  for(const bbox of bboxSteps){
+    for(const name of names){
+      const q =
+        `[out:json][timeout:20];`+
+        `(`+
+          `relation["name"="${name}"]["boundary"="administrative"][${alFilter}](${bbox});`+
+          `relation["name"="${name}"]["place"~"suburb|quarter"](${bbox});`+
+          `way["name"="${name}"]["boundary"="administrative"][${alFilter}](${bbox});`+
+        `);`+
+        `out geom;`;
 
-      // relation 우선 (더 정확), 없으면 way
-      const rels = data.elements.filter(e=>e.type==='relation');
-      const ways = data.elements.filter(e=>e.type==='way');
-      const el = rels[0] || ways[0];
-      if(!el) continue;
+      try{
+        const res = await fetch('https://overpass-api.de/api/interpreter',{
+          method:'POST',
+          headers:{'Content-Type':'application/x-www-form-urlencoded'},
+          body:'data='+encodeURIComponent(q)
+        });
+        if(!res.ok) continue;
+        const data = await res.json();
+        if(!data.elements?.length) continue;
 
-      const geo = overpassToGeoJSON(el);
-      if(geo){
-        console.log(`[Overpass] ${dong} ✅ (검색명:"${name}", 타입:${el.type})`);
-        geoCache[key] = geo;
-        return geo;
-      }
-    }catch(e){ console.warn(`[Overpass] ${name} 오류:`, e.message); }
+        const rels = data.elements.filter(e=>e.type==='relation');
+        const ways = data.elements.filter(e=>e.type==='way');
+        const el = rels[0] || ways[0];
+        if(!el) continue;
+
+        const geo = overpassToGeoJSON(el);
+        if(geo){
+          const step = bboxSteps.indexOf(bbox);
+          if(step>0) console.log(`[Overpass] ${dong} ✅ bbox+${step}단계 확장 성공 (name="${name}")`);
+          else       console.log(`[Overpass] ${dong} ✅ (name="${name}", type=${el.type})`);
+          geoCache[cacheKey] = geo;
+          return geo;
+        }
+      }catch(e){ console.warn(`[Overpass] ${name} 오류:`, e.message); }
+    }
   }
 
   // 이름 검색 모두 실패 → 좌표 기반 역조회 (행정동 중심 좌표로 포함 관계 검색)
@@ -1126,7 +1280,7 @@ async function fetchDongGeo(dong, gu, rn){
       const lat=cur.lat, lng=cur.lng;
       const q2=`[out:json][timeout:20];`+
         `is_in(${lat},${lng})->.a;`+
-        `relation(pivot.a)["boundary"="administrative"]["admin_level"~"7|8|9"];`+
+        `relation(pivot.a)["boundary"="administrative"][${alFilter}];`+
         `out geom;`;
       const res2=await fetch('https://overpass-api.de/api/interpreter',{
         method:'POST',
@@ -1147,7 +1301,7 @@ async function fetchDongGeo(dong, gu, rn){
             const geo=overpassToGeoJSON(matched);
             if(geo){
               console.log(`[Overpass] ${dong} ✅ 좌표역조회 (name="${matched.tags?.name}")`);
-              geoCache[key]=geo; return geo;
+              geoCache[cacheKey]=geo; return geo;
             }
           }
         }
@@ -1156,7 +1310,7 @@ async function fetchDongGeo(dong, gu, rn){
   }
 
   console.warn(`[Overpass] ${rn} ${gu} ${dong} — 폴리곤 없음`);
-  geoCache[key] = null;
+  geoCache[cacheKey] = null;
   return null;
 }
 
@@ -1213,12 +1367,12 @@ function drawFallback(ok){
 }
 
 async function showWrongPolygon(){
-  const geo = await fetchDongGeo(cur.d, cur.gu, cur.rn);
+  const geo = await fetchDongGeo(cur.d, cur.gu, cur.rn, cur.mode==='gu');
   if(geo) drawPolygon(geo,false); else drawFallback(false);
   updateAnsBar();
 }
 async function showOkPolygon(){
-  const geo = await fetchDongGeo(cur.d, cur.gu, cur.rn);
+  const geo = await fetchDongGeo(cur.d, cur.gu, cur.rn, cur.mode==='gu');
   if(geo) drawPolygon(geo,true); else drawFallback(true);
   updateAnsBar();
 }
@@ -1292,9 +1446,15 @@ function closeNoModal(){
   if(!queue.length)reshuffle();
   cur=queue.pop(); qCnt++;
   document.getElementById('qN').textContent='문제 #'+qCnt;
-  document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
-  document.getElementById('qD').textContent=cur.d;
-  document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
+  if(cur.mode==='gu'){
+    document.getElementById('qR').textContent='📍 '+cur.rn;
+    document.getElementById('qD').textContent=cur.d;
+    document.getElementById('qH').textContent='💡 이 구는 어디에 있을까요?';
+  } else {
+    document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
+    document.getElementById('qD').textContent=cur.d;
+    document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
+  }
   updStats();
 }
 
@@ -1335,12 +1495,17 @@ function addR(ok,q,skip){
    Supabase + 인증 + 결제 로직
    ⚠️ 배포 전 아래 두 값을 실제 키로 교체하세요
 ════════════════════════════════════════════ */
-// ════ 테스트 모드 ════
-const SUPABASE_URL=''; const SUPABASE_KEY=''; const TOSS_CLIENT_KEY=''; const EDGE='';
-const sb={auth:{onAuthStateChange:()=>{},getSession:async()=>({data:{session:{access_token:'test'}}}),signInWithOAuth:async()=>{},signInWithPassword:async()=>({data:{},error:null}),signUp:async()=>({data:{},error:null}),signOut:async()=>{}},from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:null,error:null})})})}),rpc:async()=>({data:{ok:true,plays_count:1},error:null})};
-const currentUser={id:'test-001',email:'test@mapdong.com',user_metadata:{name:'테스터'}};
-let userProfile={user_id:'test-001',is_verified:true,plays_count:0,is_premium:true,premium_until:'2099-12-31'};
-let authMode='login'; let toastTimer;
+const SUPABASE_URL  = 'https://emgsueepzioudqnitkyn.supabase.co';
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemlvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkwNzQsImV4cCI6MjA4NjU2NTA3NH0.epR1k3MVh0MfZejFh9VflCNOS8Uz8EuCZlez5OBMz3s'
+const TOSS_CLIENT_KEY = 'YOUR_TOSS_CLIENT_KEY';   // 토스 대시보드 > 클라이언트 키
+const EDGE = `${SUPABASE_URL}/functions/v1`;
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let userProfile = null;
+let authMode    = 'login';
+let toastTimer;
 
 /* ── 토스트 ── */
 function toast(msg, type=''){
@@ -1413,10 +1578,25 @@ async function signOut(){
 }
 
 /* ── 세션 감지 & 라우팅 ── */
-sb.auth.onAuthStateChange(()=>{});
-window.addEventListener('DOMContentLoaded',()=>{renderUserChip();showOnly('start');});
+sb.auth.onAuthStateChange(async(event, session) => {
+  if(session?.user){
+    currentUser = session.user;
+    await loadProfile();
+    routeUser();
+    handlePaymentCallback();
+  } else {
+    currentUser = null; userProfile = null;
+    document.getElementById('user-chip').classList.remove('visible');
+    showOnly('screen-login');
+  }
+});
 
-async function loadProfile(){ renderUserChip(); }
+async function loadProfile(){
+  const { data } = await sb.from('user_profiles')
+    .select('*').eq('user_id', currentUser.id).maybeSingle();
+  userProfile = data;
+  renderUserChip();
+}
 
 function isActivePremium(){
   return userProfile?.is_premium && userProfile?.premium_until
@@ -1474,7 +1654,22 @@ document.addEventListener('click', e => {
 });
 
 /* ── 플레이 횟수 증가 ── */
-async function incrementPlays(){ return {ok:true}; }
+async function incrementPlays(){
+  if(!currentUser || isActivePremium()) return { ok: true };
+  const { data, error } = await sb.rpc('increment_plays', { p_user_id: currentUser.id });
+  if(error){ console.error(error); return { ok: true }; }
+  if(data?.code === 'TRIAL_EXCEEDED'){
+    userProfile.plays_count = 300;
+    renderUserChip();
+    showPaywall();
+    return { ok: false };
+  }
+  if(data?.plays_count !== undefined){
+    userProfile.plays_count = data.plays_count;
+    updateTrialBar(data.plays_count);
+  }
+  return { ok: true };
+}
 
 /* ── 나이스 본인인증 ── */
 async function startNiceAuth(){
