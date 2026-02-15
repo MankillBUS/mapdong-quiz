@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MapDong · 수도권 동(洞) 위치 퀴즈</title>
+<title>MapDong · 테스트버전 (인증스킵)</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="https://js.tosspayments.com/v1/payment"></script>
+<!-- supabase 스킵 (테스트버전) -->
+<!-- tosspayments 스킵 (테스트버전) -->
 <style>
 :root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1e3a5f;--accent:#00d4ff;--accent2:#ff3c6e;--accent3:#39ff14;--text:#e8f4fd;--text-dim:#7a9bb5;--gold:#ffd700;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -103,6 +103,36 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .trial-fill{height:100%;background:linear-gradient(90deg,var(--gold),#ff8c00);border-radius:10px;transition:width .4s;}
 #trial-bar.hidden{display:none;}
 
+/* 테스트 배너 */
+#test-banner{position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(90deg,#ff3c6e,#ff8c00);color:#fff;text-align:center;padding:4px;font-size:.72rem;font-weight:700;letter-spacing:1px;}
+body{padding-top:24px;}
+/* ── 동 라벨 툴팁 ── */
+.dong-label{
+  background:rgba(255,60,110,.92) !important;
+  border:none !important;
+  border-radius:6px !important;
+  color:#fff !important;
+  font-size:13px !important;
+  font-weight:700 !important;
+  font-family:'Noto Sans KR',sans-serif !important;
+  padding:3px 9px !important;
+  white-space:nowrap !important;
+  box-shadow:0 2px 10px rgba(255,60,110,.5) !important;
+  pointer-events:none !important;
+}
+.dong-label.ok-label{
+  background:rgba(57,255,20,.92) !important;
+  color:#000 !important;
+  box-shadow:0 2px 10px rgba(57,255,20,.5) !important;
+}
+.dong-label::before{ display:none !important; }
+.leaflet-tooltip-top::before{ display:none !important; }
+
+/* ── 결제 플랜 탭 ── */
+.plan-tab{background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);padding:6px 14px;border-radius:20px;font-size:.75rem;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;}
+.plan-tab.active{background:linear-gradient(135deg,var(--gold),#e6a800);color:#000;border-color:var(--gold);font-weight:700;}
+.plan-panel.hidden{display:none!important;}
+
 /* ── 토스트 ── */
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);z-index:99999;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 22px;font-size:.82rem;color:var(--text);box-shadow:0 8px 30px rgba(0,0,0,.5);transition:transform .3s ease;white-space:nowrap;pointer-events:none;}
 #toast.show{transform:translateX(-50%) translateY(0);}
@@ -141,9 +171,11 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .mb{background:rgba(17,24,39,.9);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:.7rem;font-family:'Noto Sans KR',sans-serif;transition:all .2s;backdrop-filter:blur(8px);}
 .mb:hover{border-color:var(--accent);color:var(--accent);}
 /* 정답(OK) 모달: 기존 중앙 full overlay */
-#moverlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(6px);z-index:9999;display:none;align-items:center;justify-content:center;}
+/* 모달: 항상 우하단 패널 (지도를 가리지 않음) */
+#moverlay{position:fixed;inset:0;background:transparent;backdrop-filter:none;z-index:9999;display:none;align-items:flex-end;justify-content:flex-end;padding:0 16px 80px 0;pointer-events:none;}
 #moverlay.show{display:flex;}
-/* 오답(NO) 모달: 지도를 가리지 않는 우하단 패널 — 지도 위 이벤트 통과 */
+#moverlay #mbox{pointer-events:auto;}
+/* 오답(NO) 모달: 동일 스타일 유지 */
 #moverlay.no-mode{background:transparent;backdrop-filter:none;pointer-events:none;align-items:flex-end;justify-content:flex-end;padding:0 16px 80px 0;}
 #moverlay.no-mode #mbox{pointer-events:auto;}
 #mbox{background:linear-gradient(135deg,#111827,#0d1929);border-radius:16px;padding:24px 28px;max-width:400px;width:90%;text-align:center;}
@@ -161,8 +193,11 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 #ans-bar.show{display:flex;}
 #ans-bar .ab-label{font-size:.78rem;color:#ff3c6e;font-weight:700;white-space:nowrap;}
 #ans-bar .ab-dong{font-family:'Black Han Sans',sans-serif;font-size:1rem;color:var(--text);white-space:nowrap;}
-#ans-bar .ab-close{background:#ff3c6e;color:#000;border:none;border-radius:8px;padding:5px 12px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;transition:all .2s;}
-#ans-bar .ab-close:hover{background:#ff6b8a;transform:scale(1.05);}
+#ans-bar .ab-close{border:none;border-radius:8px;padding:5px 12px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;transition:all .2s;}
+#ans-bar .ab-wrong{background:#ff3c6e;color:#fff;}
+#ans-bar .ab-wrong:hover{background:#ff6b8a;transform:scale(1.05);}
+#ans-bar .ab-ok{background:#39ff14;color:#000;}
+#ans-bar .ab-ok:hover{background:#5fff3a;transform:scale(1.05);}
 #start{position:fixed;inset:0;background:var(--bg);z-index:9998;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;padding:20px;}
 .st{font-family:'Black Han Sans',sans-serif;font-size:2.5rem;color:var(--accent);text-shadow:0 0 30px var(--accent);text-align:center;}
 .ss{color:var(--text-dim);font-size:.88rem;text-align:center;line-height:1.8;}
@@ -176,9 +211,10 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 </style>
 </head>
 <body>
+<div id="test-banner">🧪 테스트 버전 · 로그인/인증/결제 스킵됨</div>
 
 <!-- ① 로그인 화면 -->
-<div id="screen-login" class="fs-screen">
+<div id="screen-login" class="fs-screen hidden">
   <div class="login-card">
     <div class="login-logo">Map<span>Dong</span></div>
     <div class="login-sub">수도권 동(洞) 위치 퀴즈<br>로그인 후 무료 300문제 체험 가능</div>
@@ -233,26 +269,77 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 <!-- ③ 결제 페이월 화면 -->
 <div id="screen-paywall" class="fs-screen hidden">
-  <div class="pay-card">
+  <div class="pay-card" style="max-width:520px;overflow-y:auto;max-height:90vh;">
     <div class="pay-icon">🎯</div>
-    <div class="pay-title">체험판 기능을 모두 사용하셨습니다</div>
-    <div class="pay-used">무료 체험 <strong style="color:var(--gold)">300문제</strong>를 모두 풀었습니다!</div>
+    <div class="pay-title">체험 기간이 종료되었습니다</div>
+    <div class="pay-used">무료 체험 <strong style="color:var(--gold)">1일</strong>이 지났습니다!</div>
     <div class="pay-divider"></div>
-    <div class="pay-plan-label">계속하려면 플랜 결제</div>
-    <div class="pay-price">5,000<span>원 / 월</span></div>
-    <ul class="pay-features">
-      <li>무제한 문제 풀기 (30일간)</li>
-      <li>수도권 전 지역 500+ 행정동</li>
-      <li>정답률 · 연속 스트릭 통계</li>
-      <li>지역별 필터 & 진행률 추적</li>
-    </ul>
-    <button class="btn-pay" id="btn-pay" onclick="startPayment()">💳 결제하기 (5,000원)</button>
+
+    <!-- 플랜 탭 -->
+    <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;justify-content:center;">
+      <button class="plan-tab active" onclick="switchPlan('day')" id="tab-day">일별</button>
+      <button class="plan-tab" onclick="switchPlan('month')" id="tab-month">1개월</button>
+      <button class="plan-tab" onclick="switchPlan('quarter')" id="tab-quarter">3개월</button>
+      <button class="plan-tab" onclick="switchPlan('year')" id="tab-year">1년</button>
+    </div>
+
+    <!-- 일별 플랜 -->
+    <div id="plan-day" class="plan-panel">
+      <div class="pay-plan-label">일별 이용권</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin:12px 0;">
+        <button onclick="changeDays(-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:50%;font-size:1.2rem;cursor:pointer;">−</button>
+        <div style="text-align:center;">
+          <div style="font-family:'Black Han Sans',sans-serif;font-size:2.5rem;color:var(--accent);line-height:1;" id="day-count">1</div>
+          <div style="font-size:.7rem;color:var(--text-dim);">일</div>
+        </div>
+        <button onclick="changeDays(1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:50%;font-size:1.2rem;cursor:pointer;">+</button>
+      </div>
+      <input type="range" id="day-slider" min="1" max="25" value="1" oninput="setDays(this.value)"
+        style="width:100%;margin-bottom:8px;accent-color:var(--accent);">
+      <div class="pay-price" id="day-price">600<span>원</span></div>
+      <div style="font-size:.7rem;color:var(--text-dim);margin-bottom:14px;">600원 × <span id="day-mult">1</span>일</div>
+    </div>
+
+    <!-- 1개월 플랜 -->
+    <div id="plan-month" class="plan-panel hidden">
+      <div class="pay-plan-label">월 정기구독</div>
+      <div class="pay-price">12,000<span>원 / 월</span></div>
+      <ul class="pay-features" style="margin-bottom:14px;">
+        <li>매월 자동 결제</li>
+        <li>언제든 해지 가능</li>
+        <li>무제한 퀴즈 이용</li>
+      </ul>
+    </div>
+
+    <!-- 3개월 플랜 -->
+    <div id="plan-quarter" class="plan-panel hidden">
+      <div class="pay-plan-label">3개월 이용권</div>
+      <div class="pay-price">24,000<span>원</span></div>
+      <ul class="pay-features" style="margin-bottom:14px;">
+        <li>월 8,000원 (33% 할인)</li>
+        <li>90일간 무제한 이용</li>
+        <li>1회성 결제</li>
+      </ul>
+    </div>
+
+    <!-- 1년 플랜 -->
+    <div id="plan-year" class="plan-panel hidden">
+      <div class="pay-plan-label">연간 이용권 ⭐ 최저가</div>
+      <div class="pay-price">60,000<span>원</span></div>
+      <ul class="pay-features" style="margin-bottom:14px;">
+        <li>월 5,000원 (58% 할인)</li>
+        <li>365일 무제한 이용</li>
+        <li>1회성 결제</li>
+      </ul>
+    </div>
+
+    <button class="btn-pay" id="btn-pay" onclick="startPayment()">💳 결제하기</button>
     <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
   </div>
 </div>
 
 <!-- 시작 화면 -->
-<div id="start" class="fs-screen hidden">
+<div id="start" class="fs-screen">
   <div class="st">🗺 수도권<br><span style="color:var(--accent2)">동(洞)</span> 위치 퀴즈</div>
   <div class="ss">지도에서 문제의 동(洞) 위치를 클릭하세요<br>정답 기준 반경 1.5km · 무한 반복 학습</div>
   <div style="text-align:center">
@@ -271,7 +358,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     </div>
   </div>
   <div style="color:var(--text-dim);font-size:.82rem">선택 동 합계: <span style="color:var(--accent);font-weight:700" id="scnt">0</span>개</div>
-</div>
+
   <button class="sbtn" onclick="startQuiz()">퀴즈 시작! 🚀</button>
 </div>
 
@@ -333,11 +420,11 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <button class="mb" onclick="focusA()">🎯 정답위치</button>
       <button class="mb" onclick="skipQ()">⏭ 건너뛰기</button>
     </div>
-    <!-- 오답 정답위치 표시 바 -->
+    <!-- 정답/오답 위치 표시 바 -->
     <div id="ans-bar">
-      <span class="ab-label">📍 정답위치 표시 중</span>
-      <span class="ab-dong" id="ab-dong-name"></span>
-      <button class="ab-close" onclick="clearAnsMarkers()">✕ 정답위치 끄기</button>
+      <span class="ab-label">📍 위치 표시 중</span>
+      <button id="btn-clear-wrong" class="ab-close ab-wrong" onclick="clearAnsMarkers()">✕ 오답위치 끄기</button>
+      <button id="btn-clear-ok"    class="ab-close ab-ok"    onclick="clearOkMarkers()">✓ 정답위치 끄기</button>
     </div>
   </div>
 </div>
@@ -593,8 +680,7 @@ const DB={
 // ─── 상태 ─────────────────────────────────────────────
 let map, allDongs=[], queue=[], cur=null, canAns=true;
 let totC=0,totW=0,streak=0,qCnt=0,sessAns=0;
-let tempL=[];      // 정답(ok) 임시 레이어
-let wrongL=[];     // 오답 정답위치 마커 (수동으로만 제거)
+// tempL, wrongL: GeoJSON 블록에서 선언
 
 // 시작 화면 태그
 document.querySelectorAll('.stag').forEach(t=>{
@@ -660,8 +746,10 @@ function reshuffle(){
 function nextQ(){
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
-  tempL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
-  tempL=[]; canAns=true;
+  // tempL(정답 폴리곤)은 유지 — "정답위치 끄기" 버튼으로만 제거
+  // wrongL(오답 폴리곤)도 유지 — "오답위치 끄기" 버튼으로만 제거
+  canAns=true;
+  updateAnsBar();
   if(!queue.length)reshuffle();
   cur=queue.pop(); qCnt++;
   document.getElementById('qN').textContent='문제 #'+qCnt;
@@ -688,33 +776,208 @@ function getDist(a,b,c,d){
   return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
 }
 
-function mkMark(lat,lng,ok){
-  const col=ok?'#39ff14':'#ff3c6e';
-  const m=L.circleMarker([lat,lng],{radius:13,fillColor:col,color:'#fff',weight:3,fillOpacity:.9}).addTo(map);
-  const ico=L.divIcon({className:'',iconAnchor:[0,0],
-    html:`<div style="background:${col};color:#000;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap;font-family:'Noto Sans KR',sans-serif;margin-top:-30px;margin-left:14px;">${cur.d}</div>`});
-  const lb=L.marker([lat,lng],{icon:ico}).addTo(map);
-  if(ok){ tempL.push(m,lb); }
-  else  { wrongL.push(m,lb); }
+/* ── VWorld 행정동 경계 폴리곤 ── */
+const VWORLD_KEY = 'A04860E4-6A6F-3176-A579-F52AD27817E1';
+const geoCache   = {};           // key: "rn|gu|d"
+let   tempL      = [];             // 정답(초록) 레이어
+let   wrongL     = [];             // 오답(핑크) 레이어
+
+/* 폴리곤 centroid 계산 */
+function calcCentroid(coords){
+  let la=0, ln=0;
+  coords.forEach(([x,y])=>{ ln+=x; la+=y; });
+  return [la/coords.length, ln/coords.length];
 }
 
-function mkCircle(lat,lng){
-  const c=L.circle([lat,lng],{radius:1500,color:'#ff3c6e',weight:3,fillColor:'#ff3c6e',fillOpacity:.08,dashArray:'8 4'}).addTo(map);
-  wrongL.push(c);
+/* 레이어 안전 제거 */
+function safeRemove(l){ try{ if(l&&map.hasLayer(l)) map.removeLayer(l); }catch(e){} }
+
+/* VWorld API: 행정동 이름으로 GeoJSON 조회 */
+async function fetchVWorldGeo(dong, gu, rn){
+  const key = `${rn}|${gu}|${dong}`;
+  if(key in geoCache) return geoCache[key];
+
+  // VWorld 행정동 검색 쿼리 목록 (정확도 순)
+  const queries = [
+    `${rn} ${gu} ${dong}`,
+    `${gu} ${dong}`,
+    dong,
+  ];
+
+  for(const q of queries){
+    try{
+      // 1단계: 행정동 코드 검색
+      const searchUrl = `https://api.vworld.kr/req/search?service=search&request=search&version=2.0&crs=epsg:4326&size=5&page=1&query=${encodeURIComponent(q)}&type=address&category=L4&key=${VWORLD_KEY}`;
+      const sr = await fetch(searchUrl);
+      if(!sr.ok) continue;
+      const sd = await sr.json();
+      const items = sd?.response?.result?.items;
+      if(!items?.length) continue;
+
+      // 가장 관련성 높은 항목 선택 (동 이름 일치하는 것 우선)
+      const matched = items.find(it => {
+        const title = it.title || '';
+        return title.includes(dong);
+      }) || items[0];
+
+      if(!matched?.id) continue;
+      const emdCd = matched.id;
+
+      // 2단계: 행정동 코드로 폴리곤 조회
+      const geoUrl = `https://api.vworld.kr/req/data?service=data&request=GetFeature&data=LT_C_ADEMD_INFO&key=${VWORLD_KEY}&domain=https://www.mapdong.com&attrFilter=emdCd:=:${emdCd}&geometry=true&attribute=true&crs=epsg:4326&format=json`;
+      const gr = await fetch(geoUrl);
+      if(!gr.ok) continue;
+      const gd = await gr.json();
+      const features = gd?.response?.result?.featureCollection?.features;
+      if(!features?.length) continue;
+
+      const geo = features[0];
+      geoCache[key] = geo;
+      return geo;
+    } catch(e){ continue; }
+  }
+
+  // 이름 검색 실패시 좌표 역지오코딩으로 행정동 코드 조회
+  try{
+    const revUrl = `https://api.vworld.kr/req/data?service=data&request=GetFeature&data=LT_C_ADEMD_INFO&key=${VWORLD_KEY}&domain=https://www.mapdong.com&geometry=true&attribute=true&crs=epsg:4326&format=json&geomFilter=POINT(${cur.lng} ${cur.lat})`;
+    const rr = await fetch(revUrl);
+    if(rr.ok){
+      const rd = await rr.json();
+      const features = rd?.response?.result?.featureCollection?.features;
+      if(features?.length){
+        // 동 이름 일치하는 feature 찾기
+        const matched = features.find(f => f?.properties?.emd_nm?.includes(dong.replace(/[0-9·]/g,''))) || features[0];
+        if(matched){ geoCache[key]=matched; return matched; }
+      }
+    }
+  } catch(e){}
+
+  geoCache[key] = null;
+  return null;
 }
+
+/* GeoJSON feature에서 Leaflet 폴리곤 좌표 추출 */
+function geoToLatLngs(geo){
+  const geom = geo?.geometry;
+  if(!geom) return null;
+  if(geom.type === 'Polygon'){
+    return geom.coordinates.map(ring => ring.map(([x,y])=>L.latLng(y,x)));
+  }
+  if(geom.type === 'MultiPolygon'){
+    return geom.coordinates.map(poly => poly.map(ring => ring.map(([x,y])=>L.latLng(y,x))));
+  }
+  return null;
+}
+
+/* 폴리곤 경계 bounds 계산 */
+function geoBounds(latlngs){
+  try{
+    const flat = latlngs.flat(3);
+    if(!flat.length) return null;
+    const lats = flat.map(ll=>ll.lat||ll[0]);
+    const lngs = flat.map(ll=>ll.lng||ll[1]);
+    return L.latLngBounds(
+      [Math.min(...lats), Math.min(...lngs)],
+      [Math.max(...lats), Math.max(...lngs)]
+    );
+  } catch(e){ return null; }
+}
+
+/* 폴리곤 + 라벨 그리기 (마커/원 없음) */
+function drawPolygon(latlngs, isMulti, ok){
+  const col = ok ? '#39ff14' : '#ff3c6e';
+  const cls = ok ? 'dong-label ok-label' : 'dong-label';
+
+  let layer;
+  if(isMulti){
+    layer = L.polygon(latlngs, {
+      color:col, weight:3, fillColor:col, fillOpacity:.18, dashArray:'5 4', interactive:false
+    }).addTo(map);
+  } else {
+    layer = L.polygon(latlngs, {
+      color:col, weight:3, fillColor:col, fillOpacity:.18, dashArray:'5 4', interactive:false
+    }).addTo(map);
+  }
+
+  // 라벨: 폴리곤 중심에 표시
+  const bounds = layer.getBounds();
+  const center = bounds.isValid() ? bounds.getCenter() : L.latLng(cur.lat, cur.lng);
+  const lm = L.marker(center, {icon:L.divIcon({className:'',iconSize:[0,0]})  })
+    .addTo(map)
+    .bindTooltip(cur.d, {permanent:true, direction:'center', className:cls, interactive:false})
+    .openTooltip();
+
+  return {layer, lm, bounds};
+}
+
+/* 오답 폴리곤 표시 */
+async function showWrongPolygon(){
+  const geo = await fetchVWorldGeo(cur.d, cur.gu, cur.rn);
+  if(geo){
+    const latlngs = geoToLatLngs(geo);
+    if(latlngs){
+      const isMulti = geo.geometry.type === 'MultiPolygon';
+      const drawn = drawPolygon(latlngs, isMulti, false);
+      wrongL.push(drawn.layer, drawn.lm);
+      if(drawn.bounds?.isValid())
+        map.fitBounds(drawn.bounds, {padding:[50,50], maxZoom:15});
+      updateAnsBar();
+      return;
+    }
+  }
+  // fallback: 좌표로 이동만
+  map.flyTo([cur.lat, cur.lng], 15, {duration:1.0});
+  updateAnsBar();
+}
+
+/* 정답 폴리곤 표시 */
+async function showOkPolygon(){
+  const geo = await fetchVWorldGeo(cur.d, cur.gu, cur.rn);
+  if(geo){
+    const latlngs = geoToLatLngs(geo);
+    if(latlngs){
+      const isMulti = geo.geometry.type === 'MultiPolygon';
+      const drawn = drawPolygon(latlngs, isMulti, true);
+      tempL.push(drawn.layer, drawn.lm);
+      updateAnsBar();
+      return;
+    }
+  }
+  updateAnsBar();
+}
+
+/* mkCircle / mkMark 완전 비활성화 */
+function mkCircle(){}
+function mkMark(){}
 
 function clearAnsMarkers(){
-  wrongL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
+  wrongL.forEach(l=>{try{if(l&&map.hasLayer(l))map.removeLayer(l);}catch(e){}});
   wrongL=[];
-  document.getElementById('ans-bar').classList.remove('show');
+  updateAnsBar();
+}
+function clearOkMarkers(){
+  tempL.forEach(l=>{try{if(l&&map.hasLayer(l))map.removeLayer(l);}catch(e){}});
+  tempL=[];
+  updateAnsBar();
+}
+function updateAnsBar(){
+  const bar=document.getElementById('ans-bar');
+  const hasWrong = wrongL.filter(Boolean).length > 0;
+  const hasOk    = tempL.filter(Boolean).length  > 0;
+  if(!hasWrong && !hasOk){ bar.classList.remove('show'); return; }
+  bar.classList.add('show');
+  const bw=document.getElementById('btn-clear-wrong');
+  const bo=document.getElementById('btn-clear-ok');
+  if(bw) bw.style.display = hasWrong ? '' : 'none';
+  if(bo) bo.style.display = hasOk    ? '' : 'none';
 }
 
 function doOk(dist){
   totC++;streak++;sessAns++;
   addR(true,cur);updStats();updPrg();
-  mkMark(cur.lat,cur.lng,true);
+  showOkPolygon();  // 초록 폴리곤 (tempL에 추가됨)
   const ov=document.getElementById('moverlay');
-  ov.classList.remove('no-mode');
+  ov.classList.add('no-mode');   // 정답도 우하단 패널, 지도 안 가림
   document.getElementById('mbt-ok').style.display='inline-block';
   document.getElementById('mbt-no').style.display='none';
   const b=document.getElementById('mbox'); b.className='ok';
@@ -728,13 +991,9 @@ function doNo(dist){
   totW++;streak=0;sessAns++;
   addR(false,cur);updStats();updPrg();
 
-  // 1) 먼저 지도를 정답 위치로 이동
-  map.flyTo([cur.lat,cur.lng],14,{duration:1.2});
-
-  // 2) 이동 완료 후 마커+원 표시 (지도 이동이 끝난 뒤 그려야 선명하게 보임)
+  // 폴리곤+마커 표시 (fitBounds는 mkDongPolygon 내부에서 처리)
   setTimeout(()=>{
-    mkMark(cur.lat,cur.lng,false);
-    mkCircle(cur.lat,cur.lng);
+    showWrongPolygon();  // 핑크 폴리곤 (wrongL에 추가됨)
   }, 400);
 
   // 3) 오답 모달: 지도 안 가리는 우하단 반투명 패널
@@ -750,16 +1009,10 @@ function doNo(dist){
 }
 
 function closeNoModal(){
-  // 오답 모달 닫기 — 정답위치 표시는 유지, ans-bar 표시
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
-  if(wrongL.length>0){
-    document.getElementById('ab-dong-name').textContent=cur?cur.d:'';
-    document.getElementById('ans-bar').classList.add('show');
-  }
-  // 다음 문제 준비 (tempL 초기화, canAns 활성화)
-  tempL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
-  tempL=[]; canAns=true;
+  canAns=true;
+  updateAnsBar();
   if(!queue.length)reshuffle();
   cur=queue.pop(); qCnt++;
   document.getElementById('qN').textContent='문제 #'+qCnt;
@@ -769,7 +1022,14 @@ function closeNoModal(){
   updStats();
 }
 
-function focusA(){if(cur)map.flyTo([cur.lat,cur.lng],14,{duration:1.2});}
+function focusA(){
+  // 폴리곤이 있으면 그 범위로, 없으면 좌표로
+  const allLayers = [...tempL,...wrongL].filter(l=>l.getBounds);
+  if(allLayers.length>0){
+    try{ const b=allLayers[0].getBounds(); if(b.isValid()) return map.fitBounds(b,{padding:[40,40],maxZoom:15}); }catch(e){}
+  }
+  if(cur) map.flyTo([cur.lat,cur.lng],14,{duration:1.2});
+}
 function resetV(){map.flyTo([37.55,127.00],10,{duration:1});}
 function skipQ(){
   if(cur){addR(false,cur,true);totW++;streak=0;sessAns++;updStats();updPrg();}
@@ -803,17 +1063,12 @@ function addR(ok,q,skip){
    Supabase + 인증 + 결제 로직
    ⚠️ 배포 전 아래 두 값을 실제 키로 교체하세요
 ════════════════════════════════════════════ */
-const SUPABASE_URL  = 'https://emgsueepzioudqnitkyn.supabase.co';
-const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemlvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkwNzQsImV4cCI6MjA4NjU2NTA3NH0.epR1k3MVh0MfZejFh9VflCNOS8Uz8EuCZlez5OBMz3s'
-const TOSS_CLIENT_KEY = 'YOUR_TOSS_CLIENT_KEY';   // 토스 대시보드 > 클라이언트 키
-const EDGE = `${SUPABASE_URL}/functions/v1`;
-
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-let currentUser = null;
-let userProfile = null;
-let authMode    = 'login';
-let toastTimer;
+// ════ 테스트 모드 ════
+const SUPABASE_URL=''; const SUPABASE_KEY=''; const TOSS_CLIENT_KEY=''; const EDGE='';
+const sb={auth:{onAuthStateChange:()=>{},getSession:async()=>({data:{session:{access_token:'test'}}}),signInWithOAuth:async()=>{},signInWithPassword:async()=>({data:{},error:null}),signUp:async()=>({data:{},error:null}),signOut:async()=>{}},from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:null,error:null})})})}),rpc:async()=>({data:{ok:true,plays_count:1},error:null})};
+const currentUser={id:'test-001',email:'test@mapdong.com',user_metadata:{name:'테스트유저'}};
+let userProfile={user_id:'test-001',is_verified:true,plays_count:0,is_premium:true,premium_until:'2099-12-31'};
+let authMode='login'; let toastTimer;
 
 /* ── 토스트 ── */
 function toast(msg, type=''){
@@ -886,25 +1141,10 @@ async function signOut(){
 }
 
 /* ── 세션 감지 & 라우팅 ── */
-sb.auth.onAuthStateChange(async(event, session) => {
-  if(session?.user){
-    currentUser = session.user;
-    await loadProfile();
-    routeUser();
-    handlePaymentCallback();
-  } else {
-    currentUser = null; userProfile = null;
-    document.getElementById('user-chip').classList.remove('visible');
-    showOnly('screen-login');
-  }
-});
+sb.auth.onAuthStateChange(()=>{});
+window.addEventListener('DOMContentLoaded',()=>{renderUserChip();showOnly('start');});
 
-async function loadProfile(){
-  const { data } = await sb.from('user_profiles')
-    .select('*').eq('user_id', currentUser.id).maybeSingle();
-  userProfile = data;
-  renderUserChip();
-}
+async function loadProfile(){ renderUserChip(); }
 
 function isActivePremium(){
   return userProfile?.is_premium && userProfile?.premium_until
@@ -948,7 +1188,7 @@ function updateTrialBar(used){
 
 function routeUser(){
   if(!userProfile?.is_verified){ showOnly('screen-verify'); return; }
-  if(!isActivePremium() && (userProfile?.plays_count||0) >= 300){ showOnly('screen-paywall'); return; }
+  if(!isActivePremium() && (userProfile?.plays_count||0) >= 300){ showOnly('screen-paywall'); return; }  // 1일(300회) 초과시 페이월
   showOnly('start');
 }
 
@@ -962,22 +1202,7 @@ document.addEventListener('click', e => {
 });
 
 /* ── 플레이 횟수 증가 ── */
-async function incrementPlays(){
-  if(!currentUser || isActivePremium()) return { ok: true };
-  const { data, error } = await sb.rpc('increment_plays', { p_user_id: currentUser.id });
-  if(error){ console.error(error); return { ok: true }; }
-  if(data?.code === 'TRIAL_EXCEEDED'){
-    userProfile.plays_count = 300;
-    renderUserChip();
-    showPaywall();
-    return { ok: false };
-  }
-  if(data?.plays_count !== undefined){
-    userProfile.plays_count = data.plays_count;
-    updateTrialBar(data.plays_count);
-  }
-  return { ok: true };
-}
+async function incrementPlays(){ return {ok:true}; }
 
 /* ── 나이스 본인인증 ── */
 async function startNiceAuth(){
@@ -1026,24 +1251,71 @@ function showPaywall(e){
   showOnly('screen-paywall');
 }
 
+/* ── 결제 플랜 관리 ── */
+let currentPlan = 'day';
+let currentDays = 1;
+
+function switchPlan(plan){
+  currentPlan = plan;
+  ['day','month','quarter','year'].forEach(p => {
+    document.getElementById('plan-'+p).classList.toggle('hidden', p !== plan);
+    document.getElementById('tab-'+p).classList.toggle('active', p === plan);
+  });
+  updatePayBtn();
+}
+
+function changeDays(d){
+  setDays(Math.min(25, Math.max(1, currentDays + d)));
+}
+
+function setDays(v){
+  currentDays = parseInt(v);
+  document.getElementById('day-slider').value = currentDays;
+  document.getElementById('day-count').textContent = currentDays;
+  document.getElementById('day-mult').textContent = currentDays;
+  document.getElementById('day-price').innerHTML = `${(600*currentDays).toLocaleString()}<span>원</span>`;
+  updatePayBtn();
+}
+
+function updatePayBtn(){
+  const plans = {
+    day:     { amount: 600*currentDays, name: `MapDong ${currentDays}일 이용권` },
+    month:   { amount: 12000,           name: 'MapDong 1개월 정기구독' },
+    quarter: { amount: 24000,           name: 'MapDong 3개월 이용권' },
+    year:    { amount: 60000,           name: 'MapDong 1년 이용권' },
+  };
+  const p = plans[currentPlan];
+  const btn = document.getElementById('btn-pay');
+  if(btn) btn.textContent = `💳 결제하기 (${p.amount.toLocaleString()}원)`;
+}
+
 async function startPayment(){
   if(!currentUser){ toast('로그인이 필요합니다', 'error'); return; }
   const btn = document.getElementById('btn-pay');
   btn.disabled = true; btn.textContent = '결제창 여는 중...';
+
+  const plans = {
+    day:     { amount: 600*currentDays, name: `MapDong ${currentDays}일 이용권` },
+    month:   { amount: 12000,           name: 'MapDong 1개월 정기구독' },
+    quarter: { amount: 24000,           name: 'MapDong 3개월 이용권' },
+    year:    { amount: 60000,           name: 'MapDong 1년 이용권' },
+  };
+  const plan = plans[currentPlan];
+
   try {
     const tossPayments = TossPayments(TOSS_CLIENT_KEY);
-    const orderId = `mapdong_${currentUser.id}_${Date.now()}`;
+    const orderId = `mapdong_${currentPlan}_${currentUser.id}_${Date.now()}`;
     const name    = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || '사용자';
     await tossPayments.requestPayment('카드', {
-      amount: 5000, orderId, orderName: 'MapDong 프리미엄 1개월',
+      amount: plan.amount, orderId, orderName: plan.name,
       customerName: name, customerEmail: currentUser.email,
-      successUrl: `${window.location.origin}?payment=success&orderId=${orderId}`,
+      successUrl: `${window.location.origin}?payment=success&orderId=${orderId}&plan=${currentPlan}&days=${currentDays}`,
       failUrl:    `${window.location.origin}?payment=fail`,
     });
   } catch(e){
     toast(e.code === 'USER_CANCEL' ? '결제를 취소하셨습니다' : '결제 오류: ' + e.message,
           e.code === 'USER_CANCEL' ? '' : 'error');
-    btn.disabled = false; btn.textContent = '💳 결제하기 (5,000원)';
+    btn.disabled = false; updatePayBtn();
   }
 }
 
@@ -1068,6 +1340,5 @@ async function handlePaymentCallback(){
   } catch(e){ toast('결제 처리 중 오류가 발생했습니다', 'error'); }
 }
 </script>
-</div>
 </body>
 </html>
