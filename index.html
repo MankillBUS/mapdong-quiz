@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MapDong · 테스트버전</title>
+<title>MapDong · 수도권 동(洞) 위치 퀴즈</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<!-- supabase 스킵 -->
-<!-- tosspayments 스킵 -->
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://js.tosspayments.com/v1/payment"></script>
 <style>
 :root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1e3a5f;--accent:#00d4ff;--accent2:#ff3c6e;--accent3:#39ff14;--text:#e8f4fd;--text-dim:#7a9bb5;--gold:#ffd700;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -103,9 +103,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .trial-fill{height:100%;background:linear-gradient(90deg,var(--gold),#ff8c00);border-radius:10px;transition:width .4s;}
 #trial-bar.hidden{display:none;}
 
-/* 테스트 배너 */
-#test-banner{position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(90deg,#ff3c6e,#ff8c00);color:#fff;text-align:center;padding:4px;font-size:.72rem;font-weight:700;}
-body{padding-top:24px;}
 /* ── 동 라벨 툴팁 ── */
 .leaflet-container{background:#0a1628!important;}
 .dong-label{
@@ -207,10 +204,9 @@ body{padding-top:24px;}
 </style>
 </head>
 <body>
-<div id="test-banner">🧪 테스트 버전 · 로그인/인증/결제 스킵됨</div>
 
 <!-- ① 로그인 화면 -->
-<div id="screen-login" class="fs-screen hidden">
+<div id="screen-login" class="fs-screen">
   <div class="login-card">
     <div class="login-logo">Map<span>Dong</span></div>
     <div class="login-sub">수도권 동(洞) 위치 퀴즈<br>로그인 후 무료 300문제 체험 가능</div>
@@ -335,7 +331,7 @@ body{padding-top:24px;}
 </div>
 
 <!-- 시작 화면 -->
-<div id="start" class="fs-screen">
+<div id="start" class="fs-screen hidden">
   <div class="st">🗺 수도권<br><span style="color:var(--accent2)">동(洞)</span> 위치 퀴즈</div>
   <div class="ss">지도에서 문제의 동(洞) 위치를 클릭하세요<br>정답 기준 반경 1.5km · 무한 반복 학습</div>
   <div style="text-align:center">
@@ -770,13 +766,24 @@ function getDist(a,b,c,d){
   return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
 }
 
-/* ── 행정동 경계 폴리곤 (Supabase VWorld 프록시) ── */
+/* ── 행정동 경계 폴리곤 (Overpass API — CORS 허용) ── */
 const geoCache = {};
-let tempL  = [];   // 정답(초록) 레이어
-let wrongL = [];   // 오답(핑크) 레이어
+let tempL  = [];
+let wrongL = [];
 
-/* Leaflet 레이어 안전 제거 */
-function safeRemove(l){ try{ if(l&&map.hasLayer(l)) map.removeLayer(l); }catch(e){} }
+/* 도시별 검색 bbox */
+const CITY_BBOX = {
+  '서울특별시':   '37.42,126.73,37.70,127.18',
+  '인천광역시':   '37.32,126.40,37.68,126.82',
+  '수원시':       '37.20,126.95,37.34,127.07',
+  '성남시':       '37.33,127.02,37.50,127.19',
+  '경기도 광주시':'37.27,127.17,37.60,127.55',
+  '고양시':       '37.58,126.72,37.73,126.98',
+  '용인시':       '37.13,127.00,37.38,127.34',
+  '부천시':       '37.44,126.72,37.56,126.87',
+  '안양시':       '37.34,126.86,37.44,127.02',
+  '화성시':       '37.09,126.68,37.30,127.18',
+};
 
 /* 폴리곤 centroid */
 function calcCentroid(geo){
@@ -785,7 +792,7 @@ function calcCentroid(geo){
     if(geo.geometry.type==='Polygon') ring=geo.geometry.coordinates[0];
     else if(geo.geometry.type==='MultiPolygon'){
       let max=0;
-      geo.geometry.coordinates.forEach(p=>{ if(p[0].length>max){max=p[0].length;ring=p[0];} });
+      geo.geometry.coordinates.forEach(p=>{if(p[0].length>max){max=p[0].length;ring=p[0];}});
     }
     let la=0,ln=0;
     ring.forEach(([x,y])=>{ln+=x;la+=y;});
@@ -793,23 +800,78 @@ function calcCentroid(geo){
   }catch(e){return null;}
 }
 
-/* Supabase 프록시를 통해 VWorld 행정동 GeoJSON 조회 */
+/* Overpass element → GeoJSON Feature */
+function overpassToGeoJSON(el){
+  try{
+    if(el.type==='way' && el.geometry && el.geometry.length>2){
+      const coords = el.geometry.map(p=>[p.lon,p.lat]);
+      if(coords[0][0]!==coords[coords.length-1][0]) coords.push(coords[0]);
+      return {type:'Feature',geometry:{type:'Polygon',coordinates:[coords]}};
+    }
+    if(el.type==='relation' && el.members){
+      const outers = el.members
+        .filter(m=>m.type==='way' && m.role==='outer' && m.geometry && m.geometry.length>2)
+        .map(m=>{
+          const c=m.geometry.map(p=>[p.lon,p.lat]);
+          if(c[0][0]!==c[c.length-1][0]) c.push(c[0]);
+          return c;
+        });
+      if(!outers.length) return null;
+      if(outers.length===1) return {type:'Feature',geometry:{type:'Polygon',coordinates:outers}};
+      return {type:'Feature',geometry:{type:'MultiPolygon',coordinates:outers.map(r=>[r])}};
+    }
+  }catch(e){}
+  return null;
+}
+
+/* Overpass API로 행정동 경계 조회 */
 async function fetchDongGeo(dong, gu, rn){
-  const key = `${rn}|${gu}|${dong}`;
+  const key=`${rn}|${gu}|${dong}`;
   if(key in geoCache) return geoCache[key];
 
-  try{
-    // Supabase Edge Function이 VWorld CORS 문제 우회
-    const url = `${EDGE}/vworld-proxy?dong=${encodeURIComponent(dong)}&gu=${encodeURIComponent(gu)}&rn=${encodeURIComponent(rn)}`;
-    const r = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${SUPABASE_KEY}` }
-    });
-    if(!r.ok){ console.warn(`[GeoProxy] ${dong} HTTP ${r.status}`); geoCache[key]=null; return null; }
-    const geo = await r.json();
-    if(geo?.geometry){ console.log(`[GeoProxy] ${dong} ✅`); geoCache[key]=geo; return geo; }
-    console.warn(`[GeoProxy] ${dong} 폴리곤 없음`);
-  }catch(e){ console.warn(`[GeoProxy] ${dong} 오류:`, e.message); }
+  const bbox = CITY_BBOX[rn] || '37.0,126.4,37.8,127.6';
 
+  /* 검색할 이름 변형 목록 */
+  const names=[dong];
+  // "1·2·3가동" 등 분리
+  if(dong.includes('·')) names.push(dong.split('·')[0]);
+  // 숫자+동 처리 (예: 정자1동 → 정자동)
+  const mNum=dong.match(/^(.+?)(\d+)(가)?동$/);
+  if(mNum){ names.push(mNum[1]+(mNum[3]?mNum[2]+'가':mNum[2])); names.push(mNum[1]+'동'); }
+  // 읍/면 그대로
+
+  for(const name of [...new Set(names)]){
+    const q=`[out:json][timeout:15];`+
+      `(relation["name"="${name}"]["boundary"="administrative"](${bbox});`+
+      `relation["name"="${name}"]["place"~"suburb|quarter|town|village"](${bbox});`+
+      `way["name"="${name}"]["boundary"="administrative"](${bbox}););`+
+      `out geom;`;
+    try{
+      const res=await fetch('https://overpass-api.de/api/interpreter',{
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:'data='+encodeURIComponent(q)
+      });
+      if(!res.ok) continue;
+      const data=await res.json();
+      if(!data.elements?.length){ console.log(`[Overpass] "${name}" 결과 없음`); continue; }
+
+      /* relation 우선, 없으면 way */
+      const rel=data.elements.filter(e=>e.type==='relation');
+      const way=data.elements.filter(e=>e.type==='way');
+      const el=rel[0]||way[0];
+      if(!el) continue;
+
+      const geo=overpassToGeoJSON(el);
+      if(geo){
+        console.log(`[Overpass] ${dong} ✅ (name="${name}")`);
+        geoCache[key]=geo;
+        return geo;
+      }
+    }catch(e){ console.warn(`[Overpass] ${name} 오류:`,e.message); continue; }
+  }
+
+  console.warn(`[Overpass] ${rn} ${gu} ${dong} — 폴리곤 없음`);
   geoCache[key]=null;
   return null;
 }
@@ -823,17 +885,17 @@ function geoToLatLngs(geo){
   return null;
 }
 
-/* 폴리곤 + 라벨 표시 */
+/* 폴리곤 + 라벨 그리기 */
 function drawPolygon(geo, ok){
-  const col = ok ? '#39ff14' : '#ff3c6e';
-  const cls = ok ? 'dong-label ok-label' : 'dong-label';
-  const latlngs = geoToLatLngs(geo);
-  const layer = L.polygon(latlngs,{
-    color:col, weight:3, fillColor:col, fillOpacity:.18, dashArray:'5 4', interactive:false
+  const col=ok?'#39ff14':'#ff3c6e';
+  const cls=ok?'dong-label ok-label':'dong-label';
+  const latlngs=geoToLatLngs(geo);
+  const layer=L.polygon(latlngs,{
+    color:col,weight:3,fillColor:col,fillOpacity:.18,dashArray:'5 4',interactive:false
   }).addTo(map);
-  const bounds = layer.getBounds();
-  const center = bounds.isValid() ? bounds.getCenter() : L.latLng(cur.lat,cur.lng);
-  const lm = L.marker(center,{icon:L.divIcon({className:'',iconSize:[0,0]})})
+  const bounds=layer.getBounds();
+  const center=bounds.isValid()?bounds.getCenter():L.latLng(cur.lat,cur.lng);
+  const lm=L.marker(center,{icon:L.divIcon({className:'',iconSize:[0,0]})})
     .addTo(map)
     .bindTooltip(cur.d,{permanent:true,direction:'center',className:cls,interactive:false})
     .openTooltip();
@@ -841,14 +903,14 @@ function drawPolygon(geo, ok){
   else  { wrongL.push(layer,lm); if(bounds.isValid()) map.fitBounds(bounds,{padding:[50,50],maxZoom:15}); }
 }
 
-/* 폴리곤 없을 때 fallback: 반경 원 */
+/* fallback: 작은 원 + 라벨 */
 function drawFallback(ok){
-  const col = ok ? '#39ff14' : '#ff3c6e';
-  const cls = ok ? 'dong-label ok-label' : 'dong-label';
-  const r = L.circle([cur.lat,cur.lng],{
-    radius:500,color:col,weight:2,fillColor:col,fillOpacity:.2,dashArray:'6 3',interactive:false
+  const col=ok?'#39ff14':'#ff3c6e';
+  const cls=ok?'dong-label ok-label':'dong-label';
+  const r=L.circle([cur.lat,cur.lng],{
+    radius:400,color:col,weight:2,fillColor:col,fillOpacity:.2,dashArray:'6 3',interactive:false
   }).addTo(map);
-  const lm = L.marker([cur.lat,cur.lng],{icon:L.divIcon({className:'',iconSize:[0,0]})})
+  const lm=L.marker([cur.lat,cur.lng],{icon:L.divIcon({className:'',iconSize:[0,0]})})
     .addTo(map)
     .bindTooltip(cur.d,{permanent:true,direction:'top',offset:[0,-8],className:cls,interactive:false})
     .openTooltip();
@@ -858,15 +920,15 @@ function drawFallback(ok){
 
 /* 오답 폴리곤 */
 async function showWrongPolygon(){
-  const geo = await fetchDongGeo(cur.d, cur.gu, cur.rn);
-  if(geo) drawPolygon(geo, false); else drawFallback(false);
+  const geo=await fetchDongGeo(cur.d,cur.gu,cur.rn);
+  if(geo) drawPolygon(geo,false); else drawFallback(false);
   updateAnsBar();
 }
 
 /* 정답 폴리곤 */
 async function showOkPolygon(){
-  const geo = await fetchDongGeo(cur.d, cur.gu, cur.rn);
-  if(geo) drawPolygon(geo, true); else drawFallback(true);
+  const geo=await fetchDongGeo(cur.d,cur.gu,cur.rn);
+  if(geo) drawPolygon(geo,true); else drawFallback(true);
   updateAnsBar();
 }
 
@@ -982,12 +1044,17 @@ function addR(ok,q,skip){
    Supabase + 인증 + 결제 로직
    ⚠️ 배포 전 아래 두 값을 실제 키로 교체하세요
 ════════════════════════════════════════════ */
-// ════ 테스트 모드 ════
-const SUPABASE_URL='https://emgsueepzioudqnitkyn.supabase.co'; const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemhvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMwMDYyMjksImV4cCI6MjA1ODU4MjIyOX0.Yq_8QkVJuiwMdFkOLGiXBVLkj5MKzGvbPbmElKlXeuk'; const TOSS_CLIENT_KEY=''; const EDGE='https://emgsueepzioudqnitkyn.supabase.co/functions/v1';
-const sb={auth:{onAuthStateChange:()=>{},getSession:async()=>({data:{session:{access_token:'test'}}}),signInWithOAuth:async()=>{},signInWithPassword:async()=>({data:{},error:null}),signUp:async()=>({data:{},error:null}),signOut:async()=>{}},from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:null,error:null})})})}),rpc:async()=>({data:{ok:true,plays_count:1},error:null})};
-const currentUser={id:'test-001',email:'test@mapdong.com',user_metadata:{name:'테스터'}};
-let userProfile={user_id:'test-001',is_verified:true,plays_count:0,is_premium:true,premium_until:'2099-12-31'};
-let authMode='login'; let toastTimer;
+const SUPABASE_URL  = 'https://emgsueepzioudqnitkyn.supabase.co';
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemlvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkwNzQsImV4cCI6MjA4NjU2NTA3NH0.epR1k3MVh0MfZejFh9VflCNOS8Uz8EuCZlez5OBMz3s'
+const TOSS_CLIENT_KEY = 'YOUR_TOSS_CLIENT_KEY';   // 토스 대시보드 > 클라이언트 키
+const EDGE = `${SUPABASE_URL}/functions/v1`;
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let userProfile = null;
+let authMode    = 'login';
+let toastTimer;
 
 /* ── 토스트 ── */
 function toast(msg, type=''){
@@ -1060,10 +1127,25 @@ async function signOut(){
 }
 
 /* ── 세션 감지 & 라우팅 ── */
-sb.auth.onAuthStateChange(()=>{});
-window.addEventListener('DOMContentLoaded',()=>{renderUserChip();showOnly('start');});
+sb.auth.onAuthStateChange(async(event, session) => {
+  if(session?.user){
+    currentUser = session.user;
+    await loadProfile();
+    routeUser();
+    handlePaymentCallback();
+  } else {
+    currentUser = null; userProfile = null;
+    document.getElementById('user-chip').classList.remove('visible');
+    showOnly('screen-login');
+  }
+});
 
-async function loadProfile(){ renderUserChip(); }
+async function loadProfile(){
+  const { data } = await sb.from('user_profiles')
+    .select('*').eq('user_id', currentUser.id).maybeSingle();
+  userProfile = data;
+  renderUserChip();
+}
 
 function isActivePremium(){
   return userProfile?.is_premium && userProfile?.premium_until
@@ -1121,7 +1203,22 @@ document.addEventListener('click', e => {
 });
 
 /* ── 플레이 횟수 증가 ── */
-async function incrementPlays(){ return {ok:true}; }
+async function incrementPlays(){
+  if(!currentUser || isActivePremium()) return { ok: true };
+  const { data, error } = await sb.rpc('increment_plays', { p_user_id: currentUser.id });
+  if(error){ console.error(error); return { ok: true }; }
+  if(data?.code === 'TRIAL_EXCEEDED'){
+    userProfile.plays_count = 300;
+    renderUserChip();
+    showPaywall();
+    return { ok: false };
+  }
+  if(data?.plays_count !== undefined){
+    userProfile.plays_count = data.plays_count;
+    updateTrialBar(data.plays_count);
+  }
+  return { ok: true };
+}
 
 /* ── 나이스 본인인증 ── */
 async function startNiceAuth(){
