@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MapDong · 테스트버전 (인증스킵)</title>
+<title>MapDong · 테스트버전</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<!-- supabase 스킵 (테스트버전) -->
-<!-- tosspayments 스킵 (테스트버전) -->
+<!-- supabase 스킵 -->
+<!-- tosspayments 스킵 -->
 <style>
 :root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1e3a5f;--accent:#00d4ff;--accent2:#ff3c6e;--accent3:#39ff14;--text:#e8f4fd;--text-dim:#7a9bb5;--gold:#ffd700;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -104,21 +104,18 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 #trial-bar.hidden{display:none;}
 
 /* 테스트 배너 */
-#test-banner{position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(90deg,#ff3c6e,#ff8c00);color:#fff;text-align:center;padding:4px;font-size:.72rem;font-weight:700;letter-spacing:1px;}
+#test-banner{position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(90deg,#ff3c6e,#ff8c00);color:#fff;text-align:center;padding:4px;font-size:.72rem;font-weight:700;}
 body{padding-top:24px;}
 /* ── 동 라벨 툴팁 ── */
+.leaflet-container{background:#0a1628!important;}
 .dong-label{
-  background:rgba(255,60,110,.92) !important;
-  border:none !important;
-  border-radius:6px !important;
-  color:#fff !important;
-  font-size:13px !important;
-  font-weight:700 !important;
-  font-family:'Noto Sans KR',sans-serif !important;
-  padding:3px 9px !important;
-  white-space:nowrap !important;
-  box-shadow:0 2px 10px rgba(255,60,110,.5) !important;
-  pointer-events:none !important;
+  background:rgba(255,60,110,.92);
+  border:none;border-radius:6px;
+  color:#fff;font-size:13px;font-weight:700;
+  font-family:'Noto Sans KR',sans-serif;
+  padding:4px 10px;white-space:nowrap;
+  box-shadow:0 2px 10px rgba(255,60,110,.5);
+  pointer-events:none;
 }
 .dong-label.ok-label{
   background:rgba(57,255,20,.92) !important;
@@ -206,7 +203,6 @@ body{padding-top:24px;}
 .stag:hover,.stag.sel{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.1);}
 .sbtn{background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;border:none;border-radius:12px;padding:14px 44px;font-size:1.1rem;font-weight:900;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;letter-spacing:2px;}
 .sbtn:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(0,212,255,.5);}
-.leaflet-container{background:#0a1628!important;}
 ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 </style>
 </head>
@@ -711,7 +707,6 @@ function initMap(){
     attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19
   }).addTo(map);
   map.on('click',onMapClick);
-  // 모달이 열려있어도 지도 스크롤 줌 항상 동작하도록
   map.scrollWheelZoom.enable();
 }
 
@@ -762,7 +757,6 @@ function nextQ(){
 function onMapClick(e){
   if(!cur||!canAns)return;
   canAns=false;
-  // 플레이 횟수 증가 (300회 초과 시 페이월)
   incrementPlays().then(result => {
     if(!result.ok){ canAns=true; return; }
     const dist=getDist(e.latlng.lat,e.latlng.lng,cur.lat,cur.lng);
@@ -776,177 +770,106 @@ function getDist(a,b,c,d){
   return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
 }
 
-/* ── VWorld 행정동 경계 폴리곤 ── */
-const VWORLD_KEY = 'A04860E4-6A6F-3176-A579-F52AD27817E1';
-const geoCache   = {};           // key: "rn|gu|d"
-let   tempL      = [];             // 정답(초록) 레이어
-let   wrongL     = [];             // 오답(핑크) 레이어
+/* ── 행정동 경계 폴리곤 (Supabase VWorld 프록시) ── */
+const geoCache = {};
+let tempL  = [];   // 정답(초록) 레이어
+let wrongL = [];   // 오답(핑크) 레이어
 
-/* 폴리곤 centroid 계산 */
-function calcCentroid(coords){
-  let la=0, ln=0;
-  coords.forEach(([x,y])=>{ ln+=x; la+=y; });
-  return [la/coords.length, ln/coords.length];
-}
-
-/* 레이어 안전 제거 */
+/* Leaflet 레이어 안전 제거 */
 function safeRemove(l){ try{ if(l&&map.hasLayer(l)) map.removeLayer(l); }catch(e){} }
 
-/* VWorld API: 행정동 이름으로 GeoJSON 조회 */
-async function fetchVWorldGeo(dong, gu, rn){
+/* 폴리곤 centroid */
+function calcCentroid(geo){
+  try{
+    let ring=[];
+    if(geo.geometry.type==='Polygon') ring=geo.geometry.coordinates[0];
+    else if(geo.geometry.type==='MultiPolygon'){
+      let max=0;
+      geo.geometry.coordinates.forEach(p=>{ if(p[0].length>max){max=p[0].length;ring=p[0];} });
+    }
+    let la=0,ln=0;
+    ring.forEach(([x,y])=>{ln+=x;la+=y;});
+    return [la/ring.length, ln/ring.length];
+  }catch(e){return null;}
+}
+
+/* Supabase 프록시를 통해 VWorld 행정동 GeoJSON 조회 */
+async function fetchDongGeo(dong, gu, rn){
   const key = `${rn}|${gu}|${dong}`;
   if(key in geoCache) return geoCache[key];
 
-  // VWorld 행정동 검색 쿼리 목록 (정확도 순)
-  const queries = [
-    `${rn} ${gu} ${dong}`,
-    `${gu} ${dong}`,
-    dong,
-  ];
-
-  for(const q of queries){
-    try{
-      // 1단계: 행정동 코드 검색
-      const searchUrl = `https://api.vworld.kr/req/search?service=search&request=search&version=2.0&crs=epsg:4326&size=5&page=1&query=${encodeURIComponent(q)}&type=address&category=L4&key=${VWORLD_KEY}`;
-      const sr = await fetch(searchUrl);
-      if(!sr.ok) continue;
-      const sd = await sr.json();
-      const items = sd?.response?.result?.items;
-      if(!items?.length) continue;
-
-      // 가장 관련성 높은 항목 선택 (동 이름 일치하는 것 우선)
-      const matched = items.find(it => {
-        const title = it.title || '';
-        return title.includes(dong);
-      }) || items[0];
-
-      if(!matched?.id) continue;
-      const emdCd = matched.id;
-
-      // 2단계: 행정동 코드로 폴리곤 조회
-      const geoUrl = `https://api.vworld.kr/req/data?service=data&request=GetFeature&data=LT_C_ADEMD_INFO&key=${VWORLD_KEY}&domain=https://www.mapdong.com&attrFilter=emdCd:=:${emdCd}&geometry=true&attribute=true&crs=epsg:4326&format=json`;
-      const gr = await fetch(geoUrl);
-      if(!gr.ok) continue;
-      const gd = await gr.json();
-      const features = gd?.response?.result?.featureCollection?.features;
-      if(!features?.length) continue;
-
-      const geo = features[0];
-      geoCache[key] = geo;
-      return geo;
-    } catch(e){ continue; }
-  }
-
-  // 이름 검색 실패시 좌표 역지오코딩으로 행정동 코드 조회
   try{
-    const revUrl = `https://api.vworld.kr/req/data?service=data&request=GetFeature&data=LT_C_ADEMD_INFO&key=${VWORLD_KEY}&domain=https://www.mapdong.com&geometry=true&attribute=true&crs=epsg:4326&format=json&geomFilter=POINT(${cur.lng} ${cur.lat})`;
-    const rr = await fetch(revUrl);
-    if(rr.ok){
-      const rd = await rr.json();
-      const features = rd?.response?.result?.featureCollection?.features;
-      if(features?.length){
-        // 동 이름 일치하는 feature 찾기
-        const matched = features.find(f => f?.properties?.emd_nm?.includes(dong.replace(/[0-9·]/g,''))) || features[0];
-        if(matched){ geoCache[key]=matched; return matched; }
-      }
-    }
-  } catch(e){}
+    // Supabase Edge Function이 VWorld CORS 문제 우회
+    const url = `${EDGE}/vworld-proxy?dong=${encodeURIComponent(dong)}&gu=${encodeURIComponent(gu)}&rn=${encodeURIComponent(rn)}`;
+    const r = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    if(!r.ok){ console.warn(`[GeoProxy] ${dong} HTTP ${r.status}`); geoCache[key]=null; return null; }
+    const geo = await r.json();
+    if(geo?.geometry){ console.log(`[GeoProxy] ${dong} ✅`); geoCache[key]=geo; return geo; }
+    console.warn(`[GeoProxy] ${dong} 폴리곤 없음`);
+  }catch(e){ console.warn(`[GeoProxy] ${dong} 오류:`, e.message); }
 
-  geoCache[key] = null;
+  geoCache[key]=null;
   return null;
 }
 
-/* GeoJSON feature에서 Leaflet 폴리곤 좌표 추출 */
+/* GeoJSON → Leaflet LatLng 배열 */
 function geoToLatLngs(geo){
-  const geom = geo?.geometry;
-  if(!geom) return null;
-  if(geom.type === 'Polygon'){
-    return geom.coordinates.map(ring => ring.map(([x,y])=>L.latLng(y,x)));
-  }
-  if(geom.type === 'MultiPolygon'){
-    return geom.coordinates.map(poly => poly.map(ring => ring.map(([x,y])=>L.latLng(y,x))));
-  }
+  if(geo.geometry.type==='Polygon')
+    return geo.geometry.coordinates.map(r=>r.map(([x,y])=>L.latLng(y,x)));
+  if(geo.geometry.type==='MultiPolygon')
+    return geo.geometry.coordinates.map(poly=>poly.map(r=>r.map(([x,y])=>L.latLng(y,x))));
   return null;
 }
 
-/* 폴리곤 경계 bounds 계산 */
-function geoBounds(latlngs){
-  try{
-    const flat = latlngs.flat(3);
-    if(!flat.length) return null;
-    const lats = flat.map(ll=>ll.lat||ll[0]);
-    const lngs = flat.map(ll=>ll.lng||ll[1]);
-    return L.latLngBounds(
-      [Math.min(...lats), Math.min(...lngs)],
-      [Math.max(...lats), Math.max(...lngs)]
-    );
-  } catch(e){ return null; }
-}
-
-/* 폴리곤 + 라벨 그리기 (마커/원 없음) */
-function drawPolygon(latlngs, isMulti, ok){
+/* 폴리곤 + 라벨 표시 */
+function drawPolygon(geo, ok){
   const col = ok ? '#39ff14' : '#ff3c6e';
   const cls = ok ? 'dong-label ok-label' : 'dong-label';
-
-  let layer;
-  if(isMulti){
-    layer = L.polygon(latlngs, {
-      color:col, weight:3, fillColor:col, fillOpacity:.18, dashArray:'5 4', interactive:false
-    }).addTo(map);
-  } else {
-    layer = L.polygon(latlngs, {
-      color:col, weight:3, fillColor:col, fillOpacity:.18, dashArray:'5 4', interactive:false
-    }).addTo(map);
-  }
-
-  // 라벨: 폴리곤 중심에 표시
+  const latlngs = geoToLatLngs(geo);
+  const layer = L.polygon(latlngs,{
+    color:col, weight:3, fillColor:col, fillOpacity:.18, dashArray:'5 4', interactive:false
+  }).addTo(map);
   const bounds = layer.getBounds();
-  const center = bounds.isValid() ? bounds.getCenter() : L.latLng(cur.lat, cur.lng);
-  const lm = L.marker(center, {icon:L.divIcon({className:'',iconSize:[0,0]})  })
+  const center = bounds.isValid() ? bounds.getCenter() : L.latLng(cur.lat,cur.lng);
+  const lm = L.marker(center,{icon:L.divIcon({className:'',iconSize:[0,0]})})
     .addTo(map)
-    .bindTooltip(cur.d, {permanent:true, direction:'center', className:cls, interactive:false})
+    .bindTooltip(cur.d,{permanent:true,direction:'center',className:cls,interactive:false})
     .openTooltip();
-
-  return {layer, lm, bounds};
+  if(ok){ tempL.push(layer,lm); }
+  else  { wrongL.push(layer,lm); if(bounds.isValid()) map.fitBounds(bounds,{padding:[50,50],maxZoom:15}); }
 }
 
-/* 오답 폴리곤 표시 */
+/* 폴리곤 없을 때 fallback: 반경 원 */
+function drawFallback(ok){
+  const col = ok ? '#39ff14' : '#ff3c6e';
+  const cls = ok ? 'dong-label ok-label' : 'dong-label';
+  const r = L.circle([cur.lat,cur.lng],{
+    radius:500,color:col,weight:2,fillColor:col,fillOpacity:.2,dashArray:'6 3',interactive:false
+  }).addTo(map);
+  const lm = L.marker([cur.lat,cur.lng],{icon:L.divIcon({className:'',iconSize:[0,0]})})
+    .addTo(map)
+    .bindTooltip(cur.d,{permanent:true,direction:'top',offset:[0,-8],className:cls,interactive:false})
+    .openTooltip();
+  if(ok){ tempL.push(r,lm); }
+  else  { wrongL.push(r,lm); map.flyTo([cur.lat,cur.lng],15,{duration:1.0}); }
+}
+
+/* 오답 폴리곤 */
 async function showWrongPolygon(){
-  const geo = await fetchVWorldGeo(cur.d, cur.gu, cur.rn);
-  if(geo){
-    const latlngs = geoToLatLngs(geo);
-    if(latlngs){
-      const isMulti = geo.geometry.type === 'MultiPolygon';
-      const drawn = drawPolygon(latlngs, isMulti, false);
-      wrongL.push(drawn.layer, drawn.lm);
-      if(drawn.bounds?.isValid())
-        map.fitBounds(drawn.bounds, {padding:[50,50], maxZoom:15});
-      updateAnsBar();
-      return;
-    }
-  }
-  // fallback: 좌표로 이동만
-  map.flyTo([cur.lat, cur.lng], 15, {duration:1.0});
+  const geo = await fetchDongGeo(cur.d, cur.gu, cur.rn);
+  if(geo) drawPolygon(geo, false); else drawFallback(false);
   updateAnsBar();
 }
 
-/* 정답 폴리곤 표시 */
+/* 정답 폴리곤 */
 async function showOkPolygon(){
-  const geo = await fetchVWorldGeo(cur.d, cur.gu, cur.rn);
-  if(geo){
-    const latlngs = geoToLatLngs(geo);
-    if(latlngs){
-      const isMulti = geo.geometry.type === 'MultiPolygon';
-      const drawn = drawPolygon(latlngs, isMulti, true);
-      tempL.push(drawn.layer, drawn.lm);
-      updateAnsBar();
-      return;
-    }
-  }
+  const geo = await fetchDongGeo(cur.d, cur.gu, cur.rn);
+  if(geo) drawPolygon(geo, true); else drawFallback(true);
   updateAnsBar();
 }
 
-/* mkCircle / mkMark 완전 비활성화 */
 function mkCircle(){}
 function mkMark(){}
 
@@ -1023,12 +946,8 @@ function closeNoModal(){
 }
 
 function focusA(){
-  // 폴리곤이 있으면 그 범위로, 없으면 좌표로
-  const allLayers = [...tempL,...wrongL].filter(l=>l.getBounds);
-  if(allLayers.length>0){
-    try{ const b=allLayers[0].getBounds(); if(b.isValid()) return map.fitBounds(b,{padding:[40,40],maxZoom:15}); }catch(e){}
-  }
-  if(cur) map.flyTo([cur.lat,cur.lng],14,{duration:1.2});
+  if(!cur) return;
+  map.flyTo([cur.lat,cur.lng],14,{duration:1.2});
 }
 function resetV(){map.flyTo([37.55,127.00],10,{duration:1});}
 function skipQ(){
@@ -1064,9 +983,9 @@ function addR(ok,q,skip){
    ⚠️ 배포 전 아래 두 값을 실제 키로 교체하세요
 ════════════════════════════════════════════ */
 // ════ 테스트 모드 ════
-const SUPABASE_URL=''; const SUPABASE_KEY=''; const TOSS_CLIENT_KEY=''; const EDGE='';
+const SUPABASE_URL='https://emgsueepzioudqnitkyn.supabase.co'; const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemhvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMwMDYyMjksImV4cCI6MjA1ODU4MjIyOX0.Yq_8QkVJuiwMdFkOLGiXBVLkj5MKzGvbPbmElKlXeuk'; const TOSS_CLIENT_KEY=''; const EDGE='https://emgsueepzioudqnitkyn.supabase.co/functions/v1';
 const sb={auth:{onAuthStateChange:()=>{},getSession:async()=>({data:{session:{access_token:'test'}}}),signInWithOAuth:async()=>{},signInWithPassword:async()=>({data:{},error:null}),signUp:async()=>({data:{},error:null}),signOut:async()=>{}},from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:null,error:null})})})}),rpc:async()=>({data:{ok:true,plays_count:1},error:null})};
-const currentUser={id:'test-001',email:'test@mapdong.com',user_metadata:{name:'테스트유저'}};
+const currentUser={id:'test-001',email:'test@mapdong.com',user_metadata:{name:'테스터'}};
 let userProfile={user_id:'test-001',is_verified:true,plays_count:0,is_premium:true,premium_until:'2099-12-31'};
 let authMode='login'; let toastTimer;
 
