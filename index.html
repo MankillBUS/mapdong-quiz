@@ -74,7 +74,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .pay-secure{font-size:.7rem;color:var(--text-dim);margin-top:10px;display:flex;align-items:center;justify-content:center;gap:5px;}
 
 /* ── 유저 칩 & 드롭다운 ── */
-#user-chip{display:none;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 11px 4px 5px;cursor:pointer;transition:all .2s;position:relative;;z-index:1100;}
+#user-chip{display:none;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 11px 4px 5px;cursor:pointer;transition:all .2s;position:relative;z-index:2100;}
 #user-chip:hover{border-color:var(--accent);}
 #user-chip.visible{display:flex;}
 .user-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:#000;flex-shrink:0;}
@@ -82,7 +82,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .user-badge{font-size:.56rem;padding:2px 6px;border-radius:10px;font-weight:700;}
 .user-badge.premium{background:var(--gold);color:#000;}
 .user-badge.trial{background:var(--surface);border:1px solid var(--text-dim);color:var(--text-dim);}
-#user-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px;min-width:190px;z-index:1200;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5);}
+#user-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px;min-width:190px;z-index:2200;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5);}
 #user-dropdown.show{display:block;}
 .dd-info{padding:8px 10px 10px;border-bottom:1px solid var(--border);margin-bottom:6px;}
 .dd-email{font-size:.68rem;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -205,7 +205,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 #toast.show{transform:translateX(-50%) translateY(0);}
 #toast.success{border-color:var(--accent3);color:var(--accent3);}
 #toast.error{border-color:var(--accent2);color:var(--accent2);}
-#header{background:linear-gradient(135deg,#0d1929,#111827);border-bottom:2px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:1000;position:relative;}
+#header{background:linear-gradient(135deg,#0d1929,#111827);border-bottom:2px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:2000;position:relative;overflow:visible;}
 #header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);}
 .logo{font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:var(--accent);text-shadow:0 0 15px var(--accent);letter-spacing:2px;}
 .logo span{color:var(--accent2);}
@@ -431,7 +431,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <p class="gu-mode-hint" id="gu-mode-hint">구가 있는 도시를 선택하면 구(區) 위치 퀴즈로 전환됩니다</p>
   </div>
 
-  <div style="color:var(--text-dim);font-size:.82rem">선택 문제 수: <span style="color:var(--accent);font-weight:700" id="scnt">0</span>개</div>
+  <div style="color:var(--text-dim);font-size:.82rem">선택 문제 수: <span style="color:var(--accent);font-weight:700" id="scnt">0</span>개 <span id="scnt-hint" style="font-size:.7rem;color:var(--text-dim)"></span></div>
 
   <!-- 난이도 설정 -->
   <div class="difficulty-row">
@@ -895,32 +895,26 @@ function updateCnt(){
     }
   });
   document.getElementById('scnt').textContent = n;
+  const h=document.getElementById('scnt-hint');
+  if(h){ h.textContent=guMode?(n===0?'(구 있는 도시 선택필요)':'(구 맞추기 모드)'):''; }
 }
 updateCnt();
 
-async function goHome(){
-  // 현재 퀴즈 상태 초기화
+function goHome(){
+  // 퀴즈 상태 초기화
   allDongs=[]; queue=[]; cur=null; canAns=true;
   totC=0; totW=0; streak=0; qCnt=0; sessAns=0;
 
   // 폴리곤 레이어 정리
-  [...tempL,...wrongL].forEach(l=>map&&map.removeLayer&&map.removeLayer(l));
+  [...tempL,...wrongL].forEach(l=>{try{map&&map.removeLayer(l);}catch(e){}});
   tempL=[]; wrongL=[];
 
-  // 로그인 상태 재확인
-  const { data:{ session } } = await sb.auth.getSession();
-  if(session?.user){
-    currentUser = session.user;
-    await loadProfile();
-    // 인증/결제 상태 재검사
-    if(isAdmin()){ showOnly('start'); return; }
-    if(!userProfile?.is_verified){ showOnly('screen-verify'); return; }
-    if(!isActivePremium() && (userProfile?.plays_count||0)>=300){ showOnly('screen-paywall'); return; }
-    showOnly('start');
-  } else {
-    currentUser=null; userProfile=null;
-    showOnly('screen-login');
-  }
+  // 이미 로그인된 currentUser/userProfile 그대로 사용 (세션 재조회 X)
+  if(!currentUser){ showOnly('screen-login'); return; }
+  if(isAdmin()){ showOnly('start'); return; }
+  if(!userProfile?.is_verified){ showOnly('screen-verify'); return; }
+  if(!isActivePremium() && (userProfile?.plays_count||0)>=300){ showOnly('screen-paywall'); return; }
+  showOnly('start');
 }
 
 function syncDiff(v){
@@ -938,10 +932,9 @@ function adjDiff(d){
 }
 
 async function startQuiz(){
-  const s=document.querySelectorAll('.stag.sel');
-  if(!s.length){toast('지역을 선택하세요!','error');return;}
-  allDongs=[];
   const sel=document.querySelectorAll('.stag.sel');
+  if(!sel.length){toast('지역을 선택하세요!','error');return;}
+  allDongs=[];
   sel.forEach(t=>{
     const r=t.dataset.r;
     if(guMode){
@@ -963,6 +956,11 @@ async function startQuiz(){
     }
   });
 
+  if(!allDongs.length){
+    if(guMode) toast('구가 있는 도시(서울/수원 등)를 선택하세요!','error');
+    else toast('문제를 찾을 수 없습니다.','error');
+    return;
+  }
   document.getElementById('start').classList.add('hidden');
   initMap(); buildFilter(); reshuffle(); nextQ();
 
