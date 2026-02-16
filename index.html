@@ -289,8 +289,10 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     </button>
     <div class="login-divider">또는 이메일로 계속</div>
     <div class="login-email-form">
-      <input class="login-input" id="inp-email" type="email" placeholder="이메일 주소">
-      <input class="login-input" id="inp-pw" type="password" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doEmailAuth()">
+      <label for="inp-email" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">이메일 주소</label>
+      <input class="login-input" id="inp-email" type="email" placeholder="이메일 주소" autocomplete="email">
+      <label for="inp-pw" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">비밀번호</label>
+      <input class="login-input" id="inp-pw" type="password" placeholder="비밀번호" autocomplete="current-password" onkeydown="if(event.key==='Enter')doEmailAuth()">
       <div class="login-err" id="login-err"></div>
       <button class="btn-primary" id="btn-email-auth" onclick="doEmailAuth()">로그인</button>
       <div class="login-switch">계정이 없으신가요? <a onclick="toggleAuthMode()"><span id="switch-link">회원가입</span></a></div>
