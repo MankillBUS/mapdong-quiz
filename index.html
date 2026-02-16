@@ -74,7 +74,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .pay-secure{font-size:.7rem;color:var(--text-dim);margin-top:10px;display:flex;align-items:center;justify-content:center;gap:5px;}
 
 /* ── 유저 칩 & 드롭다운 ── */
-#user-chip{display:none;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 11px 4px 5px;cursor:pointer;transition:all .2s;position:relative;}
+#user-chip{display:none;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 11px 4px 5px;cursor:pointer;transition:all .2s;position:relative;;z-index:1100;}
 #user-chip:hover{border-color:var(--accent);}
 #user-chip.visible{display:flex;}
 .user-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:#000;flex-shrink:0;}
@@ -82,7 +82,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .user-badge{font-size:.56rem;padding:2px 6px;border-radius:10px;font-weight:700;}
 .user-badge.premium{background:var(--gold);color:#000;}
 .user-badge.trial{background:var(--surface);border:1px solid var(--text-dim);color:var(--text-dim);}
-#user-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px;min-width:190px;z-index:9999;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5);}
+#user-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px;min-width:190px;z-index:1200;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5);}
 #user-dropdown.show{display:block;}
 .dd-info{padding:8px 10px 10px;border-bottom:1px solid var(--border);margin-bottom:6px;}
 .dd-email{font-size:.68rem;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -147,6 +147,14 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .load-pct{color:var(--accent);font-weight:800;font-size:1rem;}
 #loading-screen{display:flex!important;align-items:center;justify-content:center;}
 #loading-screen.hidden{display:none!important;}
+
+/* ── 홈 버튼 ── */
+#home-btn{
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+  color:#e8f4fd;font-size:.78rem;font-weight:600;padding:5px 12px;
+  border-radius:14px;cursor:pointer;transition:.2s;white-space:nowrap;
+}
+#home-btn:hover{background:rgba(0,212,255,.2);border-color:var(--accent);color:var(--accent);}
 
 /* ── 난이도 설정 ── */
 .difficulty-row{background:rgba(255,255,255,.06);border-radius:12px;padding:14px 16px;margin:12px 0;}
@@ -435,14 +443,17 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <button class="diff-btn" onclick="adjDiff(+0.5)">＋</button>
       <span class="diff-badge" id="diff-val">1.5 km</span>
     </div>
-    <p class="diff-hint">클릭 위치가 정답 중심에서 이 거리 이내면 정답으로 인정</p>
+    <p class="diff-hint">동 퀴즈: 설정 거리 이내 정답 | 구 퀴즈: 최소 5km 자동 적용</p>
   </div>
   <button class="sbtn" onclick="startQuiz()">퀴즈 시작! 🚀</button>
 </div>
 
 <!-- 헤더 -->
 <div id="header">
-  <div class="logo">Map<span>Dong</span></div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="logo">Map<span>Dong</span></div>
+    <button id="home-btn" onclick="goHome()" title="처음으로">🏠 처음으로</button>
+  </div>
   <div id="header-right" style="display:flex;align-items:center;gap:10px;">
   <div id="stats-bar">
     <div class="sb"><div class="sl">문제</div><div class="sv" id="sQ">-</div></div>
@@ -887,6 +898,31 @@ function updateCnt(){
 }
 updateCnt();
 
+async function goHome(){
+  // 현재 퀴즈 상태 초기화
+  allDongs=[]; queue=[]; cur=null; canAns=true;
+  totC=0; totW=0; streak=0; qCnt=0; sessAns=0;
+
+  // 폴리곤 레이어 정리
+  [...tempL,...wrongL].forEach(l=>map&&map.removeLayer&&map.removeLayer(l));
+  tempL=[]; wrongL=[];
+
+  // 로그인 상태 재확인
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session?.user){
+    currentUser = session.user;
+    await loadProfile();
+    // 인증/결제 상태 재검사
+    if(isAdmin()){ showOnly('start'); return; }
+    if(!userProfile?.is_verified){ showOnly('screen-verify'); return; }
+    if(!isActivePremium() && (userProfile?.plays_count||0)>=300){ showOnly('screen-paywall'); return; }
+    showOnly('start');
+  } else {
+    currentUser=null; userProfile=null;
+    showOnly('screen-login');
+  }
+}
+
 function syncDiff(v){
   okRadius=parseFloat(v);
   document.getElementById('diff-val').textContent=v+' km';
@@ -967,7 +1003,7 @@ async function startBgCache(){
 
 function initMap(){
   map=L.map('map',{center:[37.55,127.00],zoom:10,scrollWheelZoom:true});
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
     attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19
   }).addTo(map);
   map.on('click',onMapClick);
@@ -1030,7 +1066,9 @@ function onMapClick(e){
   incrementPlays().then(result => {
     if(!result.ok){ canAns=true; return; }
     const dist=getDist(e.latlng.lat,e.latlng.lng,cur.lat,cur.lng);
-    if(dist<=okRadius)doOk(dist); else doNo(dist);
+    // 구 모드는 기본 허용 거리를 더 크게 (구가 동보다 훨씬 큼)
+    const effectiveRadius = cur.mode==='gu' ? Math.max(okRadius, 5.0) : okRadius;
+    if(dist<=effectiveRadius)doOk(dist,effectiveRadius); else doNo(dist,effectiveRadius);
   });
 }
 
@@ -1402,7 +1440,7 @@ function updateAnsBar(){
   if(bo) bo.style.display = hasOk    ? '' : 'none';
 }
 
-function doOk(dist){
+function doOk(dist,effectiveRadius=okRadius){
   totC++;streak++;sessAns++;
   addR(true,cur);updStats();updPrg();
   showOkPolygon();  // 초록 폴리곤 (tempL에 추가됨)
@@ -1413,11 +1451,11 @@ function doOk(dist){
   const b=document.getElementById('mbox'); b.className='ok';
   document.getElementById('mE').textContent=streak>=5?'🔥':streak>=3?'🎯':'✅';
   document.getElementById('mT').textContent=streak>=5?`연속 ${streak}개 정답!`:'정답입니다!';
-  document.getElementById('mD').innerHTML=`<span class="mdn">${cur.rn} ${cur.gu} ${cur.d}</span><br>클릭 위치 기준 <strong>${dist.toFixed(2)}km</strong> · ${okRadius}km 이내`;
+  document.getElementById('mD').innerHTML=`<span class="mdn">${cur.rn} ${cur.gu} ${cur.d}</span><br>클릭 위치 기준 <strong>${dist.toFixed(2)}km</strong> · ${effectiveRadius.toFixed(1)}km 이내`;
   ov.classList.add('show');
 }
 
-function doNo(dist){
+function doNo(dist,effectiveRadius=okRadius){
   totW++;streak=0;sessAns++;
   addR(false,cur);updStats();updPrg();
 
