@@ -435,7 +435,7 @@ document.getElementById('gu-quiz-mode').addEventListener('change', function(e){
   isGuQuizMode = e.target.checked;
   const desc = document.getElementById('mode-desc');
   desc.textContent = isGuQuizMode 
-    ? '구 이름만 보고 동 위치 찾기 (난이도 ↑)' 
+    ? '구 이름만 보고 동 위치 찾기 (난이도 ↓)' 
     : '동 이름을 보고 위치 찾기';
 });
 
@@ -741,8 +741,10 @@ function closeOkModal(){
 function nextQ(){
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
-  tempL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
-  tempL=[]; canAns=true;
+  
+  // ★ 정답 레이블(tempL)은 유지, 오답 마커(wrongL)만 제거
+  wrongL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
+  wrongL=[]; canAns=true;
   
   // ★ 이전 정답 폴리곤 제거 (closeNoModal에서도)
   if(answerLayer){
@@ -1017,6 +1019,9 @@ async function signOut(){
 
 /* ── 세션 감지 & 라우팅 ── */
 sb.auth.onAuthStateChange(async(event, session) => {
+  // ★ 토큰 갱신 시 무시 (탭 전환 문제 방지)
+  if(event === 'TOKEN_REFRESHED') return;
+  
   if(session?.user){
     currentUser = session.user;
     
