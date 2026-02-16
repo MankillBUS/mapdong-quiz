@@ -74,7 +74,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .pay-secure{font-size:.7rem;color:var(--text-dim);margin-top:10px;display:flex;align-items:center;justify-content:center;gap:5px;}
 
 /* ── 유저 칩 & 드롭다운 ── */
-#user-chip{display:none;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 11px 4px 5px;cursor:pointer;transition:all .2s;position:relative;z-index:2100;}
+#user-chip{display:none;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 11px 4px 5px;cursor:pointer;transition:all .2s;position:relative;}
 #user-chip:hover{border-color:var(--accent);}
 #user-chip.visible{display:flex;}
 .user-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:#000;flex-shrink:0;}
@@ -82,7 +82,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .user-badge{font-size:.56rem;padding:2px 6px;border-radius:10px;font-weight:700;}
 .user-badge.premium{background:var(--gold);color:#000;}
 .user-badge.trial{background:var(--surface);border:1px solid var(--text-dim);color:var(--text-dim);}
-#user-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px;min-width:190px;z-index:2200;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5);}
+#user-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px;min-width:190px;z-index:9999;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5);}
 #user-dropdown.show{display:block;}
 .dd-info{padding:8px 10px 10px;border-bottom:1px solid var(--border);margin-bottom:6px;}
 .dd-email{font-size:.68rem;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -103,109 +103,12 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .trial-fill{height:100%;background:linear-gradient(90deg,var(--gold),#ff8c00);border-radius:10px;transition:width .4s;}
 #trial-bar.hidden{display:none;}
 
-/* ── 백그라운드 캐싱 미니 UI ── */
-#bg-cache{position:absolute;top:14px;right:14px;z-index:950;pointer-events:none;}
-#bg-cache.hidden{display:none;}
-.bg-cache-row{background:rgba(13,25,41,.88);backdrop-filter:blur(8px);
-  border:1px solid rgba(0,212,255,.25);border-radius:12px;
-  padding:7px 12px;display:flex;align-items:center;gap:7px;
-  font-size:.72rem;color:#e8f4fd;min-width:200px;box-shadow:0 4px 16px rgba(0,0,0,.4);}
-.bg-icon{font-size:.9rem;animation:pulse .8s infinite alternate;}
-@keyframes pulse{from{opacity:.5}to{opacity:1}}
-.bg-text{color:var(--accent);font-weight:700;white-space:nowrap;}
-.bg-bar-wrap{flex:1;height:5px;background:rgba(255,255,255,.1);border-radius:10px;overflow:hidden;}
-.bg-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#39ff14);border-radius:10px;transition:width .4s ease;}
-.bg-pct{font-weight:800;color:#39ff14;min-width:34px;text-align:right;}
-.bg-cnt{color:var(--text-dim);white-space:nowrap;}
-
-/* ── 구 맞추기 모드 ── */
-.gu-mode-row{text-align:center;margin:10px 0 4px;}
-.gu-mode-btn{
-  background:rgba(255,200,0,.1);border:2px solid rgba(255,200,0,.3);
-  color:#ffd700;font-size:.88rem;font-weight:700;
-  padding:8px 22px;border-radius:20px;cursor:pointer;
-  transition:.25s;letter-spacing:.5px;
-}
-.gu-mode-btn:hover{background:rgba(255,200,0,.2);}
-.gu-mode-btn.on{background:#ffd700;color:#000;border-color:#ffd700;box-shadow:0 0 20px rgba(255,215,0,.4);}
-#gu-mode-badge{
-  display:inline-block;background:rgba(0,0,0,.3);color:inherit;
-  font-size:.7rem;padding:1px 7px;border-radius:10px;margin-left:6px;
-}
-.gu-mode-btn.on #gu-mode-badge{background:rgba(0,0,0,.2);}
-.gu-mode-hint{font-size:.72rem;color:var(--text-dim);margin:5px 0 0;text-align:center;}
-
-/* ── 폴리곤 로딩 화면 ── */
-.loading-box{display:flex;flex-direction:column;align-items:center;gap:12px;padding:40px 32px;max-width:340px;width:90%;background:rgba(13,25,41,.95);border-radius:20px;border:1px solid rgba(0,212,255,.2);box-shadow:0 0 40px rgba(0,212,255,.15);}
-.loading-icon{font-size:3rem;animation:spin 3s linear infinite;}
-@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
-.loading-title{font-size:1.2rem;font-weight:800;color:#fff;margin:0;}
-.loading-sub{font-size:.82rem;color:var(--text-dim);text-align:center;line-height:1.5;margin:0;}
-.load-bar-wrap{width:100%;height:10px;background:rgba(255,255,255,.1);border-radius:20px;overflow:hidden;}
-.load-bar-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#39ff14);border-radius:20px;transition:width .3s ease;}
-.load-stat{font-size:.85rem;color:var(--text-dim);display:flex;gap:8px;align-items:center;}
-.load-pct{color:var(--accent);font-weight:800;font-size:1rem;}
-#loading-screen{display:flex!important;align-items:center;justify-content:center;}
-#loading-screen.hidden{display:none!important;}
-
-/* ── 홈 버튼 ── */
-#home-btn{
-  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
-  color:#e8f4fd;font-size:.78rem;font-weight:600;padding:5px 12px;
-  border-radius:14px;cursor:pointer;transition:.2s;white-space:nowrap;
-}
-#home-btn:hover{background:rgba(0,212,255,.2);border-color:var(--accent);color:var(--accent);}
-
-/* ── 난이도 설정 ── */
-.difficulty-row{background:rgba(255,255,255,.06);border-radius:12px;padding:14px 16px;margin:12px 0;}
-.diff-label{display:block;font-size:.8rem;font-weight:700;color:var(--accent);margin-bottom:8px;letter-spacing:.5px;}
-.diff-ctrl{display:flex;align-items:center;gap:8px;}
-.diff-ctrl input[type=range]{flex:1;accent-color:var(--accent);height:4px;cursor:pointer;}
-.diff-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;width:28px;height:28px;border-radius:6px;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s;}
-.diff-btn:hover{background:var(--accent);color:#000;}
-.diff-badge{background:var(--accent);color:#000;font-weight:800;font-size:.85rem;padding:3px 10px;border-radius:20px;white-space:nowrap;min-width:60px;text-align:center;}
-.diff-hint{font-size:.72rem;color:var(--text-dim);margin:6px 0 0;text-align:center;}
-
-/* 퀴즈 중 난이도 바 */
-#live-diff{position:absolute;bottom:64px;left:50%;transform:translateX(-50%);
-  background:rgba(13,25,41,.85);backdrop-filter:blur(8px);
-  border:1px solid rgba(255,255,255,.1);border-radius:20px;
-  padding:6px 14px;display:flex;align-items:center;gap:8px;
-  z-index:900;pointer-events:auto;}
-#live-diff .ld-label{font-size:.75rem;color:var(--accent);font-weight:700;}
-#live-diff input[type=range]{width:90px;accent-color:var(--accent);cursor:pointer;}
-#live-diff #ld-val{font-size:.8rem;font-weight:700;color:#fff;min-width:42px;}
-
-/* ── 동 라벨 툴팁 ── */
-.leaflet-container{background:#0a1628!important;}
-.dong-label{
-  background:rgba(255,60,110,.92);
-  border:none;border-radius:6px;
-  color:#fff;font-size:13px;font-weight:700;
-  font-family:'Noto Sans KR',sans-serif;
-  padding:4px 10px;white-space:nowrap;
-  box-shadow:0 2px 10px rgba(255,60,110,.5);
-  pointer-events:none;
-}
-.dong-label.ok-label{
-  background:rgba(57,255,20,.92) !important;
-  color:#000 !important;
-  box-shadow:0 2px 10px rgba(57,255,20,.5) !important;
-}
-.dong-label::before{ display:none !important; }
-.leaflet-tooltip-top::before{ display:none !important; }
-
-/* ── 결제 플랜 탭 ── */
-.plan-tab{background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);padding:6px 14px;border-radius:20px;font-size:.75rem;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;}
-.plan-tab.active{background:linear-gradient(135deg,var(--gold),#e6a800);color:#000;border-color:var(--gold);font-weight:700;}
-.plan-panel.hidden{display:none!important;}
-
 /* ── 토스트 ── */
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);z-index:99999;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 22px;font-size:.82rem;color:var(--text);box-shadow:0 8px 30px rgba(0,0,0,.5);transition:transform .3s ease;white-space:nowrap;pointer-events:none;}
 #toast.show{transform:translateX(-50%) translateY(0);}
 #toast.success{border-color:var(--accent3);color:var(--accent3);}
 #toast.error{border-color:var(--accent2);color:var(--accent2);}
-#header{background:linear-gradient(135deg,#0d1929,#111827);border-bottom:2px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:2000;position:relative;overflow:visible;}
+#header{background:linear-gradient(135deg,#0d1929,#111827);border-bottom:2px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:1000;position:relative;}
 #header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);}
 .logo{font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:var(--accent);text-shadow:0 0 15px var(--accent);letter-spacing:2px;}
 .logo span{color:var(--accent2);}
@@ -238,11 +141,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .mb{background:rgba(17,24,39,.9);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:.7rem;font-family:'Noto Sans KR',sans-serif;transition:all .2s;backdrop-filter:blur(8px);}
 .mb:hover{border-color:var(--accent);color:var(--accent);}
 /* 정답(OK) 모달: 기존 중앙 full overlay */
-/* 모달: 항상 우하단 패널 (지도를 가리지 않음) */
-#moverlay{position:fixed;inset:0;background:transparent;backdrop-filter:none;z-index:9999;display:none;align-items:flex-end;justify-content:flex-end;padding:0 16px 80px 0;pointer-events:none;}
+#moverlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(6px);z-index:9999;display:none;align-items:center;justify-content:center;}
 #moverlay.show{display:flex;}
-#moverlay #mbox{pointer-events:auto;}
-/* 오답(NO) 모달: 동일 스타일 유지 */
+/* 오답(NO) 모달: 지도를 가리지 않는 우하단 패널 — 지도 위 이벤트 통과 */
 #moverlay.no-mode{background:transparent;backdrop-filter:none;pointer-events:none;align-items:flex-end;justify-content:flex-end;padding:0 16px 80px 0;}
 #moverlay.no-mode #mbox{pointer-events:auto;}
 #mbox{background:linear-gradient(135deg,#111827,#0d1929);border-radius:16px;padding:24px 28px;max-width:400px;width:90%;text-align:center;}
@@ -260,11 +161,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 #ans-bar.show{display:flex;}
 #ans-bar .ab-label{font-size:.78rem;color:#ff3c6e;font-weight:700;white-space:nowrap;}
 #ans-bar .ab-dong{font-family:'Black Han Sans',sans-serif;font-size:1rem;color:var(--text);white-space:nowrap;}
-#ans-bar .ab-close{border:none;border-radius:8px;padding:5px 12px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;transition:all .2s;}
-#ans-bar .ab-wrong{background:#ff3c6e;color:#fff;}
-#ans-bar .ab-wrong:hover{background:#ff6b8a;transform:scale(1.05);}
-#ans-bar .ab-ok{background:#39ff14;color:#000;}
-#ans-bar .ab-ok:hover{background:#5fff3a;transform:scale(1.05);}
+#ans-bar .ab-close{background:#ff3c6e;color:#000;border:none;border-radius:8px;padding:5px 12px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;transition:all .2s;}
+#ans-bar .ab-close:hover{background:#ff6b8a;transform:scale(1.05);}
 #start{position:fixed;inset:0;background:var(--bg);z-index:9998;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;padding:20px;}
 .st{font-family:'Black Han Sans',sans-serif;font-size:2.5rem;color:var(--accent);text-shadow:0 0 30px var(--accent);text-align:center;}
 .ss{color:var(--text-dim);font-size:.88rem;text-align:center;line-height:1.8;}
@@ -273,7 +171,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .stag:hover,.stag.sel{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.1);}
 .sbtn{background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;border:none;border-radius:12px;padding:14px 44px;font-size:1.1rem;font-weight:900;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;letter-spacing:2px;}
 .sbtn:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(0,212,255,.5);}
+.leaflet-container{background:#0a1628!important;}
 ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.stag-cnt{font-size:.7em;opacity:.65;font-weight:400;margin-left:2px;}
 </style>
 </head>
 <body>
@@ -289,10 +189,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     </button>
     <div class="login-divider">또는 이메일로 계속</div>
     <div class="login-email-form">
-      <label for="inp-email" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">이메일 주소</label>
-      <input class="login-input" id="inp-email" type="email" placeholder="이메일 주소" autocomplete="email">
-      <label for="inp-pw" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">비밀번호</label>
-      <input class="login-input" id="inp-pw" type="password" placeholder="비밀번호" autocomplete="current-password" onkeydown="if(event.key==='Enter')doEmailAuth()">
+      <input class="login-input" id="inp-email" type="email" placeholder="이메일 주소">
+      <input class="login-input" id="inp-pw" type="password" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doEmailAuth()">
       <div class="login-err" id="login-err"></div>
       <button class="btn-primary" id="btn-email-auth" onclick="doEmailAuth()">로그인</button>
       <div class="login-switch">계정이 없으신가요? <a onclick="toggleAuthMode()"><span id="switch-link">회원가입</span></a></div>
@@ -336,71 +234,20 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 <!-- ③ 결제 페이월 화면 -->
 <div id="screen-paywall" class="fs-screen hidden">
-  <div class="pay-card" style="max-width:520px;overflow-y:auto;max-height:90vh;">
+  <div class="pay-card">
     <div class="pay-icon">🎯</div>
-    <div class="pay-title">체험 기간이 종료되었습니다</div>
-    <div class="pay-used">무료 체험 <strong style="color:var(--gold)">1일</strong>이 지났습니다!</div>
+    <div class="pay-title">체험판 기능을 모두 사용하셨습니다</div>
+    <div class="pay-used">무료 체험 <strong style="color:var(--gold)">300문제</strong>를 모두 풀었습니다!</div>
     <div class="pay-divider"></div>
-
-    <!-- 플랜 탭 -->
-    <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;justify-content:center;">
-      <button class="plan-tab active" onclick="switchPlan('day')" id="tab-day">일별</button>
-      <button class="plan-tab" onclick="switchPlan('month')" id="tab-month">1개월</button>
-      <button class="plan-tab" onclick="switchPlan('quarter')" id="tab-quarter">3개월</button>
-      <button class="plan-tab" onclick="switchPlan('year')" id="tab-year">1년</button>
-    </div>
-
-    <!-- 일별 플랜 -->
-    <div id="plan-day" class="plan-panel">
-      <div class="pay-plan-label">일별 이용권</div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin:12px 0;">
-        <button onclick="changeDays(-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:50%;font-size:1.2rem;cursor:pointer;">−</button>
-        <div style="text-align:center;">
-          <div style="font-family:'Black Han Sans',sans-serif;font-size:2.5rem;color:var(--accent);line-height:1;" id="day-count">1</div>
-          <div style="font-size:.7rem;color:var(--text-dim);">일</div>
-        </div>
-        <button onclick="changeDays(1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:50%;font-size:1.2rem;cursor:pointer;">+</button>
-      </div>
-      <input type="range" id="day-slider" min="1" max="25" value="1" oninput="setDays(this.value)"
-        style="width:100%;margin-bottom:8px;accent-color:var(--accent);">
-      <div class="pay-price" id="day-price">600<span>원</span></div>
-      <div style="font-size:.7rem;color:var(--text-dim);margin-bottom:14px;">600원 × <span id="day-mult">1</span>일</div>
-    </div>
-
-    <!-- 1개월 플랜 -->
-    <div id="plan-month" class="plan-panel hidden">
-      <div class="pay-plan-label">월 정기구독</div>
-      <div class="pay-price">12,000<span>원 / 월</span></div>
-      <ul class="pay-features" style="margin-bottom:14px;">
-        <li>매월 자동 결제</li>
-        <li>언제든 해지 가능</li>
-        <li>무제한 퀴즈 이용</li>
-      </ul>
-    </div>
-
-    <!-- 3개월 플랜 -->
-    <div id="plan-quarter" class="plan-panel hidden">
-      <div class="pay-plan-label">3개월 이용권</div>
-      <div class="pay-price">24,000<span>원</span></div>
-      <ul class="pay-features" style="margin-bottom:14px;">
-        <li>월 8,000원 (33% 할인)</li>
-        <li>90일간 무제한 이용</li>
-        <li>1회성 결제</li>
-      </ul>
-    </div>
-
-    <!-- 1년 플랜 -->
-    <div id="plan-year" class="plan-panel hidden">
-      <div class="pay-plan-label">연간 이용권 ⭐ 최저가</div>
-      <div class="pay-price">60,000<span>원</span></div>
-      <ul class="pay-features" style="margin-bottom:14px;">
-        <li>월 5,000원 (58% 할인)</li>
-        <li>365일 무제한 이용</li>
-        <li>1회성 결제</li>
-      </ul>
-    </div>
-
-    <button class="btn-pay" id="btn-pay" onclick="startPayment()">💳 결제하기</button>
+    <div class="pay-plan-label">계속하려면 플랜 결제</div>
+    <div class="pay-price">5,000<span>원 / 월</span></div>
+    <ul class="pay-features">
+      <li>무제한 문제 풀기 (30일간)</li>
+      <li>수도권 전 지역 500+ 행정동</li>
+      <li>정답률 · 연속 스트릭 통계</li>
+      <li>지역별 필터 & 진행률 추적</li>
+    </ul>
+    <button class="btn-pay" id="btn-pay" onclick="startPayment()">💳 결제하기 (5,000원)</button>
     <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
   </div>
 </div>
@@ -412,50 +259,26 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div style="text-align:center">
     <div style="color:var(--text-dim);font-size:.72rem;margin-bottom:8px">📍 지역 선택 (복수 가능)</div>
     <div class="stags" id="stags">
-      <div class="stag sel" data-r="seoul">서울특별시</div>
-      <div class="stag sel" data-r="incheon">인천광역시</div>
-      <div class="stag sel" data-r="suwon">수원시</div>
-      <div class="stag sel" data-r="seongnam">성남시</div>
-      <div class="stag sel" data-r="gwangju">경기도 광주시</div>
-      <div class="stag" data-r="goyang">고양시</div>
-      <div class="stag" data-r="yongin">용인시</div>
-      <div class="stag" data-r="bucheon">부천시</div>
-      <div class="stag" data-r="anyang">안양시</div>
-      <div class="stag" data-r="hwaseong">화성시</div>
+      <div class="stag sel" data-r="seoul">서울특별시 <span class="stag-cnt" id="scnt-seoul"></span></div>
+      <div class="stag sel" data-r="incheon">인천광역시 <span class="stag-cnt" id="scnt-incheon"></span></div>
+      <div class="stag sel" data-r="suwon">수원시 <span class="stag-cnt" id="scnt-suwon"></span></div>
+      <div class="stag sel" data-r="seongnam">성남시 <span class="stag-cnt" id="scnt-seongnam"></span></div>
+      <div class="stag sel" data-r="gwangju">경기도 광주시 <span class="stag-cnt" id="scnt-gwangju"></span></div>
+      <div class="stag" data-r="goyang">고양시 <span class="stag-cnt" id="scnt-goyang"></span></div>
+      <div class="stag" data-r="yongin">용인시 <span class="stag-cnt" id="scnt-yongin"></span></div>
+      <div class="stag" data-r="bucheon">부천시 <span class="stag-cnt" id="scnt-bucheon"></span></div>
+      <div class="stag" data-r="anyang">안양시 <span class="stag-cnt" id="scnt-anyang"></span></div>
+      <div class="stag" data-r="hwaseong">화성시 <span class="stag-cnt" id="scnt-hwaseong"></span></div>
     </div>
   </div>
-
-  <!-- 구 맞추기 모드 토글 -->
-  <div class="gu-mode-row">
-    <button id="btn-gu-mode" class="gu-mode-btn" onclick="toggleGuMode()">
-      🏢 구 맞추기 모드 <span id="gu-mode-badge">OFF</span>
-    </button>
-    <p class="gu-mode-hint" id="gu-mode-hint">구가 있는 도시를 선택하면 구(區) 위치 퀴즈로 전환됩니다</p>
-  </div>
-
-  <div style="color:var(--text-dim);font-size:.82rem">선택 문제 수: <span style="color:var(--accent);font-weight:700" id="scnt">0</span>개 <span id="scnt-hint" style="font-size:.7rem;color:var(--text-dim)"></span></div>
-
-  <!-- 난이도 설정 -->
-  <div class="difficulty-row">
-    <label class="diff-label">🎯 난이도 — 정답 인정 거리</label>
-    <div class="diff-ctrl">
-      <button class="diff-btn" onclick="adjDiff(-0.5)">－</button>
-      <input type="range" id="diff-range" min="0.5" max="10" step="0.5" value="1.5"
-        oninput="syncDiff(this.value)">
-      <button class="diff-btn" onclick="adjDiff(+0.5)">＋</button>
-      <span class="diff-badge" id="diff-val">1.5 km</span>
-    </div>
-    <p class="diff-hint">동 퀴즈: 설정 거리 이내 정답 | 구 퀴즈: 최소 5km 자동 적용</p>
-  </div>
+  <div style="color:var(--text-dim);font-size:.82rem">선택 동 합계: <span style="color:var(--accent);font-weight:700" id="scnt">0</span>개</div>
+</div>
   <button class="sbtn" onclick="startQuiz()">퀴즈 시작! 🚀</button>
 </div>
 
 <!-- 헤더 -->
 <div id="header">
-  <div style="display:flex;align-items:center;gap:10px;">
-    <div class="logo">Map<span>Dong</span></div>
-    <button id="home-btn" onclick="goHome()" title="처음으로">🏠 처음으로</button>
-  </div>
+  <div class="logo">Map<span>Dong</span></div>
   <div id="header-right" style="display:flex;align-items:center;gap:10px;">
   <div id="stats-bar">
     <div class="sb"><div class="sl">문제</div><div class="sv" id="sQ">-</div></div>
@@ -511,34 +334,11 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <button class="mb" onclick="focusA()">🎯 정답위치</button>
       <button class="mb" onclick="skipQ()">⏭ 건너뛰기</button>
     </div>
-    <!-- 폴리곤 캐싱 로딩 화면 -->
-<div id="loading-screen" class="fs-screen hidden">
-  <div class="loading-box">
-    <div class="loading-icon">🗺️</div>
-    <h2 class="loading-title">지도 데이터 로딩 중</h2>
-    <p class="loading-sub">행정동 경계를 미리 불러오는 중입니다<br>잠시만 기다려주세요!</p>
-    <div class="load-bar-wrap">
-      <div class="load-bar-fill" id="load-bar-fill"></div>
-    </div>
-    <div class="load-stat">
-      <span id="load-done">0</span> / <span id="load-total">0</span>개
-      <span class="load-pct" id="load-pct">0%</span>
-    </div>
-  </div>
-</div>
-
-<!-- 퀴즈 중 난이도 조절 -->
-    <div id="live-diff">
-      <span class="ld-label">🎯</span>
-      <input type="range" id="ld-range" min="0.5" max="10" step="0.5" value="1.5"
-        oninput="okRadius=parseFloat(this.value);document.getElementById('ld-val').textContent=this.value+'km';">
-      <span id="ld-val">1.5km</span>
-    </div>
-    <!-- 정답/오답 위치 표시 바 -->
+    <!-- 오답 정답위치 표시 바 -->
     <div id="ans-bar">
-      <span class="ab-label">📍 위치 표시 중</span>
-      <button id="btn-clear-wrong" class="ab-close ab-wrong" onclick="clearAnsMarkers()">✕ 오답위치 끄기</button>
-      <button id="btn-clear-ok"    class="ab-close ab-ok"    onclick="clearOkMarkers()">✓ 정답위치 끄기</button>
+      <span class="ab-label">📍 정답위치 표시 중</span>
+      <span class="ab-dong" id="ab-dong-name"></span>
+      <button class="ab-close" onclick="clearAnsMarkers()">✕ 정답위치 끄기</button>
     </div>
   </div>
 </div>
@@ -560,467 +360,777 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 <script>
 const DB={
-  seoul:{name:"서울특별시",center:[37.565,126.978],zoom:11,color:"#00d4ff",dongs:[
-    {gu:"종로구",d:"청운효자동",lat:37.584,lng:126.973},{gu:"종로구",d:"사직동",lat:37.578,lng:126.969},
-    {gu:"종로구",d:"삼청동",lat:37.590,lng:126.982},{gu:"종로구",d:"부암동",lat:37.598,lng:126.962},
-    {gu:"종로구",d:"평창동",lat:37.605,lng:126.960},{gu:"종로구",d:"무악동",lat:37.574,lng:126.955},
-    {gu:"종로구",d:"교남동",lat:37.573,lng:126.962},{gu:"종로구",d:"가회동",lat:37.582,lng:126.985},
-    {gu:"종로구",d:"종로1·2·3·4가동",lat:37.570,lng:126.990},{gu:"종로구",d:"종로5·6가동",lat:37.572,lng:127.003},
-    {gu:"종로구",d:"이화동",lat:37.580,lng:127.002},{gu:"종로구",d:"혜화동",lat:37.584,lng:127.002},
-    {gu:"종로구",d:"창신1동",lat:37.579,lng:127.012},{gu:"종로구",d:"창신2동",lat:37.576,lng:127.013},
-    {gu:"종로구",d:"숭인1동",lat:37.578,lng:127.018},{gu:"종로구",d:"숭인2동",lat:37.581,lng:127.021},
-    {gu:"중구",d:"소공동",lat:37.564,lng:126.980},{gu:"중구",d:"회현동",lat:37.559,lng:126.979},
-    {gu:"중구",d:"명동",lat:37.563,lng:126.985},{gu:"중구",d:"필동",lat:37.561,lng:126.993},
-    {gu:"중구",d:"장충동",lat:37.558,lng:127.004},{gu:"중구",d:"광희동",lat:37.565,lng:127.005},
-    {gu:"중구",d:"을지로동",lat:37.567,lng:126.995},{gu:"중구",d:"신당동",lat:37.563,lng:127.017},
-    {gu:"중구",d:"약수동",lat:37.556,lng:127.015},{gu:"중구",d:"황학동",lat:37.569,lng:127.020},
-    {gu:"중구",d:"중림동",lat:37.559,lng:126.967},
-    {gu:"용산구",d:"후암동",lat:37.545,lng:126.982},{gu:"용산구",d:"남영동",lat:37.545,lng:126.973},
-    {gu:"용산구",d:"청파동",lat:37.545,lng:126.966},{gu:"용산구",d:"원효로1동",lat:37.540,lng:126.968},
-    {gu:"용산구",d:"효창동",lat:37.542,lng:126.962},{gu:"용산구",d:"이촌1동",lat:37.522,lng:126.976},
-    {gu:"용산구",d:"이촌2동",lat:37.522,lng:126.964},{gu:"용산구",d:"이태원1동",lat:37.535,lng:126.995},
-    {gu:"용산구",d:"이태원2동",lat:37.539,lng:126.996},{gu:"용산구",d:"한남동",lat:37.535,lng:127.003},
-    {gu:"성동구",d:"왕십리2동",lat:37.562,lng:127.038},{gu:"성동구",d:"마장동",lat:37.565,lng:127.049},
-    {gu:"성동구",d:"행당1동",lat:37.553,lng:127.045},{gu:"성동구",d:"응봉동",lat:37.543,lng:127.030},
-    {gu:"성동구",d:"금호1가동",lat:37.549,lng:127.020},{gu:"성동구",d:"옥수동",lat:37.540,lng:127.019},
-    {gu:"성동구",d:"성수1가1동",lat:37.545,lng:127.056},{gu:"성동구",d:"성수2가1동",lat:37.538,lng:127.057},
-    {gu:"성동구",d:"용답동",lat:37.562,lng:127.058},
-    {gu:"광진구",d:"중곡1동",lat:37.560,lng:127.090},{gu:"광진구",d:"능동",lat:37.551,lng:127.084},
-    {gu:"광진구",d:"구의1동",lat:37.541,lng:127.094},{gu:"광진구",d:"광장동",lat:37.539,lng:127.106},
-    {gu:"광진구",d:"자양1동",lat:37.533,lng:127.071},{gu:"광진구",d:"자양2동",lat:37.530,lng:127.079},
-    {gu:"광진구",d:"화양동",lat:37.545,lng:127.074},{gu:"광진구",d:"군자동",lat:37.553,lng:127.076},
-    {gu:"동대문구",d:"용신동",lat:37.576,lng:127.035},{gu:"동대문구",d:"제기동",lat:37.582,lng:127.036},
-    {gu:"동대문구",d:"전농1동",lat:37.582,lng:127.043},{gu:"동대문구",d:"답십리1동",lat:37.570,lng:127.058},
-    {gu:"동대문구",d:"장안1동",lat:37.577,lng:127.060},{gu:"동대문구",d:"청량리동",lat:37.590,lng:127.046},
-    {gu:"동대문구",d:"회기동",lat:37.594,lng:127.055},{gu:"동대문구",d:"이문1동",lat:37.595,lng:127.063},
-    {gu:"중랑구",d:"면목본동",lat:37.578,lng:127.090},{gu:"중랑구",d:"면목4동",lat:37.586,lng:127.097},
-    {gu:"중랑구",d:"상봉1동",lat:37.602,lng:127.088},{gu:"중랑구",d:"중화1동",lat:37.602,lng:127.078},
-    {gu:"중랑구",d:"망우본동",lat:37.603,lng:127.098},{gu:"중랑구",d:"신내1동",lat:37.610,lng:127.100},
-    {gu:"성북구",d:"성북동",lat:37.595,lng:126.996},{gu:"성북구",d:"삼선동",lat:37.586,lng:127.012},
-    {gu:"성북구",d:"돈암1동",lat:37.594,lng:127.018},{gu:"성북구",d:"안암동",lat:37.587,lng:127.027},
-    {gu:"성북구",d:"정릉1동",lat:37.609,lng:127.003},{gu:"성북구",d:"정릉2동",lat:37.607,lng:127.010},
-    {gu:"성북구",d:"길음1동",lat:37.601,lng:127.027},{gu:"성북구",d:"종암동",lat:37.598,lng:127.036},
-    {gu:"성북구",d:"장위1동",lat:37.610,lng:127.046},{gu:"성북구",d:"석관동",lat:37.608,lng:127.060},
-    {gu:"강북구",d:"미아동",lat:37.628,lng:127.025},{gu:"강북구",d:"번1동",lat:37.633,lng:127.019},
-    {gu:"강북구",d:"수유1동",lat:37.641,lng:127.020},{gu:"강북구",d:"수유3동",lat:37.644,lng:127.028},
-    {gu:"강북구",d:"우이동",lat:37.652,lng:127.015},{gu:"강북구",d:"인수동",lat:37.650,lng:127.024},
-    {gu:"도봉구",d:"쌍문1동",lat:37.655,lng:127.036},{gu:"도봉구",d:"쌍문2동",lat:37.652,lng:127.042},
-    {gu:"도봉구",d:"방학1동",lat:37.659,lng:127.048},{gu:"도봉구",d:"창1동",lat:37.650,lng:127.048},
-    {gu:"도봉구",d:"도봉1동",lat:37.671,lng:127.060},{gu:"도봉구",d:"도봉2동",lat:37.675,lng:127.055},
-    {gu:"노원구",d:"월계1동",lat:37.624,lng:127.067},{gu:"노원구",d:"공릉1동",lat:37.624,lng:127.080},
-    {gu:"노원구",d:"하계1동",lat:37.631,lng:127.073},{gu:"노원구",d:"중계본동",lat:37.644,lng:127.076},
-    {gu:"노원구",d:"상계1동",lat:37.656,lng:127.064},{gu:"노원구",d:"상계5동",lat:37.662,lng:127.066},
-    {gu:"은평구",d:"녹번동",lat:37.601,lng:126.927},{gu:"은평구",d:"불광1동",lat:37.608,lng:126.921},
-    {gu:"은평구",d:"갈현1동",lat:37.614,lng:126.920},{gu:"은평구",d:"구산동",lat:37.613,lng:126.933},
-    {gu:"은평구",d:"역촌동",lat:37.610,lng:126.939},{gu:"은평구",d:"수색동",lat:37.585,lng:126.904},
-    {gu:"은평구",d:"진관동",lat:37.637,lng:126.917},
-    {gu:"서대문구",d:"천연동",lat:37.576,lng:126.958},{gu:"서대문구",d:"북아현동",lat:37.566,lng:126.952},
-    {gu:"서대문구",d:"신촌동",lat:37.556,lng:126.935},{gu:"서대문구",d:"연희동",lat:37.570,lng:126.933},
-    {gu:"서대문구",d:"홍제1동",lat:37.592,lng:126.952},{gu:"서대문구",d:"홍은1동",lat:37.597,lng:126.943},
-    {gu:"서대문구",d:"남가좌1동",lat:37.579,lng:126.919},{gu:"서대문구",d:"북가좌1동",lat:37.587,lng:126.910},
-    {gu:"마포구",d:"아현동",lat:37.558,lng:126.947},{gu:"마포구",d:"공덕동",lat:37.547,lng:126.953},
-    {gu:"마포구",d:"도화동",lat:37.541,lng:126.946},{gu:"마포구",d:"서교동",lat:37.554,lng:126.924},
-    {gu:"마포구",d:"합정동",lat:37.550,lng:126.915},{gu:"마포구",d:"망원1동",lat:37.556,lng:126.906},
-    {gu:"마포구",d:"연남동",lat:37.562,lng:126.921},{gu:"마포구",d:"상암동",lat:37.579,lng:126.895},
-    {gu:"양천구",d:"신정1동",lat:37.525,lng:126.863},{gu:"양천구",d:"목1동",lat:37.532,lng:126.875},
-    {gu:"양천구",d:"목3동",lat:37.523,lng:126.882},
-    {gu:"강서구",d:"염창동",lat:37.541,lng:126.869},{gu:"강서구",d:"등촌1동",lat:37.551,lng:126.860},
-    {gu:"강서구",d:"화곡본동",lat:37.545,lng:126.848},{gu:"강서구",d:"발산1동",lat:37.559,lng:126.836},
-    {gu:"강서구",d:"방화1동",lat:37.569,lng:126.804},{gu:"강서구",d:"개화동",lat:37.574,lng:126.790},
-    {gu:"구로구",d:"신도림동",lat:37.507,lng:126.887},{gu:"구로구",d:"구로1동",lat:37.503,lng:126.896},
-    {gu:"구로구",d:"가리봉동",lat:37.482,lng:126.894},{gu:"구로구",d:"고척1동",lat:37.507,lng:126.874},
-    {gu:"구로구",d:"개봉1동",lat:37.499,lng:126.859},{gu:"구로구",d:"오류1동",lat:37.500,lng:126.851},
-    {gu:"금천구",d:"가산동",lat:37.478,lng:126.884},{gu:"금천구",d:"독산1동",lat:37.473,lng:126.896},
-    {gu:"금천구",d:"시흥1동",lat:37.464,lng:126.913},{gu:"금천구",d:"시흥2동",lat:37.459,lng:126.910},
-    {gu:"영등포구",d:"영등포동",lat:37.518,lng:126.907},{gu:"영등포구",d:"당산1동",lat:37.533,lng:126.908},
-    {gu:"영등포구",d:"문래동",lat:37.517,lng:126.897},{gu:"영등포구",d:"신길1동",lat:37.507,lng:126.923},
-    {gu:"영등포구",d:"대림1동",lat:37.496,lng:126.899},{gu:"영등포구",d:"대림2동",lat:37.492,lng:126.904},
-    {gu:"동작구",d:"노량진1동",lat:37.514,lng:126.938},{gu:"동작구",d:"노량진2동",lat:37.511,lng:126.944},
-    {gu:"동작구",d:"상도1동",lat:37.506,lng:126.944},{gu:"동작구",d:"흑석동",lat:37.509,lng:126.957},
-    {gu:"동작구",d:"사당1동",lat:37.489,lng:126.962},{gu:"동작구",d:"사당3동",lat:37.492,lng:126.970},
-    {gu:"동작구",d:"신대방1동",lat:37.502,lng:126.929},
-    {gu:"관악구",d:"보라매동",lat:37.493,lng:126.922},{gu:"관악구",d:"행운동",lat:37.475,lng:126.950},
-    {gu:"관악구",d:"낙성대동",lat:37.474,lng:126.960},{gu:"관악구",d:"남현동",lat:37.470,lng:126.971},
-    {gu:"관악구",d:"신림동",lat:37.480,lng:126.927},{gu:"관악구",d:"난곡동",lat:37.484,lng:126.915},
-    {gu:"관악구",d:"대학동",lat:37.476,lng:126.964},
-    {gu:"서초구",d:"반포본동",lat:37.507,lng:126.999},{gu:"서초구",d:"반포1동",lat:37.502,lng:127.000},
-    {gu:"서초구",d:"잠원동",lat:37.511,lng:127.006},{gu:"서초구",d:"서초1동",lat:37.491,lng:127.009},
-    {gu:"서초구",d:"서초3동",lat:37.493,lng:127.027},{gu:"서초구",d:"방배본동",lat:37.485,lng:126.990},
-    {gu:"서초구",d:"방배1동",lat:37.480,lng:126.985},{gu:"서초구",d:"양재1동",lat:37.467,lng:127.040},
-    {gu:"서초구",d:"내곡동",lat:37.450,lng:127.077},
-    {gu:"강남구",d:"신사동",lat:37.522,lng:127.020},{gu:"강남구",d:"논현1동",lat:37.513,lng:127.027},
-    {gu:"강남구",d:"압구정동",lat:37.526,lng:127.028},{gu:"강남구",d:"청담동",lat:37.525,lng:127.051},
-    {gu:"강남구",d:"삼성1동",lat:37.515,lng:127.056},{gu:"강남구",d:"대치1동",lat:37.499,lng:127.069},
-    {gu:"강남구",d:"역삼1동",lat:37.500,lng:127.034},{gu:"강남구",d:"도곡1동",lat:37.483,lng:127.049},
-    {gu:"강남구",d:"개포1동",lat:37.474,lng:127.054},{gu:"강남구",d:"수서동",lat:37.487,lng:127.102},
-    {gu:"강남구",d:"세곡동",lat:37.461,lng:127.111},
-    {gu:"송파구",d:"풍납1동",lat:37.531,lng:127.122},{gu:"송파구",d:"거여1동",lat:37.494,lng:127.152},
-    {gu:"송파구",d:"마천1동",lat:37.501,lng:127.144},{gu:"송파구",d:"방이1동",lat:37.512,lng:127.121},
-    {gu:"송파구",d:"오금동",lat:37.504,lng:127.126},{gu:"송파구",d:"석촌동",lat:37.507,lng:127.102},
-    {gu:"송파구",d:"가락본동",lat:37.501,lng:127.114},{gu:"송파구",d:"문정1동",lat:37.488,lng:127.125},
-    {gu:"송파구",d:"장지동",lat:37.479,lng:127.138},{gu:"송파구",d:"잠실본동",lat:37.518,lng:127.091},
-    {gu:"송파구",d:"잠실2동",lat:37.517,lng:127.079},{gu:"송파구",d:"잠실5동",lat:37.515,lng:127.098},
-    {gu:"강동구",d:"강일동",lat:37.573,lng:127.169},{gu:"강동구",d:"고덕1동",lat:37.554,lng:127.165},
-    {gu:"강동구",d:"암사1동",lat:37.555,lng:127.137},{gu:"강동구",d:"천호1동",lat:37.539,lng:127.132},
-    {gu:"강동구",d:"성내1동",lat:37.534,lng:127.129},{gu:"강동구",d:"명일1동",lat:37.544,lng:127.155},
+  seoul:{name:"서울특별시",center:[37.563,127.0],zoom:11,color:"#00d4ff",dongs:[
+    {gu:"종로구",d:"청운효자동",lat:37.5837,lng:126.9738},
+    {gu:"종로구",d:"사직동",lat:37.5736,lng:126.9694},
+    {gu:"종로구",d:"삼청동",lat:37.5854,lng:126.9805},
+    {gu:"종로구",d:"부암동",lat:37.5979,lng:126.9636},
+    {gu:"종로구",d:"평창동",lat:37.6112,lng:126.9673},
+    {gu:"종로구",d:"무악동",lat:37.5773,lng:126.9592},
+    {gu:"종로구",d:"가회동",lat:37.5829,lng:126.9858},
+    {gu:"종로구",d:"종로1·2·3·4가동",lat:37.5769,lng:126.9919},
+    {gu:"종로구",d:"종로5·6가동",lat:37.5735,lng:127.0056},
+    {gu:"종로구",d:"이화동",lat:37.5793,lng:127.0038},
+    {gu:"종로구",d:"혜화동",lat:37.5874,lng:126.9978},
+    {gu:"종로구",d:"창신1동",lat:37.572,lng:127.012},
+    {gu:"종로구",d:"창신2동",lat:37.5759,lng:127.0096},
+    {gu:"종로구",d:"숭인1동",lat:37.5786,lng:127.0173},
+    {gu:"종로구",d:"숭인2동",lat:37.5748,lng:127.02},
+    {gu:"중구",d:"소공동",lat:37.5647,lng:126.9755},
+    {gu:"중구",d:"회현동",lat:37.5568,lng:126.9771},
+    {gu:"중구",d:"명동",lat:37.5634,lng:126.9836},
+    {gu:"중구",d:"필동",lat:37.5577,lng:126.9931},
+    {gu:"중구",d:"장충동",lat:37.5562,lng:127.0021},
+    {gu:"중구",d:"광희동",lat:37.5651,lng:127.0048},
+    {gu:"중구",d:"을지로동",lat:37.5652,lng:126.9951},
+    {gu:"중구",d:"신당동",lat:37.5661,lng:127.0114},
+    {gu:"중구",d:"약수동",lat:37.5503,lng:127.0111},
+    {gu:"중구",d:"황학동",lat:37.5679,lng:127.0216},
+    {gu:"중구",d:"중림동",lat:37.5564,lng:126.9636},
+    {gu:"용산구",d:"후암동",lat:37.5506,lng:126.9804},
+    {gu:"용산구",d:"남영동",lat:37.5465,lng:126.9741},
+    {gu:"용산구",d:"원효로1동",lat:37.5377,lng:126.9654},
+    {gu:"용산구",d:"효창동",lat:37.5444,lng:126.9595},
+    {gu:"용산구",d:"이촌1동",lat:37.5183,lng:126.9711},
+    {gu:"용산구",d:"이촌2동",lat:37.5259,lng:126.9555},
+    {gu:"용산구",d:"이태원1동",lat:37.5344,lng:126.9939},
+    {gu:"용산구",d:"이태원2동",lat:37.5395,lng:126.9917},
+    {gu:"용산구",d:"한남동",lat:37.5402,lng:127.0022},
+    {gu:"성동구",d:"왕십리2동",lat:37.5616,lng:127.0281},
+    {gu:"성동구",d:"마장동",lat:37.5656,lng:127.0408},
+    {gu:"성동구",d:"행당1동",lat:37.5597,lng:127.0349},
+    {gu:"성동구",d:"응봉동",lat:37.552,lng:127.0328},
+    {gu:"성동구",d:"금호1가동",lat:37.5533,lng:127.0253},
+    {gu:"성동구",d:"옥수동",lat:37.5443,lng:127.0138},
+    {gu:"성동구",d:"성수1가1동",lat:37.5424,lng:127.0448},
+    {gu:"성동구",d:"성수2가1동",lat:37.5382,lng:127.0538},
+    {gu:"성동구",d:"용답동",lat:37.5621,lng:127.0551},
+    {gu:"광진구",d:"중곡1동",lat:37.5629,lng:127.078},
+    {gu:"광진구",d:"능동",lat:37.5501,lng:127.0837},
+    {gu:"광진구",d:"구의1동",lat:37.5425,lng:127.0829},
+    {gu:"광진구",d:"광장동",lat:37.5502,lng:127.1061},
+    {gu:"광진구",d:"자양1동",lat:37.538,lng:127.0804},
+    {gu:"광진구",d:"자양2동",lat:37.533,lng:127.0867},
+    {gu:"광진구",d:"화양동",lat:37.5423,lng:127.0787},
+    {gu:"광진구",d:"군자동",lat:37.5526,lng:127.0755},
+    {gu:"동대문구",d:"용신동",lat:37.5759,lng:127.032},
+    {gu:"동대문구",d:"제기동",lat:37.5851,lng:127.0369},
+    {gu:"동대문구",d:"전농1동",lat:37.5785,lng:127.0517},
+    {gu:"동대문구",d:"답십리1동",lat:37.5731,lng:127.0523},
+    {gu:"동대문구",d:"장안1동",lat:37.5669,lng:127.0674},
+    {gu:"동대문구",d:"청량리동",lat:37.5904,lng:127.0455},
+    {gu:"동대문구",d:"회기동",lat:37.593,lng:127.0517},
+    {gu:"동대문구",d:"이문1동",lat:37.6016,lng:127.0659},
+    {gu:"중랑구",d:"면목본동",lat:37.5902,lng:127.0885},
+    {gu:"중랑구",d:"면목4동",lat:37.5738,lng:127.0874},
+    {gu:"중랑구",d:"상봉1동",lat:37.601,lng:127.0888},
+    {gu:"중랑구",d:"중화1동",lat:37.6016,lng:127.0845},
+    {gu:"중랑구",d:"망우본동",lat:37.6,lng:127.1034},
+    {gu:"중랑구",d:"신내1동",lat:37.6105,lng:127.1005},
+    {gu:"성북구",d:"성북동",lat:37.5955,lng:126.9961},
+    {gu:"성북구",d:"삼선동",lat:37.5847,lng:127.0106},
+    {gu:"성북구",d:"돈암1동",lat:37.5995,lng:127.024},
+    {gu:"성북구",d:"안암동",lat:37.5899,lng:127.0275},
+    {gu:"성북구",d:"정릉1동",lat:37.6048,lng:127.0169},
+    {gu:"성북구",d:"정릉2동",lat:37.6036,lng:127.0086},
+    {gu:"성북구",d:"길음1동",lat:37.6085,lng:127.0191},
+    {gu:"성북구",d:"종암동",lat:37.5968,lng:127.0327},
+    {gu:"성북구",d:"장위1동",lat:37.6142,lng:127.0449},
+    {gu:"성북구",d:"석관동",lat:37.606,lng:127.0593},
+    {gu:"강북구",d:"미아동",lat:37.6287,lng:127.0254},
+    {gu:"강북구",d:"번1동",lat:37.6367,lng:127.0319},
+    {gu:"강북구",d:"수유1동",lat:37.6299,lng:127.0135},
+    {gu:"강북구",d:"수유3동",lat:37.6418,lng:127.0238},
+    {gu:"강북구",d:"우이동",lat:37.6606,lng:127.0004},
+    {gu:"강북구",d:"인수동",lat:37.639,lng:127.0036},
+    {gu:"도봉구",d:"쌍문1동",lat:37.6538,lng:127.0191},
+    {gu:"도봉구",d:"쌍문2동",lat:37.6588,lng:127.0365},
+    {gu:"도봉구",d:"방학1동",lat:37.6628,lng:127.0418},
+    {gu:"도봉구",d:"창1동",lat:37.6459,lng:127.0436},
+    {gu:"도봉구",d:"도봉1동",lat:37.6851,lng:127.0265},
+    {gu:"도봉구",d:"도봉2동",lat:37.683,lng:127.0487},
+    {gu:"노원구",d:"월계1동",lat:37.6203,lng:127.0589},
+    {gu:"노원구",d:"공릉1동",lat:37.6241,lng:127.075},
+    {gu:"노원구",d:"하계1동",lat:37.6385,lng:127.0765},
+    {gu:"노원구",d:"중계본동",lat:37.6463,lng:127.0851},
+    {gu:"노원구",d:"상계1동",lat:37.6832,lng:127.0647},
+    {gu:"노원구",d:"상계5동",lat:37.6672,lng:127.0706},
+    {gu:"은평구",d:"녹번동",lat:37.6066,lng:126.9376},
+    {gu:"은평구",d:"불광1동",lat:37.6158,lng:126.9367},
+    {gu:"은평구",d:"갈현1동",lat:37.6248,lng:126.9147},
+    {gu:"은평구",d:"구산동",lat:37.6116,lng:126.906},
+    {gu:"은평구",d:"역촌동",lat:37.6041,lng:126.9105},
+    {gu:"은평구",d:"수색동",lat:37.5861,lng:126.8931},
+    {gu:"은평구",d:"진관동",lat:37.64,lng:126.9345},
+    {gu:"서대문구",d:"천연동",lat:37.5694,lng:126.9578},
+    {gu:"서대문구",d:"북아현동",lat:37.559,lng:126.9573},
+    {gu:"서대문구",d:"신촌동",lat:37.5637,lng:126.9399},
+    {gu:"서대문구",d:"연희동",lat:37.5719,lng:126.9338},
+    {gu:"서대문구",d:"홍제1동",lat:37.5822,lng:126.9435},
+    {gu:"서대문구",d:"홍은1동",lat:37.6003,lng:126.9477},
+    {gu:"서대문구",d:"남가좌1동",lat:37.5714,lng:126.9133},
+    {gu:"서대문구",d:"북가좌1동",lat:37.5737,lng:126.9091},
+    {gu:"마포구",d:"아현동",lat:37.5514,lng:126.951},
+    {gu:"마포구",d:"공덕동",lat:37.5488,lng:126.9595},
+    {gu:"마포구",d:"도화동",lat:37.5378,lng:126.9505},
+    {gu:"마포구",d:"서교동",lat:37.5553,lng:126.9215},
+    {gu:"마포구",d:"합정동",lat:37.549,lng:126.9128},
+    {gu:"마포구",d:"망원1동",lat:37.5532,lng:126.904},
+    {gu:"마포구",d:"연남동",lat:37.5623,lng:126.9207},
+    {gu:"마포구",d:"상암동",lat:37.5743,lng:126.8865},
+    {gu:"양천구",d:"신정1동",lat:37.5179,lng:126.8586},
+    {gu:"양천구",d:"목1동",lat:37.5265,lng:126.88},
+    {gu:"양천구",d:"목3동",lat:37.5453,lng:126.8647},
+    {gu:"강서구",d:"염창동",lat:37.55,lng:126.8737},
+    {gu:"강서구",d:"등촌1동",lat:37.5554,lng:126.8597},
+    {gu:"강서구",d:"화곡본동",lat:37.5428,lng:126.8492},
+    {gu:"강서구",d:"발산1동",lat:37.5464,lng:126.8245},
+    {gu:"강서구",d:"방화1동",lat:37.5686,lng:126.8163},
+    {gu:"강서구",d:"개화동",lat:37.5826,lng:126.8004},
+    {gu:"구로구",d:"신도림동",lat:37.5119,lng:126.8768},
+    {gu:"구로구",d:"구로1동",lat:37.4902,lng:126.8735},
+    {gu:"구로구",d:"가리봉동",lat:37.4823,lng:126.8897},
+    {gu:"구로구",d:"고척1동",lat:37.5037,lng:126.8645},
+    {gu:"구로구",d:"개봉1동",lat:37.5019,lng:126.8475},
+    {gu:"구로구",d:"오류1동",lat:37.4981,lng:126.8412},
+    {gu:"금천구",d:"가산동",lat:37.4761,lng:126.8811},
+    {gu:"금천구",d:"독산1동",lat:37.4589,lng:126.8895},
+    {gu:"금천구",d:"시흥1동",lat:37.4522,lng:126.8999},
+    {gu:"금천구",d:"시흥2동",lat:37.4516,lng:126.9183},
+    {gu:"영등포구",d:"영등포동",lat:37.5211,lng:126.9074},
+    {gu:"영등포구",d:"당산1동",lat:37.523,lng:126.897},
+    {gu:"영등포구",d:"문래동",lat:37.5186,lng:126.8842},
+    {gu:"영등포구",d:"신길1동",lat:37.5105,lng:126.9187},
+    {gu:"영등포구",d:"대림1동",lat:37.4948,lng:126.9058},
+    {gu:"영등포구",d:"대림2동",lat:37.4884,lng:126.9006},
+    {gu:"동작구",d:"노량진1동",lat:37.5098,lng:126.9478},
+    {gu:"동작구",d:"노량진2동",lat:37.51,lng:126.938},
+    {gu:"동작구",d:"상도1동",lat:37.4993,lng:126.9532},
+    {gu:"동작구",d:"흑석동",lat:37.5049,lng:126.9605},
+    {gu:"동작구",d:"사당1동",lat:37.4779,lng:126.9752},
+    {gu:"동작구",d:"사당3동",lat:37.4899,lng:126.9717},
+    {gu:"동작구",d:"신대방1동",lat:37.4916,lng:126.9116},
+    {gu:"관악구",d:"보라매동",lat:37.4902,lng:126.9338},
+    {gu:"관악구",d:"행운동",lat:37.4806,lng:126.9624},
+    {gu:"관악구",d:"낙성대동",lat:37.4707,lng:126.9579},
+    {gu:"관악구",d:"남현동",lat:37.4639,lng:126.9771},
+    {gu:"관악구",d:"신림동",lat:37.4873,lng:126.9253},
+    {gu:"관악구",d:"난곡동",lat:37.4705,lng:126.9197},
+    {gu:"관악구",d:"대학동",lat:37.4538,lng:126.9463},
+    {gu:"서초구",d:"반포본동",lat:37.5029,lng:126.9882},
+    {gu:"서초구",d:"반포1동",lat:37.5049,lng:127.0144},
+    {gu:"서초구",d:"잠원동",lat:37.516,lng:127.0123},
+    {gu:"서초구",d:"서초1동",lat:37.4818,lng:127.0201},
+    {gu:"서초구",d:"서초3동",lat:37.4843,lng:127.0093},
+    {gu:"서초구",d:"방배본동",lat:37.4894,lng:126.9921},
+    {gu:"서초구",d:"방배1동",lat:37.4853,lng:126.9965},
+    {gu:"서초구",d:"양재1동",lat:37.4675,lng:127.0224},
+    {gu:"서초구",d:"내곡동",lat:37.4536,lng:127.073},
+    {gu:"강남구",d:"신사동",lat:37.4867,lng:126.9194},
+    {gu:"강남구",d:"논현1동",lat:37.513,lng:127.0238},
+    {gu:"강남구",d:"압구정동",lat:37.5301,lng:127.0299},
+    {gu:"강남구",d:"청담동",lat:37.5261,lng:127.0515},
+    {gu:"강남구",d:"삼성1동",lat:37.5169,lng:127.0624},
+    {gu:"강남구",d:"대치1동",lat:37.4912,lng:127.0575},
+    {gu:"강남구",d:"역삼1동",lat:37.506,lng:127.0438},
+    {gu:"강남구",d:"도곡1동",lat:37.4874,lng:127.0387},
+    {gu:"강남구",d:"개포1동",lat:37.4785,lng:127.0617},
+    {gu:"강남구",d:"수서동",lat:37.486,lng:127.1024},
+    {gu:"강남구",d:"세곡동",lat:37.4693,lng:127.1038},
+    {gu:"송파구",d:"풍납1동",lat:37.5404,lng:127.1181},
+    {gu:"송파구",d:"거여1동",lat:37.4923,lng:127.1412},
+    {gu:"송파구",d:"마천1동",lat:37.4952,lng:127.1588},
+    {gu:"송파구",d:"방이1동",lat:37.5095,lng:127.1236},
+    {gu:"송파구",d:"오금동",lat:37.5059,lng:127.1395},
+    {gu:"송파구",d:"석촌동",lat:37.5023,lng:127.1028},
+    {gu:"송파구",d:"가락본동",lat:37.4953,lng:127.1221},
+    {gu:"송파구",d:"문정1동",lat:37.4883,lng:127.1261},
+    {gu:"송파구",d:"장지동",lat:37.4839,lng:127.1326},
+    {gu:"송파구",d:"잠실본동",lat:37.5058,lng:127.0834},
+    {gu:"송파구",d:"잠실2동",lat:37.514,lng:127.0818},
+    {gu:"송파구",d:"잠실5동",lat:37.51,lng:127.0928},
+    {gu:"강동구",d:"강일동",lat:37.5683,lng:127.1737},
+    {gu:"강동구",d:"고덕1동",lat:37.5606,lng:127.1476},
+    {gu:"강동구",d:"암사1동",lat:37.5509,lng:127.1388},
+    {gu:"강동구",d:"천호1동",lat:37.5487,lng:127.1386},
+    {gu:"강동구",d:"성내1동",lat:37.5296,lng:127.1244},
+    {gu:"강동구",d:"명일1동",lat:37.5514,lng:127.1435}
   ]},
-  incheon:{name:"인천광역시",center:[37.456,126.705],zoom:11,color:"#ff3c6e",dongs:[
-    {gu:"중구",d:"중앙동",lat:37.474,lng:126.620},{gu:"중구",d:"신흥동",lat:37.469,lng:126.630},
-    {gu:"중구",d:"도원동",lat:37.474,lng:126.644},{gu:"동구",d:"만석동",lat:37.481,lng:126.639},
-    {gu:"동구",d:"화수동",lat:37.478,lng:126.647},{gu:"동구",d:"화평동",lat:37.476,lng:126.651},
-    {gu:"미추홀구",d:"숭의1·3동",lat:37.457,lng:126.651},{gu:"미추홀구",d:"용현1·4동",lat:37.451,lng:126.661},
-    {gu:"미추홀구",d:"학익1동",lat:37.446,lng:126.663},{gu:"미추홀구",d:"도화1동",lat:37.456,lng:126.661},
-    {gu:"미추홀구",d:"주안1동",lat:37.457,lng:126.674},{gu:"미추홀구",d:"주안2동",lat:37.454,lng:126.678},
-    {gu:"미추홀구",d:"주안5동",lat:37.445,lng:126.685},{gu:"미추홀구",d:"주안8동",lat:37.439,lng:126.682},
-    {gu:"미추홀구",d:"관교동",lat:37.443,lng:126.666},
-    {gu:"연수구",d:"옥련1동",lat:37.421,lng:126.664},{gu:"연수구",d:"선학동",lat:37.428,lng:126.672},
-    {gu:"연수구",d:"연수1동",lat:37.411,lng:126.671},{gu:"연수구",d:"연수2동",lat:37.407,lng:126.678},
-    {gu:"연수구",d:"청학동",lat:37.425,lng:126.684},{gu:"연수구",d:"동춘1동",lat:37.419,lng:126.695},
-    {gu:"연수구",d:"송도1동",lat:37.385,lng:126.661},{gu:"연수구",d:"송도2동",lat:37.384,lng:126.679},
-    {gu:"연수구",d:"송도3동",lat:37.392,lng:126.704},{gu:"연수구",d:"송도4동",lat:37.399,lng:126.709},
-    {gu:"남동구",d:"구월1동",lat:37.450,lng:126.703},{gu:"남동구",d:"구월2동",lat:37.448,lng:126.712},
-    {gu:"남동구",d:"간석1동",lat:37.462,lng:126.700},{gu:"남동구",d:"만수1동",lat:37.439,lng:126.732},
-    {gu:"남동구",d:"만수4동",lat:37.442,lng:126.744},{gu:"남동구",d:"논현1동",lat:37.411,lng:126.717},
-    {gu:"남동구",d:"논현2동",lat:37.405,lng:126.729},{gu:"남동구",d:"논현고잔동",lat:37.416,lng:126.730},
-    {gu:"부평구",d:"부평1동",lat:37.492,lng:126.723},{gu:"부평구",d:"부평2동",lat:37.491,lng:126.715},
-    {gu:"부평구",d:"부평4동",lat:37.484,lng:126.718},{gu:"부평구",d:"십정1동",lat:37.488,lng:126.735},
-    {gu:"부평구",d:"산곡1동",lat:37.495,lng:126.729},{gu:"부평구",d:"청천1동",lat:37.501,lng:126.727},
-    {gu:"부평구",d:"삼산1동",lat:37.503,lng:126.746},{gu:"부평구",d:"삼산2동",lat:37.506,lng:126.753},
-    {gu:"계양구",d:"효성1동",lat:37.524,lng:126.738},{gu:"계양구",d:"계산1동",lat:37.536,lng:126.726},
-    {gu:"계양구",d:"계산4동",lat:37.532,lng:126.718},{gu:"계양구",d:"작전동",lat:37.517,lng:126.736},
-    {gu:"계양구",d:"이동",lat:37.547,lng:126.726},{gu:"계양구",d:"오류왕길동",lat:37.550,lng:126.748},
-    {gu:"서구",d:"가정1동",lat:37.534,lng:126.695},{gu:"서구",d:"가정2동",lat:37.539,lng:126.704},
-    {gu:"서구",d:"석남1동",lat:37.519,lng:126.693},{gu:"서구",d:"연희동",lat:37.552,lng:126.702},
-    {gu:"서구",d:"검단1동",lat:37.581,lng:126.726},{gu:"서구",d:"검단2동",lat:37.586,lng:126.738},
-    {gu:"서구",d:"검단3동",lat:37.577,lng:126.741},{gu:"서구",d:"검단4동",lat:37.570,lng:126.734},
-    {gu:"서구",d:"검단5동",lat:37.573,lng:126.750},
+  incheon:{name:"인천광역시",center:[37.46,126.62],zoom:11,color:"#ff9f43",dongs:[
+    {gu:"중구",d:"중앙동",lat:37.4718,lng:126.6248},
+    {gu:"중구",d:"신흥동",lat:37.4603,lng:126.6325},
+    {gu:"중구",d:"도원동",lat:37.4672,lng:126.6402},
+    {gu:"동구",d:"만석동",lat:37.4862,lng:126.6169},
+    {gu:"동구",d:"화수동",lat:37.4758,lng:126.646},
+    {gu:"동구",d:"화평동",lat:37.4758,lng:126.646},
+    {gu:"미추홀구",d:"숭의1·3동",lat:37.4661,lng:126.6444},
+    {gu:"미추홀구",d:"용현1·4동",lat:37.4515,lng:126.6594},
+    {gu:"미추홀구",d:"학익1동",lat:37.4369,lng:126.6573},
+    {gu:"미추홀구",d:"도화1동",lat:37.4613,lng:126.6689},
+    {gu:"미추홀구",d:"주안1동",lat:37.4611,lng:126.6788},
+    {gu:"미추홀구",d:"주안2동",lat:37.4578,lng:126.6692},
+    {gu:"미추홀구",d:"주안5동",lat:37.4695,lng:126.6821},
+    {gu:"미추홀구",d:"주안8동",lat:37.4457,lng:126.6861},
+    {gu:"미추홀구",d:"관교동",lat:37.4429,lng:126.6925},
+    {gu:"연수구",d:"옥련1동",lat:37.4197,lng:126.6535},
+    {gu:"연수구",d:"선학동",lat:37.4302,lng:126.6957},
+    {gu:"연수구",d:"연수1동",lat:37.4258,lng:126.6811},
+    {gu:"연수구",d:"연수2동",lat:37.4139,lng:126.684},
+    {gu:"연수구",d:"청학동",lat:37.425,lng:126.6662},
+    {gu:"연수구",d:"동춘1동",lat:37.4098,lng:126.662},
+    {gu:"연수구",d:"송도1동",lat:37.382,lng:126.6392},
+    {gu:"연수구",d:"송도2동",lat:37.4074,lng:126.6359},
+    {gu:"연수구",d:"송도3동",lat:37.3724,lng:126.6737},
+    {gu:"연수구",d:"송도4동",lat:37.387,lng:126.6258},
+    {gu:"남동구",d:"구월1동",lat:37.4402,lng:126.709},
+    {gu:"남동구",d:"구월2동",lat:37.4581,lng:126.7163},
+    {gu:"남동구",d:"간석1동",lat:37.4611,lng:126.7015},
+    {gu:"남동구",d:"만수1동",lat:37.4505,lng:126.7361},
+    {gu:"남동구",d:"만수4동",lat:37.4584,lng:126.7383},
+    {gu:"남동구",d:"논현1동",lat:37.4097,lng:126.733},
+    {gu:"남동구",d:"논현2동",lat:37.4202,lng:126.7495},
+    {gu:"남동구",d:"논현고잔동",lat:37.4009,lng:126.7075},
+    {gu:"부평구",d:"부평1동",lat:37.4878,lng:126.7197},
+    {gu:"부평구",d:"부평2동",lat:37.4878,lng:126.7197},
+    {gu:"부평구",d:"부평4동",lat:37.4878,lng:126.7197},
+    {gu:"부평구",d:"십정1동",lat:37.4777,lng:126.6995},
+    {gu:"부평구",d:"산곡1동",lat:37.5009,lng:126.6978},
+    {gu:"부평구",d:"청천1동",lat:37.5177,lng:126.6901},
+    {gu:"부평구",d:"삼산1동",lat:37.5151,lng:126.7492},
+    {gu:"부평구",d:"삼산2동",lat:37.5151,lng:126.7492},
+    {gu:"계양구",d:"효성1동",lat:37.5347,lng:126.7094},
+    {gu:"계양구",d:"계산1동",lat:37.5415,lng:126.7144},
+    {gu:"계양구",d:"계산4동",lat:37.5365,lng:126.7396},
+    {gu:"계양구",d:"작전동",lat:37.5151,lng:126.7492},
+    {gu:"계양구",d:"이동",lat:37.5476,lng:126.7161},
+    {gu:"계양구",d:"오류왕길동",lat:37.5478,lng:126.747},
+    {gu:"서구",d:"가정1동",lat:37.5316,lng:126.67},
+    {gu:"서구",d:"가정2동",lat:37.5293,lng:126.6819},
+    {gu:"서구",d:"석남1동",lat:37.5107,lng:126.6638},
+    {gu:"서구",d:"연희동",lat:37.5483,lng:126.6795},
+    {gu:"서구",d:"검단1동",lat:37.6119,lng:126.6576},
+    {gu:"서구",d:"검단2동",lat:37.6119,lng:126.6576},
+    {gu:"서구",d:"검단3동",lat:37.6119,lng:126.6576},
+    {gu:"서구",d:"검단4동",lat:37.6119,lng:126.6576},
+    {gu:"서구",d:"검단5동",lat:37.6119,lng:126.6576},
+    {gu:"미분류",d:"오류2동",lat:37.4805,lng:126.8299},
+    {gu:"미분류",d:"수궁동",lat:37.5013,lng:126.8256},
+    {gu:"미분류",d:"신월1동",lat:37.5315,lng:126.8359},
+    {gu:"미분류",d:"신월3동",lat:37.5332,lng:126.8251},
+    {gu:"미분류",d:"신월5동",lat:37.5426,lng:126.8307},
+    {gu:"미분류",d:"신월7동",lat:37.5165,lng:126.8282},
+    {gu:"미분류",d:"신정3동",lat:37.5119,lng:126.8383},
+    {gu:"미분류",d:"공항동",lat:37.5539,lng:126.787},
+    {gu:"미분류",d:"발산1동",lat:37.5464,lng:126.8245},
+    {gu:"미분류",d:"방화1동",lat:37.5686,lng:126.8163},
+    {gu:"미분류",d:"방화3동",lat:37.5806,lng:126.8154},
+    {gu:"미분류",d:"방화2동",lat:37.5826,lng:126.8004},
+    {gu:"미분류",d:"가양1동",lat:37.5715,lng:126.8326},
+    {gu:"미분류",d:"화곡3동",lat:37.5434,lng:126.8316},
+    {gu:"서구",d:"계양1동",lat:37.5711,lng:126.7255},
+    {gu:"서구",d:"계양2동",lat:37.5478,lng:126.747},
+    {gu:"서구",d:"계산2동",lat:37.5476,lng:126.7161},
+    {gu:"서구",d:"계산3동",lat:37.5383,lng:126.7323},
+    {gu:"계양구",d:"효성2동",lat:37.5329,lng:126.6941},
+    {gu:"계양구",d:"작전1동",lat:37.5321,lng:126.7298},
+    {gu:"계양구",d:"작전2동",lat:37.5312,lng:126.7206},
+    {gu:"계양구",d:"작전서운동",lat:37.5325,lng:126.7536},
+    {gu:"계양구",d:"계양3동",lat:37.5657,lng:126.7716},
+    {gu:"부평구",d:"부개동",lat:37.4922,lng:126.7375},
+    {gu:"부평구",d:"부평동",lat:37.4878,lng:126.7197},
+    {gu:"부평구",d:"갈산동",lat:37.5127,lng:126.7281},
+    {gu:"미추홀구",d:"금창동",lat:37.4714,lng:126.6405},
+    {gu:"부평구",d:"일신동",lat:37.4753,lng:126.7534},
+    {gu:"부평구",d:"삼산동",lat:37.5151,lng:126.7492},
+    {gu:"부평구",d:"산곡동",lat:37.5009,lng:126.6978},
+    {gu:"미추홀구",d:"십정동",lat:37.4777,lng:126.6995},
+    {gu:"미분류",d:"송현동",lat:37.4803,lng:126.6386},
+    {gu:"미추홀구",d:"송림동",lat:37.4758,lng:126.646},
+    {gu:"부평구",d:"청천2동",lat:37.5099,lng:126.7146},
+    {gu:"미분류",d:"연안동",lat:37.445,lng:126.6057},
+    {gu:"미분류",d:"신포동",lat:37.4718,lng:126.6248},
+    {gu:"미분류",d:"북성동",lat:37.4764,lng:126.6156},
+    {gu:"미추홀구",d:"율목동",lat:37.4702,lng:126.6346},
+    {gu:"미추홀구",d:"동인천동",lat:37.4742,lng:126.6288},
+    {gu:"미분류",d:"송월동",lat:37.4787,lng:126.6223},
+    {gu:"부평구",d:"가좌4동",lat:37.4878,lng:126.6934},
+    {gu:"미분류",d:"가좌3동",lat:37.4916,lng:126.6833},
+    {gu:"부평구",d:"가좌2동",lat:37.4965,lng:126.6888},
+    {gu:"미분류",d:"가좌1동",lat:37.4898,lng:126.6585},
+    {gu:"미분류",d:"석남2동",lat:37.5066,lng:126.6591},
+    {gu:"부평구",d:"가정3동",lat:37.5186,lng:126.683},
+    {gu:"미분류",d:"청라1동",lat:37.525,lng:126.656},
+    {gu:"미분류",d:"청라2동",lat:37.5373,lng:126.6415},
+    {gu:"미분류",d:"청라3동",lat:37.5354,lng:126.6249},
+    {gu:"서구",d:"원당동",lat:37.5917,lng:126.6972},
+    {gu:"미분류",d:"불로대곡동",lat:37.6152,lng:126.6751},
+    {gu:"미분류",d:"검단동",lat:37.6119,lng:126.6576},
+    {gu:"남동구",d:"동춘3동",lat:37.407,lng:126.6801},
+    {gu:"남동구",d:"동춘2동",lat:37.3998,lng:126.6686},
+    {gu:"연수구",d:"옥련2동",lat:37.4312,lng:126.6497},
+    {gu:"남동구",d:"남촌도림동",lat:37.4265,lng:126.7237},
+    {gu:"남동구",d:"만수6동",lat:37.4418,lng:126.7415},
+    {gu:"남동구",d:"장수서창동",lat:37.4467,lng:126.7587},
+    {gu:"남동구",d:"만수2동",lat:37.4641,lng:126.735},
+    {gu:"남동구",d:"만수5동",lat:37.4574,lng:126.7255},
+    {gu:"부평구",d:"만수3동",lat:37.4659,lng:126.7279},
+    {gu:"미추홀구",d:"구월3동",lat:37.4502,lng:126.6957},
+    {gu:"남동구",d:"간석2동",lat:37.4595,lng:126.7099},
+    {gu:"부평구",d:"간석3동",lat:37.4683,lng:126.7171},
+    {gu:"미추홀구",d:"간석4동",lat:37.4663,lng:126.6993},
+    {gu:"미추홀구",d:"문학동",lat:37.4372,lng:126.6848},
+    {gu:"미추홀구",d:"학익2동",lat:37.4448,lng:126.6702},
+    {gu:"미추홀구",d:"주안7동",lat:37.4454,lng:126.6778},
+    {gu:"미추홀구",d:"주안3동",lat:37.4474,lng:126.6714},
+    {gu:"미추홀구",d:"주안4동",lat:37.4566,lng:126.6881},
+    {gu:"미추홀구",d:"주안6동",lat:37.4591,lng:126.6917},
+    {gu:"미추홀구",d:"숭의4동",lat:37.4613,lng:126.6595},
+    {gu:"미추홀구",d:"용현3동",lat:37.4563,lng:126.652},
+    {gu:"미추홀구",d:"용현5동",lat:37.4499,lng:126.6403},
+    {gu:"미추홀구",d:"용현2동",lat:37.4559,lng:126.6455},
+    {gu:"미추홀구",d:"숭의2동",lat:37.4595,lng:126.6482},
+    {gu:"미추홀구",d:"도화2·3동",lat:37.4743,lng:126.6565},
+    {gu:"미분류",d:"고촌읍",lat:37.5986,lng:126.7631},
+    {gu:"미분류",d:"석남3동",lat:37.5059,lng:126.6833},
+    {gu:"남동구",d:"연수3동",lat:37.4204,lng:126.6878},
+    {gu:"미추홀구",d:"화수1·화평동",lat:37.4812,lng:126.6309},
+    {gu:"미분류",d:"영종1동",lat:37.4931,lng:126.5651},
+    {gu:"연수구",d:"송도5동",lat:37.4177,lng:126.6289},
+    {gu:"미분류",d:"대덕동",lat:37.5905,lng:126.8621},
+    {gu:"미분류",d:"능곡동",lat:37.6309,lng:126.809},
+    {gu:"미분류",d:"행주동",lat:37.6145,lng:126.8237},
+    {gu:"미분류",d:"광명6동",lat:37.4672,lng:126.8363},
+    {gu:"미분류",d:"배곧1동",lat:37.3762,lng:126.7354},
+    {gu:"연수구",d:"배곧2동",lat:37.3595,lng:126.7143},
+    {gu:"미분류",d:"정왕1동",lat:37.3325,lng:126.7348},
+    {gu:"연수구",d:"정왕2동",lat:37.3407,lng:126.7165},
+    {gu:"연수구",d:"정왕3동",lat:37.3468,lng:126.7077},
+    {gu:"미분류",d:"정왕4동",lat:37.3625,lng:126.7319},
+    {gu:"미분류",d:"정왕본동",lat:37.357,lng:126.7553},
+    {gu:"미분류",d:"군자동",lat:37.3518,lng:126.7771},
+    {gu:"미분류",d:"장곡동",lat:37.384,lng:126.7853},
+    {gu:"남동구",d:"월곶동",lat:37.3803,lng:126.7639},
+    {gu:"미분류",d:"연성동",lat:37.3884,lng:126.8028},
+    {gu:"남동구",d:"신현동",lat:37.4143,lng:126.7795},
+    {gu:"미분류",d:"신천동",lat:37.4373,lng:126.781},
+    {gu:"미분류",d:"대야동",lat:37.4536,lng:126.8012},
+    {gu:"미분류",d:"은행동",lat:37.4329,lng:126.806},
+    {gu:"미분류",d:"과림동",lat:37.4324,lng:126.835},
+    {gu:"미분류",d:"매화동",lat:37.4063,lng:126.8246},
+    {gu:"미분류",d:"목감동",lat:37.3841,lng:126.8413},
+    {gu:"서구",d:"아라동",lat:37.5901,lng:126.7088},
+    {gu:"미분류",d:"마산동",lat:37.6404,lng:126.6405},
+    {gu:"미분류",d:"구래동",lat:37.6455,lng:126.6314},
+    {gu:"미분류",d:"화정2동",lat:37.6326,lng:126.8408},
+    {gu:"미분류",d:"화정1동",lat:37.644,lng:126.8363},
+    {gu:"미분류",d:"주교동",lat:37.6595,lng:126.8262},
+    {gu:"미분류",d:"행신1동",lat:37.621,lng:126.8308},
+    {gu:"미분류",d:"행신2동",lat:37.606,lng:126.8416},
+    {gu:"미분류",d:"백석2동",lat:37.6423,lng:126.7839},
+    {gu:"미분류",d:"장항2동",lat:37.6577,lng:126.7675},
+    {gu:"미분류",d:"장항1동",lat:37.6442,lng:126.7699},
+    {gu:"미분류",d:"백석1동",lat:37.6448,lng:126.7941},
+    {gu:"미분류",d:"마두2동",lat:37.6521,lng:126.7808},
+    {gu:"미분류",d:"마두1동",lat:37.6622,lng:126.7796},
+    {gu:"미분류",d:"정발산동",lat:37.6697,lng:126.7757},
+    {gu:"미분류",d:"풍산동",lat:37.6656,lng:126.8043},
+    {gu:"미분류",d:"중산2동",lat:37.6814,lng:126.7872},
+    {gu:"미분류",d:"식사동",lat:37.6763,lng:126.812},
+    {gu:"미분류",d:"일산2동",lat:37.6863,lng:126.7746},
+    {gu:"미분류",d:"일산3동",lat:37.6795,lng:126.7694},
+    {gu:"미분류",d:"주엽2동",lat:37.6721,lng:126.7599},
+    {gu:"미분류",d:"대화동",lat:37.6763,lng:126.7436},
+    {gu:"미분류",d:"주엽1동",lat:37.6698,lng:126.7656},
+    {gu:"미분류",d:"송포동",lat:37.6732,lng:126.7332},
+    {gu:"미분류",d:"가좌동",lat:37.6894,lng:126.7061},
+    {gu:"남동구",d:"구월4동",lat:37.4469,lng:126.7247},
+    {gu:"미분류",d:"검암경서동",lat:37.5572,lng:126.6648},
+    {gu:"미분류",d:"당하동",lat:37.5866,lng:126.6772}
   ]},
-  suwon:{name:"수원시",center:[37.264,127.029],zoom:12,color:"#39ff14",dongs:[
-    {gu:"장안구",d:"영화동",lat:37.299,lng:127.013},{gu:"장안구",d:"연무동",lat:37.303,lng:127.023},
-    {gu:"장안구",d:"율전동",lat:37.297,lng:127.027},{gu:"장안구",d:"파장동",lat:37.303,lng:127.039},
-    {gu:"장안구",d:"송죽동",lat:37.307,lng:127.049},{gu:"장안구",d:"조원1동",lat:37.296,lng:127.000},
-    {gu:"장안구",d:"정자1동",lat:37.310,lng:127.017},{gu:"장안구",d:"정자2동",lat:37.313,lng:127.027},
-    {gu:"권선구",d:"권선1동",lat:37.258,lng:127.010},{gu:"권선구",d:"세류1동",lat:37.265,lng:127.008},
-    {gu:"권선구",d:"세류2동",lat:37.260,lng:127.019},{gu:"권선구",d:"평동",lat:37.242,lng:127.023},
-    {gu:"권선구",d:"서둔동",lat:37.272,lng:127.009},{gu:"권선구",d:"금곡동",lat:37.250,lng:126.998},
-    {gu:"권선구",d:"호매실동",lat:37.245,lng:126.979},
-    {gu:"팔달구",d:"중동",lat:37.278,lng:127.024},{gu:"팔달구",d:"교동",lat:37.280,lng:127.013},
-    {gu:"팔달구",d:"화서1동",lat:37.283,lng:127.003},{gu:"팔달구",d:"지동",lat:37.271,lng:127.025},
-    {gu:"팔달구",d:"우만1동",lat:37.275,lng:127.033},{gu:"팔달구",d:"인계동",lat:37.264,lng:127.037},
-    {gu:"영통구",d:"매탄1동",lat:37.262,lng:127.046},{gu:"영통구",d:"매탄2동",lat:37.255,lng:127.051},
-    {gu:"영통구",d:"원천동",lat:37.271,lng:127.069},{gu:"영통구",d:"영통1동",lat:37.252,lng:127.066},
-    {gu:"영통구",d:"영통3동",lat:37.244,lng:127.057},{gu:"영통구",d:"태장1동",lat:37.281,lng:127.049},
-    {gu:"영통구",d:"광교1동",lat:37.272,lng:127.046},{gu:"영통구",d:"광교2동",lat:37.257,lng:127.043},
+  suwon:{name:"수원시",center:[37.267,127.0],zoom:12,color:"#a29bfe",dongs:[
+    {gu:"장안구",d:"영화동",lat:37.2985,lng:127.0109},
+    {gu:"장안구",d:"연무동",lat:37.2985,lng:127.0109},
+    {gu:"장안구",d:"율전동",lat:37.2985,lng:127.0109},
+    {gu:"장안구",d:"파장동",lat:37.2732,lng:127.0578},
+    {gu:"장안구",d:"송죽동",lat:37.2732,lng:127.0578},
+    {gu:"장안구",d:"조원1동",lat:37.2985,lng:127.0109},
+    {gu:"장안구",d:"정자1동",lat:37.2985,lng:127.0109},
+    {gu:"장안구",d:"정자2동",lat:37.2985,lng:127.0109},
+    {gu:"권선구",d:"권선1동",lat:37.2579,lng:126.9867},
+    {gu:"권선구",d:"세류1동",lat:37.2844,lng:127.0175},
+    {gu:"권선구",d:"세류2동",lat:37.2579,lng:126.9867},
+    {gu:"권선구",d:"평동",lat:37.2579,lng:126.9867},
+    {gu:"권선구",d:"서둔동",lat:37.2844,lng:127.0175},
+    {gu:"권선구",d:"금곡동",lat:37.2579,lng:126.9867},
+    {gu:"권선구",d:"호매실동",lat:37.2579,lng:126.9867},
+    {gu:"팔달구",d:"중동",lat:37.2844,lng:127.0175},
+    {gu:"팔달구",d:"교동",lat:37.2844,lng:127.0175},
+    {gu:"팔달구",d:"화서1동",lat:37.2844,lng:127.0175},
+    {gu:"팔달구",d:"지동",lat:37.2844,lng:127.0175},
+    {gu:"팔달구",d:"우만1동",lat:37.2844,lng:127.0175},
+    {gu:"팔달구",d:"인계동",lat:37.2844,lng:127.0175},
+    {gu:"영통구",d:"매탄1동",lat:37.2732,lng:127.0578},
+    {gu:"영통구",d:"매탄2동",lat:37.2732,lng:127.0578},
+    {gu:"영통구",d:"영통1동",lat:37.2732,lng:127.0578},
+    {gu:"영통구",d:"영통3동",lat:37.2732,lng:127.0578},
+    {gu:"영통구",d:"태장1동",lat:37.2732,lng:127.0578},
+    {gu:"영통구",d:"광교1동",lat:37.2732,lng:127.0578},
+    {gu:"영통구",d:"광교2동",lat:37.2732,lng:127.0578},
+    {gu:"미분류",d:"금정동",lat:37.3665,lng:126.9444},
+    {gu:"미분류",d:"재궁동",lat:37.359,lng:126.9387},
+    {gu:"미분류",d:"오금동",lat:37.3479,lng:126.9297},
+    {gu:"미분류",d:"군포1동",lat:37.3532,lng:126.9516},
+    {gu:"미분류",d:"군포2동",lat:37.3415,lng:126.9379},
+    {gu:"미분류",d:"대야동",lat:37.328,lng:126.9062},
+    {gu:"미분류",d:"수리동",lat:37.3529,lng:126.9163},
+    {gu:"미분류",d:"궁내동",lat:37.3646,lng:126.9174},
+    {gu:"미분류",d:"광정동",lat:37.3673,lng:126.9258},
+    {gu:"미분류",d:"부곡동",lat:37.3201,lng:126.95},
+    {gu:"미분류",d:"오전동",lat:37.3586,lng:126.9823},
+    {gu:"장안구",d:"고천동",lat:37.3468,lng:126.9863},
+    {gu:"미분류",d:"청계동",lat:37.3851,lng:127.0061},
+    {gu:"미분류",d:"송부동",lat:37.3206,lng:126.9333},
+    {gu:"미분류",d:"동탄3동",lat:37.2079,lng:127.055},
+    {gu:"미분류",d:"반월동",lat:37.2276,lng:127.0615},
+    {gu:"미분류",d:"동탄5동",lat:37.2103,lng:127.127},
+    {gu:"미분류",d:"병점2동",lat:37.2112,lng:127.0484},
+    {gu:"미분류",d:"동탄1동",lat:37.2087,lng:127.0748},
+    {gu:"미분류",d:"동탄4동",lat:37.1913,lng:127.1123},
+    {gu:"미분류",d:"동탄6동",lat:37.1806,lng:127.0875},
+    {gu:"미분류",d:"진안동",lat:37.223,lng:127.0511}
   ]},
-  seongnam:{name:"성남시",center:[37.420,127.127],zoom:12,color:"#ffd700",dongs:[
-    {gu:"수정구",d:"신흥1동",lat:37.448,lng:127.147},{gu:"수정구",d:"신흥2동",lat:37.443,lng:127.142},
-    {gu:"수정구",d:"태평1동",lat:37.449,lng:127.138},{gu:"수정구",d:"태평3동",lat:37.440,lng:127.136},
-    {gu:"수정구",d:"수진1동",lat:37.448,lng:127.129},{gu:"수정구",d:"단대동",lat:37.437,lng:127.125},
-    {gu:"수정구",d:"은행동",lat:37.434,lng:127.120},{gu:"수정구",d:"복정동",lat:37.451,lng:127.107},
-    {gu:"중원구",d:"성남동",lat:37.449,lng:127.156},{gu:"중원구",d:"금광1동",lat:37.440,lng:127.164},
-    {gu:"중원구",d:"은행2동",lat:37.432,lng:127.150},{gu:"중원구",d:"중앙동",lat:37.445,lng:127.169},
-    {gu:"중원구",d:"도촌동",lat:37.427,lng:127.170},{gu:"중원구",d:"하대원동",lat:37.449,lng:127.175},
-    {gu:"분당구",d:"분당동",lat:37.370,lng:127.117},{gu:"분당구",d:"수내1동",lat:37.377,lng:127.121},
-    {gu:"분당구",d:"정자1동",lat:37.362,lng:127.109},{gu:"분당구",d:"정자2동",lat:37.366,lng:127.118},
-    {gu:"분당구",d:"서현1동",lat:37.384,lng:127.121},{gu:"분당구",d:"이매1동",lat:37.388,lng:127.140},
-    {gu:"분당구",d:"야탑1동",lat:37.404,lng:127.131},{gu:"분당구",d:"야탑2동",lat:37.398,lng:127.129},
-    {gu:"분당구",d:"야탑3동",lat:37.401,lng:127.143},{gu:"분당구",d:"판교동",lat:37.390,lng:127.108},
-    {gu:"분당구",d:"삼평동",lat:37.398,lng:127.107},{gu:"분당구",d:"운중동",lat:37.373,lng:127.087},
-    {gu:"분당구",d:"구미1동",lat:37.350,lng:127.094},
+  seongnam:{name:"성남시",center:[37.42,127.13],zoom:12,color:"#fd79a8",dongs:[
+    {gu:"수정구",d:"신흥1동",lat:37.4435,lng:127.1183},
+    {gu:"수정구",d:"신흥2동",lat:37.4435,lng:127.1183},
+    {gu:"수정구",d:"태평1동",lat:37.4435,lng:127.1183},
+    {gu:"수정구",d:"태평3동",lat:37.4435,lng:127.1183},
+    {gu:"수정구",d:"수진1동",lat:37.4435,lng:127.1183},
+    {gu:"수정구",d:"단대동",lat:37.4435,lng:127.1183},
+    {gu:"수정구",d:"은행동",lat:37.4435,lng:127.1183},
+    {gu:"수정구",d:"복정동",lat:37.4435,lng:127.1183},
+    {gu:"중원구",d:"성남동",lat:37.4435,lng:127.1183},
+    {gu:"중원구",d:"금광1동",lat:37.4452,lng:127.1719},
+    {gu:"중원구",d:"은행2동",lat:37.4452,lng:127.1719},
+    {gu:"중원구",d:"중앙동",lat:37.4452,lng:127.1719},
+    {gu:"중원구",d:"도촌동",lat:37.4452,lng:127.1719},
+    {gu:"중원구",d:"하대원동",lat:37.4452,lng:127.1719}
   ]},
-  gwangju:{name:"경기도 광주시",center:[37.430,127.256],zoom:12,color:"#ff8c00",dongs:[
-    {gu:"경안동",d:"경안동",lat:37.430,lng:127.256},{gu:"경안동",d:"탄벌동",lat:37.437,lng:127.269},
-    {gu:"경안동",d:"쌍령동",lat:37.422,lng:127.270},{gu:"경안동",d:"역동",lat:37.443,lng:127.258},
-    {gu:"광남동",d:"광남동",lat:37.410,lng:127.218},{gu:"광남동",d:"태전동",lat:37.418,lng:127.229},
-    {gu:"광남동",d:"직동",lat:37.400,lng:127.236},{gu:"광남동",d:"삼동",lat:37.393,lng:127.220},
-    {gu:"초월읍",d:"초월읍",lat:37.385,lng:127.276},{gu:"오포읍",d:"오포읍",lat:37.367,lng:127.217},
-    {gu:"곤지암읍",d:"곤지암읍",lat:37.343,lng:127.346},{gu:"도척면",d:"도척면",lat:37.350,lng:127.414},
-    {gu:"퇴촌면",d:"퇴촌면",lat:37.471,lng:127.303},{gu:"남종면",d:"남종면",lat:37.505,lng:127.363},
-    {gu:"남한산성면",d:"남한산성면",lat:37.477,lng:127.188},
+  goyang:{name:"고양시",center:[37.658,126.832],zoom:12,color:"#fdcb6e",dongs:[
+    {gu:"덕양구",d:"화정1동",lat:37.644,lng:126.8363},
+    {gu:"덕양구",d:"화정2동",lat:37.6326,lng:126.8408},
+    {gu:"덕양구",d:"원흥동",lat:37.6323,lng:126.8594},
+    {gu:"덕양구",d:"성사1동",lat:37.6603,lng:126.8474},
+    {gu:"덕양구",d:"행신1동",lat:37.621,lng:126.8308},
+    {gu:"덕양구",d:"행신2동",lat:37.606,lng:126.8416},
+    {gu:"덕양구",d:"행주동",lat:37.6145,lng:126.8237},
+    {gu:"덕양구",d:"고양동",lat:37.706,lng:126.8956},
+    {gu:"일산동구",d:"풍산동",lat:37.6656,lng:126.8043},
+    {gu:"일산동구",d:"백석1동",lat:37.6448,lng:126.7941},
+    {gu:"일산동구",d:"마두1동",lat:37.6622,lng:126.7796},
+    {gu:"일산동구",d:"장항1동",lat:37.6442,lng:126.7699},
+    {gu:"일산동구",d:"식사동",lat:37.6763,lng:126.812},
+    {gu:"일산서구",d:"주엽1동",lat:37.6698,lng:126.7656},
+    {gu:"일산서구",d:"일산1동",lat:37.6878,lng:126.7683},
+    {gu:"일산서구",d:"일산2동",lat:37.6863,lng:126.7746},
+    {gu:"일산서구",d:"탄현1동",lat:37.6942,lng:126.7683},
+    {gu:"일산서구",d:"덕이동",lat:37.6986,lng:126.7509},
+    {gu:"미분류",d:"신당동",lat:37.5661,lng:127.0114},
+    {gu:"미분류",d:"불로대곡동",lat:37.6152,lng:126.6751},
+    {gu:"미분류",d:"고촌읍",lat:37.5986,lng:126.7631},
+    {gu:"미분류",d:"하성면",lat:37.7213,lng:126.6264},
+    {gu:"미분류",d:"조리읍",lat:37.7485,lng:126.8211},
+    {gu:"일산동구",d:"운정3동",lat:37.7083,lng:126.7553},
+    {gu:"일산동구",d:"운정2동",lat:37.7262,lng:126.7381},
+    {gu:"일산동구",d:"운정1동",lat:37.727,lng:126.7727},
+    {gu:"미분류",d:"교하동",lat:37.7389,lng:126.7057},
+    {gu:"미분류",d:"금촌1동",lat:37.7638,lng:126.7825},
+    {gu:"미분류",d:"금촌2동",lat:37.7499,lng:126.7754},
+    {gu:"미분류",d:"금촌3동",lat:37.7842,lng:126.7367},
+    {gu:"미분류",d:"광탄면",lat:37.7764,lng:126.8726},
+    {gu:"미분류",d:"탄현면",lat:37.7753,lng:126.7072},
+    {gu:"미분류",d:"백석읍",lat:37.7969,lng:126.9822},
+    {gu:"미분류",d:"효자동",lat:37.6537,lng:126.9462},
+    {gu:"일산동구",d:"능곡동",lat:37.6309,lng:126.809},
+    {gu:"미분류",d:"장흥면",lat:37.7076,lng:126.9619},
+    {gu:"미분류",d:"관산동",lat:37.7092,lng:126.8703},
+    {gu:"미분류",d:"녹양동",lat:37.7589,lng:127.0333},
+    {gu:"미분류",d:"가능동",lat:37.7545,lng:127.0246},
+    {gu:"미분류",d:"흥선동",lat:37.7405,lng:127.0224},
+    {gu:"미분류",d:"호원1동",lat:37.7066,lng:127.0398},
+    {gu:"미분류",d:"행신4동",lat:37.6209,lng:126.8483},
+    {gu:"미분류",d:"행신3동",lat:37.6257,lng:126.8406},
+    {gu:"일산동구",d:"성사2동",lat:37.6494,lng:126.8391},
+    {gu:"일산동구",d:"주교동",lat:37.6595,lng:126.8262},
+    {gu:"미분류",d:"흥도동",lat:37.6323,lng:126.8594},
+    {gu:"미분류",d:"삼송2동",lat:37.6509,lng:126.8767},
+    {gu:"미분류",d:"원신동",lat:37.6689,lng:126.8645},
+    {gu:"미분류",d:"삼송1동",lat:37.6604,lng:126.9066},
+    {gu:"일산동구",d:"백석2동",lat:37.6423,lng:126.7839},
+    {gu:"일산동구",d:"장항2동",lat:37.6577,lng:126.7675},
+    {gu:"일산동구",d:"마두2동",lat:37.6521,lng:126.7808},
+    {gu:"일산동구",d:"정발산동",lat:37.6697,lng:126.7757},
+    {gu:"일산동구",d:"중산2동",lat:37.6814,lng:126.7872},
+    {gu:"일산동구",d:"중산1동",lat:37.6915,lng:126.7826},
+    {gu:"일산동구",d:"고봉동",lat:37.7059,lng:126.8113},
+    {gu:"일산동구",d:"탄현2동",lat:37.7005,lng:126.7719},
+    {gu:"일산동구",d:"일산3동",lat:37.6795,lng:126.7694},
+    {gu:"일산서구",d:"주엽2동",lat:37.6721,lng:126.7599},
+    {gu:"일산서구",d:"대화동",lat:37.6763,lng:126.7436},
+    {gu:"일산서구",d:"송포동",lat:37.6732,lng:126.7332},
+    {gu:"일산서구",d:"가좌동",lat:37.6894,lng:126.7061},
+    {gu:"미분류",d:"호원2동",lat:37.7249,lng:127.0343},
+    {gu:"미분류",d:"검암경서동",lat:37.5572,lng:126.6648},
+    {gu:"미분류",d:"당하동",lat:37.5866,lng:126.6772}
   ]},
-  goyang:{name:"고양시",center:[37.658,126.832],zoom:12,color:"#9b59b6",dongs:[
-    {gu:"덕양구",d:"화정1동",lat:37.632,lng:126.838},{gu:"덕양구",d:"화정2동",lat:37.625,lng:126.840},
-    {gu:"덕양구",d:"원흥동",lat:37.641,lng:126.843},{gu:"덕양구",d:"성사1동",lat:37.642,lng:126.824},
-    {gu:"덕양구",d:"행신1동",lat:37.607,lng:126.835},{gu:"덕양구",d:"행신2동",lat:37.610,lng:126.841},
-    {gu:"덕양구",d:"행주동",lat:37.583,lng:126.826},{gu:"덕양구",d:"고양동",lat:37.656,lng:126.853},
-    {gu:"일산동구",d:"풍산동",lat:37.674,lng:126.765},{gu:"일산동구",d:"백석1동",lat:37.649,lng:126.779},
-    {gu:"일산동구",d:"마두1동",lat:37.657,lng:126.768},{gu:"일산동구",d:"장항1동",lat:37.666,lng:126.760},
-    {gu:"일산동구",d:"식사동",lat:37.676,lng:126.777},
-    {gu:"일산서구",d:"주엽1동",lat:37.666,lng:126.740},{gu:"일산서구",d:"일산1동",lat:37.661,lng:126.727},
-    {gu:"일산서구",d:"일산2동",lat:37.656,lng:126.724},{gu:"일산서구",d:"탄현1동",lat:37.633,lng:126.720},
-    {gu:"일산서구",d:"덕이동",lat:37.625,lng:126.715},
+  yongin:{name:"용인시",center:[37.232,127.204],zoom:11,color:"#e17055",dongs:[
+    {gu:"처인구",d:"김량장동",lat:37.2514,lng:127.2449},
+    {gu:"처인구",d:"역북동",lat:37.2514,lng:127.2449},
+    {gu:"처인구",d:"삼가동",lat:37.2514,lng:127.2449},
+    {gu:"처인구",d:"유방동",lat:37.2514,lng:127.2449},
+    {gu:"처인구",d:"모현읍",lat:37.3356,lng:127.2197},
+    {gu:"기흥구",d:"중동",lat:37.263,lng:127.1105},
+    {gu:"기흥구",d:"신갈동",lat:37.263,lng:127.1105},
+    {gu:"기흥구",d:"구갈동",lat:37.263,lng:127.1105},
+    {gu:"기흥구",d:"동백1동",lat:37.263,lng:127.1105},
+    {gu:"기흥구",d:"동백3동",lat:37.263,lng:127.1105},
+    {gu:"기흥구",d:"보정동",lat:37.33,lng:127.0887},
+    {gu:"수지구",d:"수지1동",lat:37.33,lng:127.0887},
+    {gu:"수지구",d:"수지2동",lat:37.263,lng:127.1105},
+    {gu:"수지구",d:"상현1동",lat:37.33,lng:127.0887},
+    {gu:"수지구",d:"성복동",lat:37.2732,lng:127.0578},
+    {gu:"수지구",d:"풍덕천1동",lat:37.33,lng:127.0887},
+    {gu:"수지구",d:"동천동",lat:37.33,lng:127.0887},
+    {gu:"미분류",d:"금정동",lat:37.3665,lng:126.9444},
+    {gu:"미분류",d:"재궁동",lat:37.359,lng:126.9387},
+    {gu:"미분류",d:"오금동",lat:37.3479,lng:126.9297},
+    {gu:"미분류",d:"군포1동",lat:37.3532,lng:126.9516},
+    {gu:"미분류",d:"군포2동",lat:37.3415,lng:126.9379},
+    {gu:"미분류",d:"대야동",lat:37.328,lng:126.9062},
+    {gu:"미분류",d:"수리동",lat:37.3529,lng:126.9163},
+    {gu:"미분류",d:"궁내동",lat:37.3646,lng:126.9174},
+    {gu:"미분류",d:"광정동",lat:37.3673,lng:126.9258},
+    {gu:"미분류",d:"산본2동",lat:37.3709,lng:126.9313},
+    {gu:"미분류",d:"산본1동",lat:37.3737,lng:126.9403},
+    {gu:"미분류",d:"부곡동",lat:37.3201,lng:126.95},
+    {gu:"미분류",d:"오전동",lat:37.3586,lng:126.9823},
+    {gu:"미분류",d:"고천동",lat:37.3468,lng:126.9863},
+    {gu:"미분류",d:"청계동",lat:37.3851,lng:127.0061},
+    {gu:"미분류",d:"내손2동",lat:37.389,lng:126.98},
+    {gu:"미분류",d:"내손1동",lat:37.3796,lng:126.976},
+    {gu:"미분류",d:"관양1동",lat:37.4112,lng:126.9645},
+    {gu:"미분류",d:"비산2동",lat:37.3981,lng:126.9405},
+    {gu:"미분류",d:"비산3동",lat:37.4192,lng:126.9513},
+    {gu:"미분류",d:"비산1동",lat:37.4045,lng:126.9348},
+    {gu:"미분류",d:"관양2동",lat:37.3992,lng:126.9754},
+    {gu:"미분류",d:"부림동",lat:37.3976,lng:126.9568},
+    {gu:"미분류",d:"달안동",lat:37.3973,lng:126.9499},
+    {gu:"미분류",d:"부흥동",lat:37.3933,lng:126.9468},
+    {gu:"미분류",d:"평촌동",lat:37.391,lng:126.9758},
+    {gu:"미분류",d:"평안동",lat:37.3916,lng:126.9638},
+    {gu:"미분류",d:"신촌동",lat:37.3806,lng:126.9575},
+    {gu:"미분류",d:"범계동",lat:37.3888,lng:126.9526},
+    {gu:"미분류",d:"호계2동",lat:37.3815,lng:126.9456},
+    {gu:"미분류",d:"귀인동",lat:37.3831,lng:126.9692},
+    {gu:"미분류",d:"갈산동",lat:37.3771,lng:126.9647},
+    {gu:"미분류",d:"호계1동",lat:37.3733,lng:126.9521},
+    {gu:"미분류",d:"호계3동",lat:37.3665,lng:126.9621},
+    {gu:"미분류",d:"퇴촌면",lat:37.4568,lng:127.336},
+    {gu:"미분류",d:"남한산성면",lat:37.4645,lng:127.2316},
+    {gu:"미분류",d:"송정동",lat:37.4278,lng:127.2664},
+    {gu:"미분류",d:"탄벌동",lat:37.4391,lng:127.2309},
+    {gu:"미분류",d:"경안동",lat:37.405,lng:127.2508},
+    {gu:"미분류",d:"쌍령동",lat:37.4013,lng:127.2754},
+    {gu:"미분류",d:"광남2동",lat:37.3847,lng:127.2309},
+    {gu:"미분류",d:"광남1동",lat:37.3972,lng:127.2128},
+    {gu:"미분류",d:"초월읍",lat:37.3919,lng:127.3089},
+    {gu:"미분류",d:"곤지암읍",lat:37.361,lng:127.3686},
+    {gu:"처인구",d:"도척면",lat:37.3028,lng:127.3191},
+    {gu:"미분류",d:"송부동",lat:37.3206,lng:126.9333},
+    {gu:"미분류",d:"일직동",lat:37.4216,lng:126.8865},
+    {gu:"미분류",d:"신현동",lat:37.3632,lng:127.157},
+    {gu:"처인구",d:"능평동",lat:37.3471,lng:127.165},
+    {gu:"처인구",d:"오포1동",lat:37.3561,lng:127.2153},
+    {gu:"미분류",d:"오포2동",lat:37.3649,lng:127.2634},
+    {gu:"미분류",d:"동탄3동",lat:37.2079,lng:127.055},
+    {gu:"미분류",d:"반월동",lat:37.2276,lng:127.0615},
+    {gu:"처인구",d:"동탄5동",lat:37.2103,lng:127.127},
+    {gu:"미분류",d:"병점2동",lat:37.2112,lng:127.0484},
+    {gu:"미분류",d:"동탄1동",lat:37.2087,lng:127.0748},
+    {gu:"처인구",d:"동탄4동",lat:37.1913,lng:127.1123},
+    {gu:"미분류",d:"동탄2동",lat:37.1904,lng:127.0747},
+    {gu:"처인구",d:"동탄8동",lat:37.1584,lng:127.1125},
+    {gu:"처인구",d:"동탄7동",lat:37.1684,lng:127.1188},
+    {gu:"미분류",d:"동탄6동",lat:37.1806,lng:127.0875},
+    {gu:"처인구",d:"동탄9동",lat:37.1864,lng:127.1316},
+    {gu:"미분류",d:"진안동",lat:37.223,lng:127.0511}
   ]},
-  yongin:{name:"용인시",center:[37.234,127.203],zoom:12,color:"#e74c3c",dongs:[
-    {gu:"처인구",d:"김량장동",lat:37.234,lng:127.203},{gu:"처인구",d:"역북동",lat:37.239,lng:127.195},
-    {gu:"처인구",d:"삼가동",lat:37.228,lng:127.209},{gu:"처인구",d:"유방동",lat:37.249,lng:127.213},
-    {gu:"처인구",d:"모현읍",lat:37.276,lng:127.218},
-    {gu:"기흥구",d:"중동",lat:37.264,lng:127.115},{gu:"기흥구",d:"신갈동",lat:37.273,lng:127.146},
-    {gu:"기흥구",d:"구갈동",lat:37.264,lng:127.136},{gu:"기흥구",d:"동백1동",lat:37.238,lng:127.118},
-    {gu:"기흥구",d:"동백3동",lat:37.233,lng:127.135},{gu:"기흥구",d:"보정동",lat:37.310,lng:127.077},
-    {gu:"수지구",d:"수지1동",lat:37.318,lng:127.094},{gu:"수지구",d:"수지2동",lat:37.309,lng:127.097},
-    {gu:"수지구",d:"상현1동",lat:37.296,lng:127.074},{gu:"수지구",d:"성복동",lat:37.284,lng:127.060},
-    {gu:"수지구",d:"풍덕천1동",lat:37.319,lng:127.084},{gu:"수지구",d:"동천동",lat:37.331,lng:127.069},
+  bucheon:{name:"부천시",center:[37.499,126.783],zoom:12,color:"#74b9ff",dongs:[
+    {gu:"소사구",d:"소사본동",lat:37.4723,lng:126.8038},
+    {gu:"소사구",d:"괴안동",lat:37.4723,lng:126.8038},
+    {gu:"소사구",d:"심곡본동",lat:37.4723,lng:126.8038},
+    {gu:"소사구",d:"범박동",lat:37.4536,lng:126.8012},
+    {gu:"원미구",d:"중4동",lat:37.5334,lng:126.7889},
+    {gu:"오정구",d:"오정동",lat:37.5334,lng:126.7889},
+    {gu:"오정구",d:"삼정동",lat:37.5334,lng:126.7889},
+    {gu:"오정구",d:"대장동",lat:37.5334,lng:126.7889},
+    {gu:"소사구",d:"오류2동",lat:37.4805,lng:126.8299},
+    {gu:"소사구",d:"일신동",lat:37.4753,lng:126.7534},
+    {gu:"원미구",d:"삼산동",lat:37.5151,lng:126.7492},
+    {gu:"미분류",d:"연희동",lat:37.5483,lng:126.6795},
+    {gu:"미분류",d:"고촌읍",lat:37.5986,lng:126.7631},
+    {gu:"미분류",d:"철산4동",lat:37.4725,lng:126.8633},
+    {gu:"미분류",d:"하안1동",lat:37.4596,lng:126.8681},
+    {gu:"미분류",d:"광명7동",lat:37.4671,lng:126.852},
+    {gu:"미분류",d:"광명6동",lat:37.4672,lng:126.8363},
+    {gu:"미분류",d:"학온동",lat:37.4385,lng:126.8538},
+    {gu:"미분류",d:"신천동",lat:37.4373,lng:126.781},
+    {gu:"미분류",d:"대야동",lat:37.4536,lng:126.8012},
+    {gu:"미분류",d:"은행동",lat:37.4329,lng:126.806},
+    {gu:"미분류",d:"과림동",lat:37.4324,lng:126.835},
+    {gu:"미분류",d:"매화동",lat:37.4063,lng:126.8246},
+    {gu:"미분류",d:"일직동",lat:37.4216,lng:126.8865},
+    {gu:"미분류",d:"검암경서동",lat:37.5572,lng:126.6648},
+    {gu:"미분류",d:"당하동",lat:37.5866,lng:126.6772}
   ]},
-  bucheon:{name:"부천시",center:[37.504,126.766],zoom:12,color:"#00ced1",dongs:[
-    {gu:"소사구",d:"소사본동",lat:37.479,lng:126.803},{gu:"소사구",d:"괴안동",lat:37.471,lng:126.790},
-    {gu:"소사구",d:"심곡본동",lat:37.487,lng:126.819},{gu:"소사구",d:"범박동",lat:37.464,lng:126.797},
-    {gu:"원미구",d:"원미1동",lat:37.499,lng:126.783},{gu:"원미구",d:"역곡1동",lat:37.491,lng:126.765},
-    {gu:"원미구",d:"역곡2동",lat:37.494,lng:126.757},{gu:"원미구",d:"춘의동",lat:37.503,lng:126.770},
-    {gu:"원미구",d:"도당동",lat:37.512,lng:126.776},{gu:"원미구",d:"중1동",lat:37.499,lng:126.799},
-    {gu:"원미구",d:"중4동",lat:37.508,lng:126.804},
-    {gu:"오정구",d:"오정동",lat:37.533,lng:126.777},{gu:"오정구",d:"삼정동",lat:37.529,lng:126.797},
-    {gu:"오정구",d:"대장동",lat:37.545,lng:126.764},
-  ]},
-  anyang:{name:"안양시",center:[37.394,126.957],zoom:12,color:"#ff69b4",dongs:[
-    {gu:"만안구",d:"안양1동",lat:37.401,lng:126.925},{gu:"만안구",d:"안양2동",lat:37.406,lng:126.919},
-    {gu:"만안구",d:"안양3동",lat:37.408,lng:126.928},{gu:"만안구",d:"안양5동",lat:37.394,lng:126.918},
-    {gu:"만안구",d:"석수1동",lat:37.419,lng:126.904},{gu:"만안구",d:"박달1동",lat:37.393,lng:126.887},
-    {gu:"동안구",d:"비산1동",lat:37.405,lng:126.959},{gu:"동안구",d:"비산2동",lat:37.398,lng:126.964},
-    {gu:"동안구",d:"관양1동",lat:37.386,lng:126.965},{gu:"동안구",d:"평촌동",lat:37.390,lng:126.988},
-    {gu:"동안구",d:"호계1동",lat:37.405,lng:126.982},{gu:"동안구",d:"호계3동",lat:37.420,lng:126.990},
+  anyang:{name:"안양시",center:[37.393,126.953],zoom:12,color:"#81ecec",dongs:[
+    {gu:"만안구",d:"안양3동",lat:37.4045,lng:126.9348},
+    {gu:"동안구",d:"비산1동",lat:37.4045,lng:126.9348},
+    {gu:"동안구",d:"비산2동",lat:37.3981,lng:126.9405},
+    {gu:"동안구",d:"관양1동",lat:37.4112,lng:126.9645},
+    {gu:"동안구",d:"평촌동",lat:37.391,lng:126.9758},
+    {gu:"동안구",d:"호계1동",lat:37.3733,lng:126.9521},
+    {gu:"동안구",d:"호계3동",lat:37.3665,lng:126.9621},
+    {gu:"만안구",d:"금정동",lat:37.3665,lng:126.9444},
+    {gu:"만안구",d:"재궁동",lat:37.359,lng:126.9387},
+    {gu:"미분류",d:"오금동",lat:37.3479,lng:126.9297},
+    {gu:"미분류",d:"군포1동",lat:37.3532,lng:126.9516},
+    {gu:"미분류",d:"군포2동",lat:37.3415,lng:126.9379},
+    {gu:"미분류",d:"대야동",lat:37.328,lng:126.9062},
+    {gu:"미분류",d:"수리동",lat:37.3529,lng:126.9163},
+    {gu:"만안구",d:"궁내동",lat:37.3646,lng:126.9174},
+    {gu:"만안구",d:"광정동",lat:37.3673,lng:126.9258},
+    {gu:"만안구",d:"산본2동",lat:37.3709,lng:126.9313},
+    {gu:"만안구",d:"산본1동",lat:37.3737,lng:126.9403},
+    {gu:"미분류",d:"부곡동",lat:37.3201,lng:126.95},
+    {gu:"미분류",d:"오전동",lat:37.3586,lng:126.9823},
+    {gu:"미분류",d:"고천동",lat:37.3468,lng:126.9863},
+    {gu:"미분류",d:"청계동",lat:37.3851,lng:127.0061},
+    {gu:"미분류",d:"내손2동",lat:37.389,lng:126.98},
+    {gu:"동안구",d:"내손1동",lat:37.3796,lng:126.976},
+    {gu:"동안구",d:"비산3동",lat:37.4192,lng:126.9513},
+    {gu:"동안구",d:"관양2동",lat:37.3992,lng:126.9754},
+    {gu:"동안구",d:"부림동",lat:37.3976,lng:126.9568},
+    {gu:"동안구",d:"달안동",lat:37.3973,lng:126.9499},
+    {gu:"만안구",d:"부흥동",lat:37.3933,lng:126.9468},
+    {gu:"동안구",d:"평안동",lat:37.3916,lng:126.9638},
+    {gu:"동안구",d:"신촌동",lat:37.3806,lng:126.9575},
+    {gu:"동안구",d:"범계동",lat:37.3888,lng:126.9526},
+    {gu:"만안구",d:"호계2동",lat:37.3815,lng:126.9456},
+    {gu:"동안구",d:"귀인동",lat:37.3831,lng:126.9692},
+    {gu:"동안구",d:"갈산동",lat:37.3771,lng:126.9647},
+    {gu:"미분류",d:"철산3동",lat:37.4741,lng:126.8713},
+    {gu:"미분류",d:"철산4동",lat:37.4725,lng:126.8633},
+    {gu:"미분류",d:"하안1동",lat:37.4596,lng:126.8681},
+    {gu:"미분류",d:"광명7동",lat:37.4671,lng:126.852},
+    {gu:"미분류",d:"광명6동",lat:37.4672,lng:126.8363},
+    {gu:"미분류",d:"학온동",lat:37.4385,lng:126.8538},
+    {gu:"미분류",d:"송부동",lat:37.3206,lng:126.9333},
+    {gu:"미분류",d:"과림동",lat:37.4324,lng:126.835},
+    {gu:"미분류",d:"매화동",lat:37.4063,lng:126.8246},
+    {gu:"미분류",d:"목감동",lat:37.3841,lng:126.8413},
+    {gu:"만안구",d:"일직동",lat:37.4216,lng:126.8865}
   ]},
   hwaseong:{name:"화성시",center:[37.199,126.832],zoom:11,color:"#1abc9c",dongs:[
-    {gu:"봉담읍",d:"봉담읍",lat:37.214,lng:126.993},{gu:"동탄1동",d:"동탄1동",lat:37.201,lng:127.072},
-    {gu:"동탄2동",d:"동탄2동",lat:37.212,lng:127.078},{gu:"동탄3동",d:"동탄3동",lat:37.222,lng:127.082},
-    {gu:"동탄4동",d:"동탄4동",lat:37.215,lng:127.093},{gu:"동탄5동",d:"동탄5동",lat:37.207,lng:127.097},
-    {gu:"동탄6동",d:"동탄6동",lat:37.196,lng:127.082},{gu:"동탄7동",d:"동탄7동",lat:37.191,lng:127.071},
-    {gu:"동탄8동",d:"동탄8동",lat:37.186,lng:127.059},{gu:"병점1동",d:"병점1동",lat:37.197,lng:127.042},
-    {gu:"병점2동",d:"병점2동",lat:37.194,lng:127.052},{gu:"반월동",d:"반월동",lat:37.191,lng:127.007},
-    {gu:"진안동",d:"진안동",lat:37.182,lng:127.001},{gu:"향남읍",d:"향남읍",lat:37.094,lng:126.956},
-    {gu:"남양읍",d:"남양읍",lat:37.216,lng:126.770},
+    {gu:"봉담읍",d:"봉담읍",lat:37.2156,lng:127.0399},
+    {gu:"동탄1동",d:"동탄1동",lat:37.2087,lng:127.0748},
+    {gu:"동탄2동",d:"동탄2동",lat:37.1904,lng:127.0747},
+    {gu:"동탄3동",d:"동탄3동",lat:37.2079,lng:127.055},
+    {gu:"동탄4동",d:"동탄4동",lat:37.1913,lng:127.1123},
+    {gu:"동탄5동",d:"동탄5동",lat:37.2103,lng:127.127},
+    {gu:"동탄6동",d:"동탄6동",lat:37.1806,lng:127.0875},
+    {gu:"동탄7동",d:"동탄7동",lat:37.1684,lng:127.1188},
+    {gu:"동탄8동",d:"동탄8동",lat:37.1584,lng:127.1125},
+    {gu:"병점1동",d:"병점1동",lat:37.1713,lng:127.0576},
+    {gu:"병점2동",d:"병점2동",lat:37.2112,lng:127.0484},
+    {gu:"반월동",d:"반월동",lat:37.2276,lng:127.0615}
   ]},
+  gwangju:{name:"경기도 광주시",center:[37.429,127.255],zoom:12,color:"#55efc4",dongs:[
+    {gu:"경안동",d:"경안동",lat:37.405,lng:127.2508},
+    {gu:"경안동",d:"탄벌동",lat:37.4391,lng:127.2309},
+    {gu:"경안동",d:"쌍령동",lat:37.4013,lng:127.2754},
+    {gu:"경안동",d:"역동",lat:37.4645,lng:127.2316},
+    {gu:"광남동",d:"광남동",lat:37.3972,lng:127.2128},
+    {gu:"광남동",d:"태전동",lat:37.4391,lng:127.2309},
+    {gu:"광남동",d:"직동",lat:37.3972,lng:127.2128},
+    {gu:"광남동",d:"삼동",lat:37.3972,lng:127.2128},
+    {gu:"초월읍",d:"초월읍",lat:37.3919,lng:127.3089},
+    {gu:"오포읍",d:"오포읍",lat:37.3561,lng:127.2153},
+    {gu:"곤지암읍",d:"곤지암읍",lat:37.361,lng:127.3686},
+    {gu:"도척면",d:"도척면",lat:37.3028,lng:127.3191},
+    {gu:"퇴촌면",d:"퇴촌면",lat:37.4568,lng:127.336},
+    {gu:"남종면",d:"남종면",lat:37.4992,lng:127.3148},
+    {gu:"남한산성면",d:"남한산성면",lat:37.4645,lng:127.2316},
+    {gu:"와부읍",d:"와부읍",lat:37.5911,lng:127.2511},
+    {gu:"조안면",d:"조안면",lat:37.5623,lng:127.2885},
+    {gu:"송정동",d:"송정동",lat:37.4278,lng:127.2664},
+    {gu:"광남2동",d:"광남2동",lat:37.3847,lng:127.2309},
+    {gu:"광남1동",d:"광남1동",lat:37.3972,lng:127.2128},
+    {gu:"춘궁동",d:"춘궁동",lat:37.514,lng:127.1972},
+    {gu:"덕풍3동",d:"덕풍3동",lat:37.5489,lng:127.2023},
+    {gu:"덕풍2동",d:"덕풍2동",lat:37.5411,lng:127.1996},
+    {gu:"덕풍1동",d:"덕풍1동",lat:37.5337,lng:127.2},
+    {gu:"신장1동",d:"신장1동",lat:37.5385,lng:127.2061},
+    {gu:"신장2동",d:"신장2동",lat:37.5433,lng:127.2168},
+    {gu:"창우동",d:"창우동",lat:37.5137,lng:127.2241},
+    {gu:"모현읍",d:"모현읍",lat:37.3356,lng:127.2197},
+    {gu:"오포1동",d:"오포1동",lat:37.3561,lng:127.2153},
+    {gu:"오포2동",d:"오포2동",lat:37.3649,lng:127.2634}
+  ]}
 };
 
-/* ── 구(區) 퀴즈 DB ── */
-const GU_DB = {
-  seoul_gu:{name:"서울특별시",center:[37.565,126.978],zoom:11,color:"#00d4ff",mode:"gu",gus:[
-    {gu:"종로구",d:"종로구",lat:37.581,lng:126.988},
-    {gu:"중구",d:"중구",lat:37.562,lng:126.996},
-    {gu:"용산구",d:"용산구",lat:37.537,lng:126.979},
-    {gu:"성동구",d:"성동구",lat:37.551,lng:127.041},
-    {gu:"광진구",d:"광진구",lat:37.544,lng:127.084},
-    {gu:"동대문구",d:"동대문구",lat:37.583,lng:127.05},
-    {gu:"중랑구",d:"중랑구",lat:37.597,lng:127.092},
-    {gu:"성북구",d:"성북구",lat:37.599,lng:127.024},
-    {gu:"강북구",d:"강북구",lat:37.641,lng:127.022},
-    {gu:"도봉구",d:"도봉구",lat:37.66,lng:127.048},
-    {gu:"노원구",d:"노원구",lat:37.64,lng:127.071},
-    {gu:"은평구",d:"은평구",lat:37.61,lng:126.923},
-    {gu:"서대문구",d:"서대문구",lat:37.578,lng:126.938},
-    {gu:"마포구",d:"마포구",lat:37.556,lng:126.926},
-    {gu:"양천구",d:"양천구",lat:37.527,lng:126.873},
-    {gu:"강서구",d:"강서구",lat:37.556,lng:126.835},
-    {gu:"구로구",d:"구로구",lat:37.5,lng:126.877},
-    {gu:"금천구",d:"금천구",lat:37.468,lng:126.901},
-    {gu:"영등포구",d:"영등포구",lat:37.511,lng:126.906},
-    {gu:"동작구",d:"동작구",lat:37.503,lng:126.949},
-    {gu:"관악구",d:"관악구",lat:37.479,lng:126.944},
-    {gu:"서초구",d:"서초구",lat:37.487,lng:127.015},
-    {gu:"강남구",d:"강남구",lat:37.5,lng:127.055},
-    {gu:"송파구",d:"송파구",lat:37.506,lng:127.118},
-    {gu:"강동구",d:"강동구",lat:37.55,lng:127.148}
-  ]},
-  incheon_gu:{name:"인천광역시",center:[37.456,126.705],zoom:11,color:"#ff3c6e",mode:"gu",gus:[
-    {gu:"중구",d:"중구",lat:37.472,lng:126.631},
-    {gu:"동구",d:"동구",lat:37.478,lng:126.646},
-    {gu:"미추홀구",d:"미추홀구",lat:37.45,lng:126.669},
-    {gu:"연수구",d:"연수구",lat:37.407,lng:126.682},
-    {gu:"남동구",d:"남동구",lat:37.434,lng:126.721},
-    {gu:"부평구",d:"부평구",lat:37.495,lng:126.731},
-    {gu:"계양구",d:"계양구",lat:37.534,lng:126.732},
-    {gu:"서구",d:"서구",lat:37.559,lng:126.72}
-  ]},
-  suwon_gu:{name:"수원시",center:[37.264,127.029],zoom:12,color:"#39ff14",mode:"gu",gus:[
-    {gu:"장안구",d:"장안구",lat:37.303,lng:127.024},
-    {gu:"권선구",d:"권선구",lat:37.256,lng:127.007},
-    {gu:"팔달구",d:"팔달구",lat:37.275,lng:127.022},
-    {gu:"영통구",d:"영통구",lat:37.262,lng:127.053}
-  ]},
-  seongnam_gu:{name:"성남시",center:[37.420,127.127],zoom:12,color:"#ffd700",mode:"gu",gus:[
-    {gu:"수정구",d:"수정구",lat:37.444,lng:127.13},
-    {gu:"중원구",d:"중원구",lat:37.44,lng:127.164},
-    {gu:"분당구",d:"분당구",lat:37.382,lng:127.117}
-  ]},
-  goyang_gu:{name:"고양시",center:[37.658,126.832],zoom:12,color:"#9b59b6",mode:"gu",gus:[
-    {gu:"덕양구",d:"덕양구",lat:37.624,lng:126.837},
-    {gu:"일산동구",d:"일산동구",lat:37.664,lng:126.77},
-    {gu:"일산서구",d:"일산서구",lat:37.648,lng:126.725}
-  ]},
-  yongin_gu:{name:"용인시",center:[37.234,127.203],zoom:12,color:"#e74c3c",mode:"gu",gus:[
-    {gu:"처인구",d:"처인구",lat:37.245,lng:127.208},
-    {gu:"기흥구",d:"기흥구",lat:37.264,lng:127.121},
-    {gu:"수지구",d:"수지구",lat:37.309,lng:127.08}
-  ]},
-  bucheon_gu:{name:"부천시",center:[37.504,126.766],zoom:12,color:"#00ced1",mode:"gu",gus:[
-    {gu:"소사구",d:"소사구",lat:37.475,lng:126.802},
-    {gu:"원미구",d:"원미구",lat:37.501,lng:126.779},
-    {gu:"오정구",d:"오정구",lat:37.536,lng:126.779}
-  ]},
-  anyang_gu:{name:"안양시",center:[37.394,126.957],zoom:12,color:"#ff69b4",mode:"gu",gus:[
-    {gu:"만안구",d:"만안구",lat:37.404,lng:126.913},
-    {gu:"동안구",d:"동안구",lat:37.401,lng:126.975}
-  ]},
-};
 // ─── 상태 ─────────────────────────────────────────────
 let map, allDongs=[], queue=[], cur=null, canAns=true;
 let totC=0,totW=0,streak=0,qCnt=0,sessAns=0;
-// tempL, wrongL: GeoJSON 블록에서 선언
+let tempL=[];      // 정답(ok) 임시 레이어
+let wrongL=[];     // 오답 정답위치 마커 (수동으로만 제거)
 
 // 시작 화면 태그
 document.querySelectorAll('.stag').forEach(t=>{
   t.onclick=()=>{t.classList.toggle('sel');updateCnt();};
 });
-let guMode = false;  // 구 맞추기 모드 전역 상태
-
-function toggleGuMode(){
-  guMode = !guMode;
-  const btn = document.getElementById('btn-gu-mode');
-  const badge = document.getElementById('gu-mode-badge');
-  const hint = document.getElementById('gu-mode-hint');
-  btn.classList.toggle('on', guMode);
-  badge.textContent = guMode ? 'ON' : 'OFF';
-  hint.textContent = guMode
-    ? '✅ 선택한 도시의 구(區) 위치만 출제됩니다 (동 문제 제외)'
-    : '구가 있는 도시를 선택하면 구(區) 위치 퀴즈로 전환됩니다';
-  updateCnt();
-}
-
 function updateCnt(){
-  const sel = document.querySelectorAll('.stag.sel');
-  let n = 0;
-  sel.forEach(t=>{
-    const r = t.dataset.r;
-    if(guMode && GU_DB[r+'_gu']){
-      n += GU_DB[r+'_gu'].gus.length;  // 구 모드: 구 개수
-    } else if(DB[r]){
-      n += DB[r].dongs.length;           // 동 모드: 동 개수
-    }
-  });
-  document.getElementById('scnt').textContent = n;
-  const h=document.getElementById('scnt-hint');
-  if(h){ h.textContent=guMode?(n===0?'(구 있는 도시 선택필요)':'(구 맞추기 모드)'):''; }
+  const s=document.querySelectorAll('.stag.sel');
+  let n=0; s.forEach(t=>{if(DB[t.dataset.r])n+=DB[t.dataset.r].dongs.length;});
+  document.getElementById('scnt').textContent=n;
 }
+// 각 도시 태그에 동 개수 표시
+(function initStagCounts(){
+  Object.entries(DB).forEach(([key,val])=>{
+    const el=document.getElementById('scnt-'+key);
+    if(el) el.textContent=val.dongs.length+'개';
+  });
+})();
 updateCnt();
 
-function goHome(){
-  // 퀴즈 상태 초기화
-  allDongs=[]; queue=[]; cur=null; canAns=true;
-  totC=0; totW=0; streak=0; qCnt=0; sessAns=0;
-
-  // 진행중인 문제 취소 (skipQ 없이 조용히)
-  cur=null; canAns=false;
-  const ov=document.getElementById('moverlay');
-  if(ov){ ov.classList.remove('show'); ov.classList.remove('no-mode'); }
-
-  // 폴리곤 레이어 정리
-  [...tempL,...wrongL].forEach(l=>{try{map&&map.removeLayer(l);}catch(e){}});
-  tempL=[]; wrongL=[];
-
-  // 지도 마커/핀 정리
-  if(map){ map.off('click'); }
-
-  // 이미 로그인된 currentUser/userProfile 그대로 사용 (세션 재조회 X)
-  if(!currentUser){ showOnly('screen-login'); return; }
-  if(isAdmin()){ showOnly('start'); return; }
-  if(!userProfile?.is_verified){ showOnly('screen-verify'); return; }
-  if(!isActivePremium() && (userProfile?.plays_count||0)>=300){ showOnly('screen-paywall'); return; }
-  showOnly('start');
-}
-
-function syncDiff(v){
-  okRadius=parseFloat(v);
-  document.getElementById('diff-val').textContent=v+' km';
-  document.getElementById('diff-range').value=v;
-  const ld=document.getElementById('ld-range');
-  const ldv=document.getElementById('ld-val');
-  if(ld){ld.value=v; ldv.textContent=v+'km';}
-}
-function adjDiff(d){
-  const cur=okRadius+d;
-  const v=Math.min(10,Math.max(0.5,Math.round(cur*2)/2));
-  syncDiff(v);
-}
-
-async function startQuiz(){
-  const sel=document.querySelectorAll('.stag.sel');
-  if(!sel.length){toast('지역을 선택하세요!','error');return;}
+function startQuiz(){
+  const s=document.querySelectorAll('.stag.sel');
+  if(!s.length){toast('지역을 선택하세요!','error');return;}
   allDongs=[];
-  sel.forEach(t=>{
+  s.forEach(t=>{
     const r=t.dataset.r;
-    if(guMode){
-      // 구 맞추기 모드: 해당 도시의 구만 출제, 동 제외
-      const guKey = r+'_gu';
-      if(GU_DB[guKey]){
-        GU_DB[guKey].gus.forEach(g=>allDongs.push({
-          gu:g.gu, d:g.d, lat:g.lat, lng:g.lng,
-          rk:guKey, rn:GU_DB[guKey].name, mode:'gu'
-        }));
-      }
-      // 구가 없는 도시(화성시 등)는 동 그대로 출제
-      if(!GU_DB[guKey] && DB[r]){
-        DB[r].dongs.forEach(d=>allDongs.push({...d,rk:r,rn:DB[r].name,mode:'dong'}));
-      }
-    } else {
-      // 동 맞추기 모드: 동만 출제
-      if(DB[r]) DB[r].dongs.forEach(d=>allDongs.push({...d,rk:r,rn:DB[r].name,mode:'dong'}));
-    }
+    if(DB[r])DB[r].dongs.forEach(d=>allDongs.push({...d,rk:r,rn:DB[r].name}));
   });
-
-  if(!allDongs.length){
-    if(guMode) toast('구가 있는 도시(서울/수원 등)를 선택하세요!','error');
-    else toast('문제를 찾을 수 없습니다.','error');
-    return;
-  }
   document.getElementById('start').classList.add('hidden');
   initMap(); buildFilter(); reshuffle(); nextQ();
-
-  // 백그라운드 캐싱 (퀴즈 시작 즉시, 화면 뒤에서 진행)
-  startBgCache();
-}
-
-async function startBgCache(){
-  const total=allDongs.length;
-  let done=0;
-  const BATCH=2; // Overpass 과부하 방지
-  const el={
-    bar:   document.getElementById('bg-bar-fill'),
-    pct:   document.getElementById('bg-pct'),
-    done:  document.getElementById('bg-done'),
-    total: document.getElementById('bg-total'),
-    wrap:  document.getElementById('bg-cache'),
-  };
-  if(el.wrap){ el.wrap.classList.remove('hidden'); el.total.textContent=total; }
-
-  for(let i=0;i<total;i+=BATCH){
-    const batch=allDongs.slice(i,i+BATCH);
-    await Promise.all(batch.map(d=>fetchDongGeo(d.d,d.gu,d.rn,d.mode==='gu')));
-    done=Math.min(done+BATCH,total);
-    const pct=Math.round(done/total*100);
-    if(el.bar)  el.bar.style.width=pct+'%';
-    if(el.pct)  el.pct.textContent=pct+'%';
-    if(el.done) el.done.textContent=done;
-    // 배치 간 짧은 딜레이 (서버 과부하 방지)
-    await new Promise(r=>setTimeout(r,400));
-  }
-
-  if(el.wrap){
-    el.pct.textContent='완료!';
-    setTimeout(()=>el.wrap.classList.add('hidden'),2000);
-  }
 }
 
 function initMap(){
-  if(map){
-    // 이미 초기화된 지도 재사용 — 레이어만 정리
-    map.off('click'); map.on('click',onMapClick);
-    map.setView([37.55,127.00],10);
-    return;
-  }
   map=L.map('map',{center:[37.55,127.00],zoom:10,scrollWheelZoom:true});
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
     attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19
   }).addTo(map);
   map.on('click',onMapClick);
+  // 모달이 열려있어도 지도 스크롤 줌 항상 동작하도록
   map.scrollWheelZoom.enable();
 }
 
@@ -1028,17 +1138,14 @@ function buildFilter(){
   const w=document.getElementById('rbw'); w.innerHTML='';
   const rs=new Set(allDongs.map(d=>d.rk));
   rs.forEach(r=>{
-    // DB 또는 GU_DB에서 정보 가져오기
-    const info = DB[r] || GU_DB[r];
-    if(!info) return;
+    if(!DB[r])return;
     const b=document.createElement('button');
-    b.className='rb on';
-    b.textContent = info.mode==='gu' ? info.name+' (구)' : info.name;
-    b.style.borderColor=info.color; b.style.color=info.color;
+    b.className='rb on'; b.textContent=DB[r].name;
+    b.style.borderColor=DB[r].color; b.style.color=DB[r].color;
     b.dataset.r=r;
     b.onclick=()=>{
       b.classList.toggle('on');
-      if(b.classList.contains('on')){b.style.color=info.color;b.style.borderColor=info.color;}
+      if(b.classList.contains('on')){b.style.color=DB[r].color;b.style.borderColor=DB[r].color;}
       else{b.style.color='';b.style.borderColor='';}
     };
     w.appendChild(b);
@@ -1058,46 +1165,25 @@ function reshuffle(){
 function nextQ(){
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
-  // tempL(정답 폴리곤)은 유지 — "정답위치 끄기" 버튼으로만 제거
-  // wrongL(오답 폴리곤)도 유지 — "오답위치 끄기" 버튼으로만 제거
-  canAns=true;
-  updateAnsBar();
+  tempL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
+  tempL=[]; canAns=true;
   if(!queue.length)reshuffle();
-  if(!queue.length){
-    // 활성 문제가 없음 (필터로 전부 꺼진 경우)
-    console.warn('[nextQ] queue 비어있음 - 필터 확인 필요');
-    return;
-  }
   cur=queue.pop(); qCnt++;
   document.getElementById('qN').textContent='문제 #'+qCnt;
-
-  // 지도 중심을 해당 도시로 이동
-  const cityInfo = DB[cur.rk] || GU_DB[cur.rk];
-  if(cityInfo?.center){
-    map.setView(cityInfo.center, cityInfo.zoom || 11, {animate:false});
-  }
-
-  if(cur.mode==='gu'){
-    document.getElementById('qR').textContent='📍 '+cur.rn;
-    document.getElementById('qD').textContent=cur.d;
-    document.getElementById('qH').textContent='💡 이 구는 어디에 있을까요?';
-  } else {
-    document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
-    document.getElementById('qD').textContent=cur.d;
-    document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
-  }
+  document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
+  document.getElementById('qD').textContent=cur.d;
+  document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
   updStats();
 }
 
 function onMapClick(e){
   if(!cur||!canAns)return;
   canAns=false;
+  // 플레이 횟수 증가 (300회 초과 시 페이월)
   incrementPlays().then(result => {
     if(!result.ok){ canAns=true; return; }
     const dist=getDist(e.latlng.lat,e.latlng.lng,cur.lat,cur.lng);
-    // 구 모드는 기본 허용 거리를 더 크게 (구가 동보다 훨씬 큼)
-    const effectiveRadius = cur.mode==='gu' ? Math.max(okRadius, 5.0) : okRadius;
-    if(dist<=effectiveRadius)doOk(dist,effectiveRadius); else doNo(dist,effectiveRadius);
+    if(dist<=1.5)doOk(dist); else doNo(dist);
   });
 }
 
@@ -1107,390 +1193,53 @@ function getDist(a,b,c,d){
   return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
 }
 
-/* ── 행정동 경계 폴리곤 (Overpass API) ── */
-const geoCache = {};
-let tempL  = [];   // 정답(초록) 레이어
-let wrongL = [];   // 오답(핑크) 레이어
-let okRadius = 1.5;  // 정답 인정 거리 (km) — 난이도 조절
-
-/* polygon_cache.json 프리로드 (있으면 Overpass 호출 스킵) */
-(async function preloadCache(){
-  try{
-    const r=await fetch('./polygon_cache.json');
-    if(!r.ok) return;
-    const data=await r.json();
-    let cnt=0;
-    for(const [key,geo] of Object.entries(data)){
-      if(!(key in geoCache)){ geoCache[key]=geo; cnt++; }
-    }
-    console.log(`[Cache] polygon_cache.json 로드 완료: ${cnt}개`);
-  }catch(e){ /* 파일 없으면 조용히 무시 */ }
-})();
-
-/* 도시별 검색 bbox (위도하한,경도하한,위도상한,경도상한) */
-const CITY_BBOX = {
-  '서울특별시':   '37.42,126.73,37.70,127.18',
-  '인천광역시':   '37.32,126.40,37.68,126.82',
-  '수원시':       '37.20,126.95,37.34,127.07',
-  '성남시':       '37.33,127.02,37.50,127.19',
-  '경기도 광주시':'37.27,127.17,37.60,127.55',
-  '고양시':       '37.58,126.72,37.73,126.98',
-  '용인시':       '37.13,127.00,37.38,127.34',
-  '부천시':       '37.44,126.72,37.56,126.87',
-  '안양시':       '37.34,126.86,37.44,127.02',
-  '화성시':       '37.09,126.68,37.30,127.18',
-};
-
-/* ── ring assembly: Overpass outer way들을 하나의 링으로 조립 ── */
-function assembleRings(outerWays){
-  if(!outerWays.length) return [];
-
-  // 각 way를 좌표 배열로 변환 (노드 목록)
-  const segments = outerWays.map(w => w.geometry.map(p => [p.lon, p.lat]));
-
-  // 단일 way면 바로 반환
-  if(segments.length === 1){
-    const s = segments[0];
-    if(s[0][0]!==s[s.length-1][0]) s.push(s[0]);
-    return [s];
-  }
-
-  const rings = [];
-  let remaining = segments.map((s,i)=>({seg:s, used:false, idx:i}));
-
-  while(remaining.some(r=>!r.used)){
-    // 미사용 세그먼트 중 첫 번째로 링 시작
-    const startItem = remaining.find(r=>!r.used);
-    if(!startItem) break;
-    startItem.used = true;
-
-    let ring = [...startItem.seg];
-    const tolerance = 0.0001; // 좌표 연결 허용 오차
-
-    let extended = true;
-    while(extended){
-      extended = false;
-      const tail = ring[ring.length-1];
-      const head = ring[0];
-
-      // 링이 닫혔으면 종료
-      if(Math.abs(tail[0]-head[0])<tolerance && Math.abs(tail[1]-head[1])<tolerance) break;
-
-      for(const item of remaining){
-        if(item.used) continue;
-        const s = item.seg;
-        const sHead = s[0];
-        const sTail = s[s.length-1];
-
-        // tail과 sHead가 연결됨
-        if(Math.abs(tail[0]-sHead[0])<tolerance && Math.abs(tail[1]-sHead[1])<tolerance){
-          ring = ring.concat(s.slice(1));
-          item.used = true;
-          extended = true;
-          break;
-        }
-        // tail과 sTail이 연결됨 → 역방향으로 추가
-        if(Math.abs(tail[0]-sTail[0])<tolerance && Math.abs(tail[1]-sTail[1])<tolerance){
-          ring = ring.concat([...s].reverse().slice(1));
-          item.used = true;
-          extended = true;
-          break;
-        }
-      }
-    }
-    // 링 닫기
-    if(Math.abs(ring[0][0]-ring[ring.length-1][0])>tolerance)
-      ring.push(ring[0]);
-    if(ring.length > 3) rings.push(ring);
-  }
-  return rings;
+function mkMark(lat,lng,ok){
+  const col=ok?'#39ff14':'#ff3c6e';
+  const m=L.circleMarker([lat,lng],{radius:13,fillColor:col,color:'#fff',weight:3,fillOpacity:.9}).addTo(map);
+  const ico=L.divIcon({className:'',iconAnchor:[0,0],
+    html:`<div style="background:${col};color:#000;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap;font-family:'Noto Sans KR',sans-serif;margin-top:-30px;margin-left:14px;">${cur.d}</div>`});
+  const lb=L.marker([lat,lng],{icon:ico}).addTo(map);
+  if(ok){ tempL.push(m,lb); }
+  else  { wrongL.push(m,lb); }
 }
 
-/* Overpass element → 정확한 GeoJSON Feature */
-function overpassToGeoJSON(el){
-  try{
-    if(el.type==='way' && el.geometry && el.geometry.length > 2){
-      const coords = el.geometry.map(p=>[p.lon,p.lat]);
-      if(coords[0][0]!==coords[coords.length-1][0]) coords.push(coords[0]);
-      return {type:'Feature', geometry:{type:'Polygon', coordinates:[coords]}};
-    }
-
-    if(el.type==='relation' && el.members){
-      const outers = el.members.filter(m =>
-        m.type==='way' && m.role==='outer' && m.geometry && m.geometry.length>1
-      );
-      const inners = el.members.filter(m =>
-        m.type==='way' && m.role==='inner' && m.geometry && m.geometry.length>1
-      );
-
-      if(!outers.length) return null;
-
-      // outer ring 조립
-      const outerRings = assembleRings(outers);
-      if(!outerRings.length) return null;
-
-      // inner ring 조립 (구멍)
-      const innerRings = assembleRings(inners);
-
-      if(outerRings.length === 1){
-        // 단일 폴리곤 (inner 포함)
-        const coords = [outerRings[0], ...innerRings];
-        return {type:'Feature', geometry:{type:'Polygon', coordinates:coords}};
-      } else {
-        // MultiPolygon (외곽 링 여러 개 = 섬 지형 등)
-        return {type:'Feature', geometry:{
-          type:'MultiPolygon',
-          coordinates: outerRings.map(r => [r])
-        }};
-      }
-    }
-  }catch(e){ console.warn('[GeoJSON변환]',e); }
-  return null;
+function mkCircle(lat,lng){
+  const c=L.circle([lat,lng],{radius:1500,color:'#ff3c6e',weight:3,fillColor:'#ff3c6e',fillOpacity:.08,dashArray:'8 4'}).addTo(map);
+  wrongL.push(c);
 }
-
-/* 동 이름 변형 목록 생성 */
-function getDongNames(dong){
-  const names = [dong];
-
-  // "종로1·2·3·4가동" 처리
-  if(dong.includes('·')){
-    const parts = dong.split('·');
-    const first = parts[0];
-    names.push(first);
-    const mKa = dong.match(/^(.+?)(\d+)[·\d가]*동$/);
-    if(mKa){ names.push(mKa[1]+mKa[2]+'가'); names.push(mKa[1]+'동'); }
-  }
-
-  // "정자1동" → "정자동", "정자1"
-  const mNum = dong.match(/^(.+?)(\d+)(가)?동$/);
-  if(mNum){
-    names.push(mNum[1]+'동');
-    if(!mNum[3]) names.push(mNum[1]+mNum[2]); // "정자1"
-    else names.push(mNum[1]+mNum[2]+'가');
-  }
-
-  // "숭의1·3동", "목3동" → "숭의동", "목동"
-  const mDot = dong.match(/^(.+?)\d[·\d]*동$/);
-  if(mDot) names.push(mDot[1]+'동');
-
-  // 특수 매핑 (OSM에서 다른 이름으로 등록된 경우)
-  const SPECIAL = {
-    '필동':    ['필동1가','필동2가','필동3가','필동'],
-    '신촌동':  ['신촌동','신촌'],
-    '염창동':  ['염창동','염창'],
-    '신림동':  ['신림동','신림'],
-  };
-  if(SPECIAL[dong]) names.push(...SPECIAL[dong]);
-
-  return [...new Set(names)].filter(Boolean);
-}
-
-/* Overpass API로 행정동 경계 조회 */
-/* bbox를 lat±d, lng±d 로 확장 */
-function expandBbox(bbox, d){
-  const [s,w,n,e] = bbox.split(',').map(Number);
-  return `${(s-d).toFixed(3)},${(w-d).toFixed(3)},${(n+d).toFixed(3)},${(e+d).toFixed(3)}`;
-}
-
-async function fetchDongGeo(dong, gu, rn, isGu=false){
-  const cacheKey = isGu ? `GU|${rn}|${dong}` : `${rn}|${gu}|${dong}`;
-  if(cacheKey in geoCache) return geoCache[cacheKey];
-
-  const baseBbox = CITY_BBOX[rn] || '37.0,126.4,37.8,127.6';
-  const names = isGu ? [dong] : getDongNames(dong);
-  const alFilter = isGu ? '"admin_level"~"4|5"' : '"admin_level"~"7|8|9"';
-  // 실패 시 bbox 확장 단계: 기본 → +0.05° → +0.15° → 전국
-  const bboxSteps = [baseBbox, expandBbox(baseBbox,0.05), expandBbox(baseBbox,0.15), '34.0,124.0,38.5,130.0'];
-
-  // bbox 확장 단계: 기본 → +0.05° → +0.15° → 전국
-  for(const bbox of bboxSteps){
-    for(const name of names){
-      const q =
-        `[out:json][timeout:20];`+
-        `(`+
-          `relation["name"="${name}"]["boundary"="administrative"][${alFilter}](${bbox});`+
-          `relation["name"="${name}"]["place"~"suburb|quarter"](${bbox});`+
-          `way["name"="${name}"]["boundary"="administrative"][${alFilter}](${bbox});`+
-        `);`+
-        `out geom;`;
-
-      try{
-        const res = await fetch('https://overpass-api.de/api/interpreter',{
-          method:'POST',
-          headers:{'Content-Type':'application/x-www-form-urlencoded'},
-          body:'data='+encodeURIComponent(q)
-        });
-        if(!res.ok) continue;
-        const data = await res.json();
-        if(!data.elements?.length) continue;
-
-        const rels = data.elements.filter(e=>e.type==='relation');
-        const ways = data.elements.filter(e=>e.type==='way');
-        const el = rels[0] || ways[0];
-        if(!el) continue;
-
-        const geo = overpassToGeoJSON(el);
-        if(geo){
-          const step = bboxSteps.indexOf(bbox);
-          if(step>0) console.log(`[Overpass] ${dong} ✅ bbox+${step}단계 확장 성공 (name="${name}")`);
-          else       console.log(`[Overpass] ${dong} ✅ (name="${name}", type=${el.type})`);
-          geoCache[cacheKey] = geo;
-          return geo;
-        }
-      }catch(e){ console.warn(`[Overpass] ${name} 오류:`, e.message); }
-    }
-  }
-
-  // 이름 검색 모두 실패 → 좌표 기반 역조회 (행정동 중심 좌표로 포함 관계 검색)
-  if(cur && cur.d===dong){
-    try{
-      const lat=cur.lat, lng=cur.lng;
-      const q2=`[out:json][timeout:20];`+
-        `is_in(${lat},${lng})->.a;`+
-        `relation(pivot.a)["boundary"="administrative"][${alFilter}];`+
-        `out geom;`;
-      const res2=await fetch('https://overpass-api.de/api/interpreter',{
-        method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body:'data='+encodeURIComponent(q2)
-      });
-      if(res2.ok){
-        const d2=await res2.json();
-        if(d2.elements?.length){
-          // 이름이 가장 유사한 것 선택, 없으면 가장 작은 것(admin_level 높은 것)
-          const base=dong.replace(/[\d·가]/g,'').replace(/동$|읍$|면$/,'');
-          const els=d2.elements;
-          const matched=
-            els.find(e=>e.tags?.name===dong) ||
-            els.find(e=>(e.tags?.name||'').includes(base)) ||
-            els.sort((a,b)=>parseInt(b.tags?.admin_level||0)-parseInt(a.tags?.admin_level||0))[0];
-          if(matched){
-            const geo=overpassToGeoJSON(matched);
-            if(geo){
-              console.log(`[Overpass] ${dong} ✅ 좌표역조회 (name="${matched.tags?.name}")`);
-              geoCache[cacheKey]=geo; return geo;
-            }
-          }
-        }
-      }
-    }catch(e){ console.warn(`[Overpass] ${dong} 역조회 오류:`,e.message); }
-  }
-
-  console.warn(`[Overpass] ${rn} ${gu} ${dong} — 폴리곤 없음`);
-  geoCache[cacheKey] = null;
-  return null;
-}
-
-/* GeoJSON → Leaflet LatLng 배열 */
-function geoToLatLngs(geo){
-  if(geo.geometry.type==='Polygon')
-    return geo.geometry.coordinates.map(r => r.map(([x,y]) => L.latLng(y,x)));
-  if(geo.geometry.type==='MultiPolygon')
-    return geo.geometry.coordinates.map(poly => poly.map(r => r.map(([x,y]) => L.latLng(y,x))));
-  return null;
-}
-
-/* 폴리곤 + 라벨 그리기 */
-function drawPolygon(geo, ok){
-  const col = ok ? '#39ff14' : '#ff3c6e';
-  const cls = ok ? 'dong-label ok-label' : 'dong-label';
-  const latlngs = geoToLatLngs(geo);
-  if(!latlngs) return drawFallback(ok);
-
-  const layer = L.polygon(latlngs,{
-    color:col, weight:3, fillColor:col, fillOpacity:.18,
-    dashArray:'5 4', interactive:false, smoothFactor:1
-  }).addTo(map);
-
-  const bounds = layer.getBounds();
-  const center = bounds.isValid() ? bounds.getCenter() : L.latLng(cur.lat,cur.lng);
-  const lm = L.marker(center,{icon:L.divIcon({className:'',iconSize:[0,0]})})
-    .addTo(map)
-    .bindTooltip(cur.d,{permanent:true,direction:'center',className:cls,interactive:false})
-    .openTooltip();
-
-  if(ok){
-    tempL.push(layer,lm);
-  } else {
-    wrongL.push(layer,lm);
-    if(bounds.isValid()) map.fitBounds(bounds,{padding:[50,50],maxZoom:15});
-  }
-}
-
-/* fallback: 원형 + 라벨 */
-function drawFallback(ok){
-  const col = ok ? '#39ff14' : '#ff3c6e';
-  const cls = ok ? 'dong-label ok-label' : 'dong-label';
-  const r = L.circle([cur.lat,cur.lng],{
-    radius:400, color:col, weight:2, fillColor:col,
-    fillOpacity:.2, dashArray:'6 3', interactive:false
-  }).addTo(map);
-  const lm = L.marker([cur.lat,cur.lng],{icon:L.divIcon({className:'',iconSize:[0,0]})})
-    .addTo(map)
-    .bindTooltip(cur.d,{permanent:true,direction:'top',offset:[0,-8],className:cls,interactive:false})
-    .openTooltip();
-  if(ok){ tempL.push(r,lm); }
-  else  { wrongL.push(r,lm); map.flyTo([cur.lat,cur.lng],15,{duration:1.0}); }
-}
-
-async function showWrongPolygon(){
-  const geo = await fetchDongGeo(cur.d, cur.gu, cur.rn, cur.mode==='gu');
-  if(geo) drawPolygon(geo,false); else drawFallback(false);
-  updateAnsBar();
-}
-async function showOkPolygon(){
-  const geo = await fetchDongGeo(cur.d, cur.gu, cur.rn, cur.mode==='gu');
-  if(geo) drawPolygon(geo,true); else drawFallback(true);
-  updateAnsBar();
-}
-function mkCircle(){}
-function mkMark(){}
-
 
 function clearAnsMarkers(){
-  wrongL.forEach(l=>{try{if(l&&map.hasLayer(l))map.removeLayer(l);}catch(e){}});
+  wrongL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
   wrongL=[];
-  updateAnsBar();
-}
-function clearOkMarkers(){
-  tempL.forEach(l=>{try{if(l&&map.hasLayer(l))map.removeLayer(l);}catch(e){}});
-  tempL=[];
-  updateAnsBar();
-}
-function updateAnsBar(){
-  const bar=document.getElementById('ans-bar');
-  const hasWrong = wrongL.filter(Boolean).length > 0;
-  const hasOk    = tempL.filter(Boolean).length  > 0;
-  if(!hasWrong && !hasOk){ bar.classList.remove('show'); return; }
-  bar.classList.add('show');
-  const bw=document.getElementById('btn-clear-wrong');
-  const bo=document.getElementById('btn-clear-ok');
-  if(bw) bw.style.display = hasWrong ? '' : 'none';
-  if(bo) bo.style.display = hasOk    ? '' : 'none';
+  document.getElementById('ans-bar').classList.remove('show');
 }
 
-function doOk(dist,effectiveRadius=okRadius){
+function doOk(dist){
   totC++;streak++;sessAns++;
   addR(true,cur);updStats();updPrg();
-  showOkPolygon();  // 초록 폴리곤 (tempL에 추가됨)
+  mkMark(cur.lat,cur.lng,true);
   const ov=document.getElementById('moverlay');
-  ov.classList.add('no-mode');   // 정답도 우하단 패널, 지도 안 가림
+  ov.classList.remove('no-mode');
   document.getElementById('mbt-ok').style.display='inline-block';
   document.getElementById('mbt-no').style.display='none';
   const b=document.getElementById('mbox'); b.className='ok';
   document.getElementById('mE').textContent=streak>=5?'🔥':streak>=3?'🎯':'✅';
   document.getElementById('mT').textContent=streak>=5?`연속 ${streak}개 정답!`:'정답입니다!';
-  document.getElementById('mD').innerHTML=`<span class="mdn">${cur.rn} ${cur.gu} ${cur.d}</span><br>클릭 위치 기준 <strong>${dist.toFixed(2)}km</strong> · ${effectiveRadius.toFixed(1)}km 이내`;
+  document.getElementById('mD').innerHTML=`<span class="mdn">${cur.rn} ${cur.gu} ${cur.d}</span><br>클릭 위치 기준 <strong>${dist.toFixed(2)}km</strong> · 1.5km 이내`;
   ov.classList.add('show');
 }
 
-function doNo(dist,effectiveRadius=okRadius){
+function doNo(dist){
   totW++;streak=0;sessAns++;
   addR(false,cur);updStats();updPrg();
 
-  // 폴리곤+마커 표시 (fitBounds는 mkDongPolygon 내부에서 처리)
+  // 1) 먼저 지도를 정답 위치로 이동
+  map.flyTo([cur.lat,cur.lng],14,{duration:1.2});
+
+  // 2) 이동 완료 후 마커+원 표시 (지도 이동이 끝난 뒤 그려야 선명하게 보임)
   setTimeout(()=>{
-    showWrongPolygon();  // 핑크 폴리곤 (wrongL에 추가됨)
+    mkMark(cur.lat,cur.lng,false);
+    mkCircle(cur.lat,cur.lng);
   }, 400);
 
   // 3) 오답 모달: 지도 안 가리는 우하단 반투명 패널
@@ -1506,29 +1255,26 @@ function doNo(dist,effectiveRadius=okRadius){
 }
 
 function closeNoModal(){
+  // 오답 모달 닫기 — 정답위치 표시는 유지, ans-bar 표시
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
-  canAns=true;
-  updateAnsBar();
+  if(wrongL.length>0){
+    document.getElementById('ab-dong-name').textContent=cur?cur.d:'';
+    document.getElementById('ans-bar').classList.add('show');
+  }
+  // 다음 문제 준비 (tempL 초기화, canAns 활성화)
+  tempL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
+  tempL=[]; canAns=true;
   if(!queue.length)reshuffle();
   cur=queue.pop(); qCnt++;
   document.getElementById('qN').textContent='문제 #'+qCnt;
-  if(cur.mode==='gu'){
-    document.getElementById('qR').textContent='📍 '+cur.rn;
-    document.getElementById('qD').textContent=cur.d;
-    document.getElementById('qH').textContent='💡 이 구는 어디에 있을까요?';
-  } else {
-    document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
-    document.getElementById('qD').textContent=cur.d;
-    document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
-  }
+  document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
+  document.getElementById('qD').textContent=cur.d;
+  document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
   updStats();
 }
 
-function focusA(){
-  if(!cur) return;
-  map.flyTo([cur.lat,cur.lng],14,{duration:1.2});
-}
+function focusA(){if(cur)map.flyTo([cur.lat,cur.lng],14,{duration:1.2});}
 function resetV(){map.flyTo([37.55,127.00],10,{duration:1});}
 function skipQ(){
   if(cur){addR(false,cur,true);totW++;streak=0;sessAns++;updStats();updPrg();}
@@ -1621,26 +1367,18 @@ async function doEmailAuth(){
   }
   const btn = document.getElementById('btn-email-auth');
   btn.disabled = true; btn.textContent = '처리 중...';
-  try {
-    const res = authMode === 'login'
-      ? await sb.auth.signInWithPassword({ email, password: pw })
-      : await sb.auth.signUp({ email, password: pw });
-    btn.disabled = false; btn.textContent = authMode === 'login' ? '로그인' : '회원가입';
-    if(res.error){
-      const msg = res.error.message.includes('Invalid login') ? '이메일 또는 비밀번호가 틀렸습니다.'
-                : res.error.message.includes('already registered') ? '이미 가입된 이메일입니다.'
-                : res.error.message.includes('Email not confirmed') ? '이메일 인증이 필요합니다. 받은편지함을 확인해주세요.'
-                : res.error.message;
-      errEl.textContent = msg; errEl.className = 'login-err show';
-    } else if(authMode === 'signup' && res.data?.user && !res.data.session){
-      errEl.textContent = '✅ 인증 메일을 발송했습니다. 이메일을 확인해주세요.';
-      errEl.className = 'login-err show ok';
-    }
-  } catch(e) {
-    btn.disabled = false; btn.textContent = authMode === 'login' ? '로그인' : '회원가입';
-    console.error('[doEmailAuth] 예외:', e);
-    errEl.textContent = '로그인 중 오류가 발생했습니다: ' + e.message;
-    errEl.className = 'login-err show';
+  const res = authMode === 'login'
+    ? await sb.auth.signInWithPassword({ email, password: pw })
+    : await sb.auth.signUp({ email, password: pw });
+  btn.disabled = false; btn.textContent = authMode === 'login' ? '로그인' : '회원가입';
+  if(res.error){
+    const msg = res.error.message.includes('Invalid login') ? '이메일 또는 비밀번호가 틀렸습니다.'
+              : res.error.message.includes('already registered') ? '이미 가입된 이메일입니다.'
+              : res.error.message;
+    errEl.textContent = msg; errEl.className = 'login-err show';
+  } else if(authMode === 'signup' && res.data?.user && !res.data.session){
+    errEl.textContent = '✅ 인증 메일을 발송했습니다. 이메일을 확인해주세요.';
+    errEl.className = 'login-err show ok';
   }
 }
 
@@ -1654,28 +1392,11 @@ async function signOut(){
 
 /* ── 세션 감지 & 라우팅 ── */
 sb.auth.onAuthStateChange(async(event, session) => {
-  console.log('[Auth]', event, session?.user?.email || 'no user');
-
   if(session?.user){
-    const isFirstLogin = !currentUser;
     currentUser = session.user;
-
-    // TOKEN_REFRESHED, USER_UPDATED 등 세션 갱신 이벤트는
-    // 이미 로그인된 상태이므로 화면 전환 없이 프로필만 업데이트
-    if(event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED'){
-      renderUserChip();
-      return;
-    }
-
     await loadProfile();
-
-    // 최초 로그인(SIGNED_IN)이거나 아직 화면이 로그인 화면일 때만 라우팅
-    // 이미 퀴즈/게임 중이면 화면 유지
-    const loginVisible = !document.getElementById('screen-login')?.classList.contains('hidden');
-    if(isFirstLogin || loginVisible){
-      routeUser();
-      handlePaymentCallback();
-    }
+    routeUser();
+    handlePaymentCallback();
   } else {
     currentUser = null; userProfile = null;
     document.getElementById('user-chip').classList.remove('visible');
@@ -1684,21 +1405,9 @@ sb.auth.onAuthStateChange(async(event, session) => {
 });
 
 async function loadProfile(){
-  // 관리자는 DB 조회 없이 바로 설정 (RLS 오류 방지)
-  if(isAdmin()){
-    userProfile = { is_verified:true, is_premium:true, premium_until:'2099-12-31', plays_count:0 };
-    renderUserChip();
-    return;
-  }
-  try{
-    const { data, error } = await sb.from('user_profiles')
-      .select('*').eq('user_id', currentUser.id).maybeSingle();
-    if(error) console.warn('[loadProfile] 오류:', error.message);
-    userProfile = data || null;
-  } catch(e){
-    console.warn('[loadProfile] 예외:', e.message);
-    userProfile = null;
-  }
+  const { data } = await sb.from('user_profiles')
+    .select('*').eq('user_id', currentUser.id).maybeSingle();
+  userProfile = data;
   renderUserChip();
 }
 
@@ -1742,24 +1451,7 @@ function updateTrialBar(used){
     : 'linear-gradient(90deg,var(--gold),#ff8c00)';
 }
 
-// 관리자 이메일 목록 (본인인증 + 결제 자동 패스)
-const ADMIN_EMAILS = ['kke320001@gmail.com'];
-
-function isAdmin(){
-  return currentUser && ADMIN_EMAILS.includes(currentUser.email);
-}
-
 function routeUser(){
-  // 관리자 계정: 모든 단계 패스
-  if(isAdmin()){
-    if(!userProfile) userProfile = {
-      is_verified: true, is_premium: true,
-      premium_until: '2099-12-31', plays_count: 0
-    };
-    showOnly('start');
-    return;
-  }
-  // 일반 유저
   if(!userProfile?.is_verified){ showOnly('screen-verify'); return; }
   if(!isActivePremium() && (userProfile?.plays_count||0) >= 300){ showOnly('screen-paywall'); return; }
   showOnly('start');
@@ -1839,71 +1531,24 @@ function showPaywall(e){
   showOnly('screen-paywall');
 }
 
-/* ── 결제 플랜 관리 ── */
-let currentPlan = 'day';
-let currentDays = 1;
-
-function switchPlan(plan){
-  currentPlan = plan;
-  ['day','month','quarter','year'].forEach(p => {
-    document.getElementById('plan-'+p).classList.toggle('hidden', p !== plan);
-    document.getElementById('tab-'+p).classList.toggle('active', p === plan);
-  });
-  updatePayBtn();
-}
-
-function changeDays(d){
-  setDays(Math.min(25, Math.max(1, currentDays + d)));
-}
-
-function setDays(v){
-  currentDays = parseInt(v);
-  document.getElementById('day-slider').value = currentDays;
-  document.getElementById('day-count').textContent = currentDays;
-  document.getElementById('day-mult').textContent = currentDays;
-  document.getElementById('day-price').innerHTML = `${(600*currentDays).toLocaleString()}<span>원</span>`;
-  updatePayBtn();
-}
-
-function updatePayBtn(){
-  const plans = {
-    day:     { amount: 600*currentDays, name: `MapDong ${currentDays}일 이용권` },
-    month:   { amount: 12000,           name: 'MapDong 1개월 정기구독' },
-    quarter: { amount: 24000,           name: 'MapDong 3개월 이용권' },
-    year:    { amount: 60000,           name: 'MapDong 1년 이용권' },
-  };
-  const p = plans[currentPlan];
-  const btn = document.getElementById('btn-pay');
-  if(btn) btn.textContent = `💳 결제하기 (${p.amount.toLocaleString()}원)`;
-}
-
 async function startPayment(){
   if(!currentUser){ toast('로그인이 필요합니다', 'error'); return; }
   const btn = document.getElementById('btn-pay');
   btn.disabled = true; btn.textContent = '결제창 여는 중...';
-
-  const plans = {
-    day:     { amount: 600*currentDays, name: `MapDong ${currentDays}일 이용권` },
-    month:   { amount: 12000,           name: 'MapDong 1개월 정기구독' },
-    quarter: { amount: 24000,           name: 'MapDong 3개월 이용권' },
-    year:    { amount: 60000,           name: 'MapDong 1년 이용권' },
-  };
-  const plan = plans[currentPlan];
-
   try {
     const tossPayments = TossPayments(TOSS_CLIENT_KEY);
-    const orderId = `mapdong_${currentPlan}_${currentUser.id}_${Date.now()}`;
+    const orderId = `mapdong_${currentUser.id}_${Date.now()}`;
     const name    = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || '사용자';
     await tossPayments.requestPayment('카드', {
-      amount: plan.amount, orderId, orderName: plan.name,
+      amount: 5000, orderId, orderName: 'MapDong 프리미엄 1개월',
       customerName: name, customerEmail: currentUser.email,
-      successUrl: `${window.location.origin}?payment=success&orderId=${orderId}&plan=${currentPlan}&days=${currentDays}`,
+      successUrl: `${window.location.origin}?payment=success&orderId=${orderId}`,
       failUrl:    `${window.location.origin}?payment=fail`,
     });
   } catch(e){
     toast(e.code === 'USER_CANCEL' ? '결제를 취소하셨습니다' : '결제 오류: ' + e.message,
           e.code === 'USER_CANCEL' ? '' : 'error');
-    btn.disabled = false; updatePayBtn();
+    btn.disabled = false; btn.textContent = '💳 결제하기 (5,000원)';
   }
 }
 
@@ -1928,5 +1573,6 @@ async function handlePaymentCallback(){
   } catch(e){ toast('결제 처리 중 오류가 발생했습니다', 'error'); }
 }
 </script>
+</div>
 </body>
 </html>
