@@ -656,6 +656,13 @@ function nextQ(){
   document.getElementById('moverlay').classList.remove('no-mode');
   tempL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
   tempL=[]; canAns=true;
+  
+  // ★ 이전 정답 폴리곤 제거 (closeNoModal에서도)
+  if(answerLayer){
+    try{map.removeLayer(answerLayer);}catch(e){}
+    answerLayer=null;
+  }
+  
   if(!queue.length)reshuffle();
   cur=queue.pop(); qCnt++;
   document.getElementById('qN').textContent='문제 #'+qCnt;
@@ -715,6 +722,16 @@ function doOk(dist){
   totC++;streak++;sessAns++;
   addR(true,cur);updStats();updPrg();
   mkMark(cur.lat,cur.lng,true);
+  
+  // ★ 정답 폴리곤 표시 (초록색)
+  if(POLY_CACHE && cur){
+    const key = getPolygonKey(cur.rn, cur.gu, cur.d);
+    const geo = POLY_CACHE[key];
+    if(geo){
+      answerLayer = drawPolygon(geo, '#39ff14', 0.25);
+    }
+  }
+  
   const ov=document.getElementById('moverlay');
   ov.classList.remove('no-mode');
   document.getElementById('mbt-ok').style.display='inline-block';
@@ -733,10 +750,19 @@ function doNo(dist){
   // 1) 먼저 지도를 정답 위치로 이동
   map.flyTo([cur.lat,cur.lng],14,{duration:1.2});
 
-  // 2) 이동 완료 후 마커+원 표시 (지도 이동이 끝난 뒤 그려야 선명하게 보임)
+  // 2) 이동 완료 후 마커+원+폴리곤 표시
   setTimeout(()=>{
     mkMark(cur.lat,cur.lng,false);
     mkCircle(cur.lat,cur.lng);
+    
+    // ★ 오답 폴리곤 표시 (빨간색)
+    if(POLY_CACHE && cur){
+      const key = getPolygonKey(cur.rn, cur.gu, cur.d);
+      const geo = POLY_CACHE[key];
+      if(geo){
+        answerLayer = drawPolygon(geo, '#ff3c6e', 0.3);
+      }
+    }
   }, 400);
 
   // 3) 오답 모달: 지도 안 가리는 우하단 반투명 패널
@@ -762,6 +788,13 @@ function closeNoModal(){
   // 다음 문제 준비 (tempL 초기화, canAns 활성화)
   tempL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
   tempL=[]; canAns=true;
+  
+  // ★ 이전 정답 폴리곤 제거 (closeNoModal에서도)
+  if(answerLayer){
+    try{map.removeLayer(answerLayer);}catch(e){}
+    answerLayer=null;
+  }
+  
   if(!queue.length)reshuffle();
   cur=queue.pop(); qCnt++;
   document.getElementById('qN').textContent='문제 #'+qCnt;
