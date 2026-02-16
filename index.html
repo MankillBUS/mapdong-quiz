@@ -604,7 +604,7 @@ function toggleShowAll(){
           icon: L.divIcon({
             className: '',
             iconAnchor: [0, 0],
-            html: `<div style="background:rgba(0,212,255,0.9);color:#000;padding:3px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;font-family:'Noto Sans KR',sans-serif;box-shadow:0 1px 4px rgba(0,0,0,0.3);">${dong.d}</div>`
+            html: `<div style="display:inline-block;background:rgba(0,212,255,0.9);color:#000;padding:3px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;font-family:'Noto Sans KR',sans-serif;box-shadow:0 1px 4px rgba(0,0,0,0.3);">${dong.d}</div>`
           })
         }).addTo(map);
         allAnswerLayers.push(marker);
@@ -713,11 +713,12 @@ function reshuffle(){
 
 
 function closeOkModal(){
-  // 정답 모달 닫고 다음 문제 (폴리곤은 유지)
+  // 정답 모달 닫고 다음 문제 (폴리곤 & 레이블 유지)
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
-  tempL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
-  tempL=[]; canAns=true;
+  
+  // ★ tempL(정답 레이블)은 유지 (제거하지 않음)
+  canAns=true;
   
   // ★ 폴리곤은 제거하지 않음 (answerLayer 유지)
   
@@ -819,7 +820,7 @@ function doOk(dist){
   }
   
   const ov=document.getElementById('moverlay');
-  ov.classList.remove('no-mode');
+  ov.classList.add('no-mode');  // 우하단 위치
   document.getElementById('mbt-ok').style.display='inline-block';
   document.getElementById('mbt-no').style.display='none';
   const b=document.getElementById('mbox'); b.className='ok';
@@ -875,11 +876,11 @@ function closeNoModal(){
   tempL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
   tempL=[]; canAns=true;
   
-  // ★ 이전 정답 폴리곤 제거 (closeNoModal에서도)
-  if(answerLayer){
-    try{map.removeLayer(answerLayer);}catch(e){}
-    answerLayer=null;
-  }
+  // ★ 폴리곤 유지 (제거하지 않음)
+  // if(answerLayer){
+  //   try{map.removeLayer(answerLayer);}catch(e){}
+  //   answerLayer=null;
+  // }
   
   if(!queue.length)reshuffle();
   cur=queue.pop(); qCnt++;
