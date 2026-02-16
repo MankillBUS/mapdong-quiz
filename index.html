@@ -82,7 +82,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .user-badge{font-size:.56rem;padding:2px 6px;border-radius:10px;font-weight:700;}
 .user-badge.premium{background:var(--gold);color:#000;}
 .user-badge.trial{background:var(--surface);border:1px solid var(--text-dim);color:var(--text-dim);}
-#user-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px;min-width:190px;z-index:100000;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5);}
+#user-dropdown{position:fixed;top:60px;right:20px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px;min-width:190px;z-index:100000;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5);}
 #user-dropdown.show{display:block;}
 .dd-info{padding:8px 10px 10px;border-bottom:1px solid var(--border);margin-bottom:6px;}
 .dd-email{font-size:.68rem;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -137,7 +137,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .rd.no{background:#ff3c6e;box-shadow:0 0 5px #ff3c6e;}
 #mapw{flex:1;position:relative;}
 #map{width:100%;height:100%;}
-#mo{position:absolute;top:12px;right:12px;z-index:1000;display:flex;flex-direction:column;gap:7px;}
+#mo{position:absolute;top:12px;right:12px;z-index:900;display:flex;flex-direction:column;gap:7px;}
 .mb{background:rgba(17,24,39,.9);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:.7rem;font-family:'Noto Sans KR',sans-serif;transition:all .2s;backdrop-filter:blur(8px);}
 .mb:hover{border-color:var(--accent);color:var(--accent);}
 /* 정답(OK) 모달: 기존 중앙 full overlay */
@@ -305,7 +305,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 <!-- 헤더 -->
 <div id="header">
-  <div class="logo">Map<span>Dong</span></div>
+  <div class="logo" onclick="goHome()" style="cursor:pointer;" title="처음으로 가기">Map<span>Dong</span></div>
+    <button onclick="goHome()" style="background:linear-gradient(135deg,#ff9f43,#ee5a6f);border:none;border-radius:8px;padding:6px 14px;font-size:0.85rem;font-weight:700;color:#000;cursor:pointer;transition:all 0.2s;margin-left:12px;">🏠 처음으로</button>
   <div id="header-right" style="display:flex;align-items:center;gap:10px;">
   <div id="stats-bar">
     <div class="sb"><div class="sl">문제</div><div class="sv" id="sQ">-</div></div>
@@ -386,7 +387,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div class="mt" id="mT"></div>
     <div class="md" id="mD"></div>
     <!-- 정답일 때 버튼 -->
-    <button class="mbt" id="mbt-ok" onclick="nextQ()">다음 문제 →</button>
+    <button class="mbt" id="mbt-ok" onclick="closeOkModal()">다음 문제 →</button>
     <!-- 오답일 때 버튼 -->
     <button class="mbt" id="mbt-no" style="display:none;background:linear-gradient(135deg,#ff3c6e,#bb1144);" onclick="closeNoModal()">확인 · 다음 문제 →</button>
   </div>
@@ -710,6 +711,32 @@ function reshuffle(){
   sessAns=0; updPrg();
 }
 
+
+function closeOkModal(){
+  // 정답 모달 닫고 다음 문제 (폴리곤은 유지)
+  document.getElementById('moverlay').classList.remove('show');
+  document.getElementById('moverlay').classList.remove('no-mode');
+  tempL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
+  tempL=[]; canAns=true;
+  
+  // ★ 폴리곤은 제거하지 않음 (answerLayer 유지)
+  
+  if(!queue.length)reshuffle();
+  cur=queue.pop(); qCnt++;
+  document.getElementById('qN').textContent='문제 #'+qCnt;
+  
+  if(isGuQuizMode){
+    document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
+    document.getElementById('qD').textContent='❓❓❓';
+    document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동 (동 이름 숨김)';
+  } else {
+    document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
+    document.getElementById('qD').textContent=cur.d;
+    document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
+  }
+  updStats();
+}
+
 function nextQ(){
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
@@ -760,7 +787,7 @@ function mkMark(lat,lng,ok){
   const col=ok?'#39ff14':'#ff3c6e';
   const m=L.circleMarker([lat,lng],{radius:13,fillColor:col,color:'#fff',weight:3,fillOpacity:.9}).addTo(map);
   const ico=L.divIcon({className:'',iconAnchor:[0,0],
-    html:`<div style="background:${col};color:#000;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:700;white-space:nowrap;font-family:\'Noto Sans KR\',sans-serif;margin-top:-32px;margin-left:16px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${cur.d}</div>`});
+    html:`<div style="display:inline-block;background:${col};color:#000;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:700;white-space:nowrap;font-family:\'Noto Sans KR\',sans-serif;margin-top:-32px;margin-left:16px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${cur.d}</div>`});
   const lb=L.marker([lat,lng],{icon:ico}).addTo(map);
   if(ok){ tempL.push(m,lb); }
   else  { wrongL.push(m,lb); }
