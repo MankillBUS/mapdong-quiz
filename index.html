@@ -1592,9 +1592,22 @@ sb.auth.onAuthStateChange(async(event, session) => {
 });
 
 async function loadProfile(){
-  const { data } = await sb.from('user_profiles')
-    .select('*').eq('user_id', currentUser.id).maybeSingle();
-  userProfile = data;
+  try{
+    const { data, error } = await sb.from('user_profiles')
+      .select('*').eq('user_id', currentUser.id).maybeSingle();
+    if(error) console.warn('[loadProfile] 오류:', error.message);
+    userProfile = data;
+  } catch(e){
+    console.warn('[loadProfile] 예외:', e.message);
+    userProfile = null;
+  }
+  // 관리자면 프로필 못 가져와도 강제 설정
+  if(isAdmin() && !userProfile){
+    userProfile = {
+      is_verified: true, is_premium: true,
+      premium_until: '2099-12-31', plays_count: 0
+    };
+  }
   renderUserChip();
 }
 
@@ -1638,9 +1651,26 @@ function updateTrialBar(used){
     : 'linear-gradient(90deg,var(--gold),#ff8c00)';
 }
 
+// 관리자 이메일 목록 (본인인증 + 결제 자동 패스)
+const ADMIN_EMAILS = ['kke320001@gmail.com'];
+
+function isAdmin(){
+  return currentUser && ADMIN_EMAILS.includes(currentUser.email);
+}
+
 function routeUser(){
+  // 관리자 계정: 모든 단계 패스
+  if(isAdmin()){
+    if(!userProfile) userProfile = {
+      is_verified: true, is_premium: true,
+      premium_until: '2099-12-31', plays_count: 0
+    };
+    showOnly('start');
+    return;
+  }
+  // 일반 유저
   if(!userProfile?.is_verified){ showOnly('screen-verify'); return; }
-  if(!isActivePremium() && (userProfile?.plays_count||0) >= 300){ showOnly('screen-paywall'); return; }  // 1일(300회) 초과시 페이월
+  if(!isActivePremium() && (userProfile?.plays_count||0) >= 300){ showOnly('screen-paywall'); return; }
   showOnly('start');
 }
 
