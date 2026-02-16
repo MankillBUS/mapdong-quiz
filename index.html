@@ -174,6 +174,15 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .leaflet-container{background:#0a1628!important;}
 ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 .stag-cnt{font-size:.7em;opacity:.65;font-weight:400;margin-left:2px;}
+.quiz-mode-toggle{display:inline-flex;align-items:center;cursor:pointer;user-select:none;}
+.quiz-mode-toggle input[type="checkbox"]{display:none;}
+.toggle-label{position:relative;display:inline-flex;align-items:center;background:rgba(255,255,255,.05);border:2px solid var(--border);border-radius:24px;padding:6px 12px;transition:all .3s;min-width:160px;justify-content:center;gap:8px;}
+.quiz-mode-toggle input:checked + .toggle-label{background:linear-gradient(135deg,var(--accent),#0099bb);border-color:var(--accent);}
+.toggle-text-off,.toggle-text-on{font-size:.85rem;font-weight:600;transition:all .3s;}
+.toggle-text-off{color:var(--accent);}
+.toggle-text-on{color:var(--text-dim);display:none;}
+.quiz-mode-toggle input:checked + .toggle-label .toggle-text-off{display:none;}
+.quiz-mode-toggle input:checked + .toggle-label .toggle-text-on{display:inline;color:#000;}
 </style>
 </head>
 <body>
@@ -271,8 +280,22 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <div class="stag" data-r="hwaseong">화성시 <span class="stag-cnt" id="scnt-hwaseong"></span></div>
     </div>
   </div>
-  <div style="color:var(--text-dim);font-size:.82rem">선택 동 합계: <span style="color:var(--accent);font-weight:700" id="scnt">0</span>개</div>
-</div>
+  <div style="color:var(--text-dim);font-size:.82rem;margin-bottom:16px">선택 동 합계: <span style="color:var(--accent);font-weight:700" id="scnt">0</span>개</div>
+  
+  <!-- 구 퀴즈 모드 토글 -->
+  <div style="text-align:center;margin-bottom:20px">
+    <label class="quiz-mode-toggle">
+      <input type="checkbox" id="gu-quiz-mode">
+      <span class="toggle-label">
+        <span class="toggle-text-off">동(洞) 퀴즈</span>
+        <span class="toggle-text-on">구(區) 퀴즈</span>
+      </span>
+    </label>
+    <div style="color:var(--text-dim);font-size:.7rem;margin-top:6px">
+      <span id="mode-desc">동 이름을 보고 위치 찾기</span>
+    </div>
+  </div>
+  
   <button class="sbtn" onclick="startQuiz()">퀴즈 시작! 🚀</button>
 </div>
 
@@ -1091,6 +1114,7 @@ const DB={
 // ─── 상태 ─────────────────────────────────────────────
 let map, allDongs=[], queue=[], cur=null, canAns=true;
 let totC=0,totW=0,streak=0,qCnt=0,sessAns=0;
+let isGuQuizMode = false; // 구 퀴즈 모드
 let tempL=[];      // 정답(ok) 임시 레이어
 let wrongL=[];     // 오답 정답위치 마커 (수동으로만 제거)
 
@@ -1111,6 +1135,15 @@ function updateCnt(){
   });
 })();
 updateCnt();
+
+// 구 퀴즈 모드 토글
+document.getElementById('gu-quiz-mode').addEventListener('change', function(e){
+  isGuQuizMode = e.target.checked;
+  const desc = document.getElementById('mode-desc');
+  desc.textContent = isGuQuizMode 
+    ? '구 이름만 보고 동 위치 찾기 (난이도 ↑)' 
+    : '동 이름을 보고 위치 찾기';
+});
 
 function startQuiz(){
   const s=document.querySelectorAll('.stag.sel');
@@ -1170,9 +1203,17 @@ function nextQ(){
   if(!queue.length)reshuffle();
   cur=queue.pop(); qCnt++;
   document.getElementById('qN').textContent='문제 #'+qCnt;
-  document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
-  document.getElementById('qD').textContent=cur.d;
-  document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
+  
+  // 구 퀴즈 모드: 구만 보여주고 동 이름 숨김
+  if(isGuQuizMode){
+    document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
+    document.getElementById('qD').textContent='❓❓❓';
+    document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동 (동 이름 숨김)';
+  } else {
+    document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
+    document.getElementById('qD').textContent=cur.d;
+    document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
+  }
   updStats();
 }
 
@@ -1268,9 +1309,17 @@ function closeNoModal(){
   if(!queue.length)reshuffle();
   cur=queue.pop(); qCnt++;
   document.getElementById('qN').textContent='문제 #'+qCnt;
-  document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
-  document.getElementById('qD').textContent=cur.d;
-  document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
+  
+  // 구 퀴즈 모드 적용
+  if(isGuQuizMode){
+    document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
+    document.getElementById('qD').textContent='❓❓❓';
+    document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동 (동 이름 숨김)';
+  } else {
+    document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
+    document.getElementById('qD').textContent=cur.d;
+    document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
+  }
   updStats();
 }
 
