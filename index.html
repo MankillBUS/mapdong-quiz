@@ -1655,12 +1655,27 @@ async function signOut(){
 /* ── 세션 감지 & 라우팅 ── */
 sb.auth.onAuthStateChange(async(event, session) => {
   console.log('[Auth]', event, session?.user?.email || 'no user');
+
   if(session?.user){
+    const isFirstLogin = !currentUser;
     currentUser = session.user;
+
+    // TOKEN_REFRESHED, USER_UPDATED 등 세션 갱신 이벤트는
+    // 이미 로그인된 상태이므로 화면 전환 없이 프로필만 업데이트
+    if(event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED'){
+      renderUserChip();
+      return;
+    }
+
     await loadProfile();
-    console.log('[Auth] loadProfile 완료, userProfile:', userProfile, 'isAdmin:', isAdmin());
-    routeUser();
-    handlePaymentCallback();
+
+    // 최초 로그인(SIGNED_IN)이거나 아직 화면이 로그인 화면일 때만 라우팅
+    // 이미 퀴즈/게임 중이면 화면 유지
+    const loginVisible = !document.getElementById('screen-login')?.classList.contains('hidden');
+    if(isFirstLogin || loginVisible){
+      routeUser();
+      handlePaymentCallback();
+    }
   } else {
     currentUser = null; userProfile = null;
     document.getElementById('user-chip').classList.remove('visible');
