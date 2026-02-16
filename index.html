@@ -1621,18 +1621,26 @@ async function doEmailAuth(){
   }
   const btn = document.getElementById('btn-email-auth');
   btn.disabled = true; btn.textContent = '처리 중...';
-  const res = authMode === 'login'
-    ? await sb.auth.signInWithPassword({ email, password: pw })
-    : await sb.auth.signUp({ email, password: pw });
-  btn.disabled = false; btn.textContent = authMode === 'login' ? '로그인' : '회원가입';
-  if(res.error){
-    const msg = res.error.message.includes('Invalid login') ? '이메일 또는 비밀번호가 틀렸습니다.'
-              : res.error.message.includes('already registered') ? '이미 가입된 이메일입니다.'
-              : res.error.message;
-    errEl.textContent = msg; errEl.className = 'login-err show';
-  } else if(authMode === 'signup' && res.data?.user && !res.data.session){
-    errEl.textContent = '✅ 인증 메일을 발송했습니다. 이메일을 확인해주세요.';
-    errEl.className = 'login-err show ok';
+  try {
+    const res = authMode === 'login'
+      ? await sb.auth.signInWithPassword({ email, password: pw })
+      : await sb.auth.signUp({ email, password: pw });
+    btn.disabled = false; btn.textContent = authMode === 'login' ? '로그인' : '회원가입';
+    if(res.error){
+      const msg = res.error.message.includes('Invalid login') ? '이메일 또는 비밀번호가 틀렸습니다.'
+                : res.error.message.includes('already registered') ? '이미 가입된 이메일입니다.'
+                : res.error.message.includes('Email not confirmed') ? '이메일 인증이 필요합니다. 받은편지함을 확인해주세요.'
+                : res.error.message;
+      errEl.textContent = msg; errEl.className = 'login-err show';
+    } else if(authMode === 'signup' && res.data?.user && !res.data.session){
+      errEl.textContent = '✅ 인증 메일을 발송했습니다. 이메일을 확인해주세요.';
+      errEl.className = 'login-err show ok';
+    }
+  } catch(e) {
+    btn.disabled = false; btn.textContent = authMode === 'login' ? '로그인' : '회원가입';
+    console.error('[doEmailAuth] 예외:', e);
+    errEl.textContent = '로그인 중 오류가 발생했습니다: ' + e.message;
+    errEl.className = 'login-err show';
   }
 }
 
@@ -1646,9 +1654,11 @@ async function signOut(){
 
 /* ── 세션 감지 & 라우팅 ── */
 sb.auth.onAuthStateChange(async(event, session) => {
+  console.log('[Auth]', event, session?.user?.email || 'no user');
   if(session?.user){
     currentUser = session.user;
     await loadProfile();
+    console.log('[Auth] loadProfile 완료, userProfile:', userProfile, 'isAdmin:', isAdmin());
     routeUser();
     handlePaymentCallback();
   } else {
@@ -1659,21 +1669,20 @@ sb.auth.onAuthStateChange(async(event, session) => {
 });
 
 async function loadProfile(){
+  // 관리자는 DB 조회 없이 바로 설정 (RLS 오류 방지)
+  if(isAdmin()){
+    userProfile = { is_verified:true, is_premium:true, premium_until:'2099-12-31', plays_count:0 };
+    renderUserChip();
+    return;
+  }
   try{
     const { data, error } = await sb.from('user_profiles')
       .select('*').eq('user_id', currentUser.id).maybeSingle();
     if(error) console.warn('[loadProfile] 오류:', error.message);
-    userProfile = data;
+    userProfile = data || null;
   } catch(e){
     console.warn('[loadProfile] 예외:', e.message);
     userProfile = null;
-  }
-  // 관리자면 프로필 못 가져와도 강제 설정
-  if(isAdmin() && !userProfile){
-    userProfile = {
-      is_verified: true, is_premium: true,
-      premium_until: '2099-12-31', plays_count: 0
-    };
   }
   renderUserChip();
 }
