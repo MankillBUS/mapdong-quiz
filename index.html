@@ -82,7 +82,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .user-badge{font-size:.56rem;padding:2px 6px;border-radius:10px;font-weight:700;}
 .user-badge.premium{background:var(--gold);color:#000;}
 .user-badge.trial{background:var(--surface);border:1px solid var(--text-dim);color:var(--text-dim);}
-#user-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px;min-width:190px;z-index:99999;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5);}
+#user-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px;min-width:190px;z-index:100000;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5);}
 #user-dropdown.show{display:block;}
 .dd-info{padding:8px 10px 10px;border-bottom:1px solid var(--border);margin-bottom:6px;}
 .dd-email{font-size:.68rem;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -104,7 +104,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 #trial-bar.hidden{display:none;}
 
 /* ── 토스트 ── */
-#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);z-index:99999;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 22px;font-size:.82rem;color:var(--text);box-shadow:0 8px 30px rgba(0,0,0,.5);transition:transform .3s ease;white-space:nowrap;pointer-events:none;}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);z-index:100000;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 22px;font-size:.82rem;color:var(--text);box-shadow:0 8px 30px rgba(0,0,0,.5);transition:transform .3s ease;white-space:nowrap;pointer-events:none;}
 #toast.show{transform:translateX(-50%) translateY(0);}
 #toast.success{border-color:var(--accent3);color:var(--accent3);}
 #toast.error{border-color:var(--accent2);color:var(--accent2);}
@@ -368,6 +368,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <button class="mb" onclick="resetV()">🏠 전체보기</button>
       <button class="mb" onclick="focusA()">🎯 정답위치</button>
       <button class="mb" onclick="skipQ()">⏭ 건너뛰기</button>
+      <button class="mb" id="btn-show-all" onclick="toggleShowAll()" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7);">📚 모든 정답 표시</button>
     </div>
     <!-- 오답 정답위치 표시 바 -->
     <div id="ans-bar">
@@ -565,6 +566,64 @@ function drawPolygon(geo, color='#00d4ff', fillOpacity=0.3){
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    지도 테마 토글
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+
+let allAnswersVisible = false;
+let allAnswerLayers = [];
+
+function toggleShowAll(){
+  if(allAnswersVisible){
+    // 모든 정답 숨기기
+    allAnswerLayers.forEach(l => {
+      try{ map.removeLayer(l); } catch(e){}
+    });
+    allAnswerLayers = [];
+    allAnswersVisible = false;
+    document.getElementById('btn-show-all').textContent = '📚 모든 정답 표시';
+    document.getElementById('btn-show-all').style.background = 'linear-gradient(135deg,#a29bfe,#6c5ce7)';
+    toast('모든 정답 숨김', 'info');
+  } else {
+    // 모든 정답 표시
+    if(!allDongs || !allDongs.length){
+      toast('먼저 지역을 선택하고 퀴즈를 시작하세요!', 'error');
+      return;
+    }
+    
+    let count = 0;
+    allDongs.forEach(dong => {
+      const key = getPolygonKey(dong.rn, dong.gu, dong.d);
+      const geo = POLY_CACHE[key];
+      if(geo){
+        // 폴리곤
+        const layer = drawPolygon(geo, '#00d4ff', 0.15);
+        if(layer) allAnswerLayers.push(layer);
+        
+        // 동 이름 레이블
+        const marker = L.marker([dong.lat, dong.lng], {
+          icon: L.divIcon({
+            className: '',
+            iconAnchor: [0, 0],
+            html: `<div style="background:rgba(0,212,255,0.9);color:#000;padding:3px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;font-family:'Noto Sans KR',sans-serif;box-shadow:0 1px 4px rgba(0,0,0,0.3);">${dong.d}</div>`
+          })
+        }).addTo(map);
+        allAnswerLayers.push(marker);
+        count++;
+      }
+    });
+    
+    allAnswersVisible = true;
+    document.getElementById('btn-show-all').textContent = '✕ 정답 숨기기';
+    document.getElementById('btn-show-all').style.background = 'linear-gradient(135deg,#ff3c6e,#bb1144)';
+    toast(`${count}개 정답 표시됨`, 'info');
+  }
+}
+
+function goHome(){
+  if(confirm('퀴즈를 종료하고 처음으로 돌아가시겠습니까?')){
+    location.reload();
+  }
+}
+
 function toggleTheme(){
   isDarkTheme = !isDarkTheme;
   if(mapTileLayer) map.removeLayer(mapTileLayer);
@@ -575,11 +634,14 @@ function toggleTheme(){
   
   mapTileLayer = L.tileLayer(url, {
     attribution: isDarkTheme ? '© OpenStreetMap © CARTO' : '© OpenStreetMap',
-    subdomains: 'abcd',
-    maxZoom: 19
+    subdomains: isDarkTheme ? 'abcd' : 'abc',
+    maxZoom: 19,
+    minZoom: 8,
+    errorTileUrl: ''  // 로드 실패 시 빈 타일
   }).addTo(map);
   
   document.getElementById('theme-icon').textContent = isDarkTheme ? '🌙' : '☀️';
+  toast(isDarkTheme ? '다크 모드' : '컬러 모드', 'info');
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -698,7 +760,7 @@ function mkMark(lat,lng,ok){
   const col=ok?'#39ff14':'#ff3c6e';
   const m=L.circleMarker([lat,lng],{radius:13,fillColor:col,color:'#fff',weight:3,fillOpacity:.9}).addTo(map);
   const ico=L.divIcon({className:'',iconAnchor:[0,0],
-    html:`<div style="background:${col};color:#000;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap;font-family:'Noto Sans KR',sans-serif;margin-top:-30px;margin-left:14px;">${cur.d}</div>`});
+    html:`<div style="background:${col};color:#000;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:700;white-space:nowrap;font-family:\'Noto Sans KR\',sans-serif;margin-top:-32px;margin-left:16px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${cur.d}</div>`});
   const lb=L.marker([lat,lng],{icon:ico}).addTo(map);
   if(ok){ tempL.push(m,lb); }
   else  { wrongL.push(m,lb); }
@@ -750,7 +812,7 @@ function doNo(dist){
   // 2) 이동 완료 후 마커+원+폴리곤 표시
   setTimeout(()=>{
     mkMark(cur.lat,cur.lng,false);
-    mkCircle(cur.lat,cur.lng);
+    // mkCircle 제거됨 (폴리곤으로 대체)
     
     // ★ 오답 폴리곤 표시 (빨간색)
     if(POLY_CACHE && cur){
