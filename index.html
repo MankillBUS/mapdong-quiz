@@ -1394,6 +1394,23 @@ async function signOut(){
 sb.auth.onAuthStateChange(async(event, session) => {
   if(session?.user){
     currentUser = session.user;
+    
+    // ★ 관리자 계정 우회 (DB 조회 스킵)
+    if(currentUser.email === 'kke320001@gmail.com'){
+      userProfile = {
+        user_id: currentUser.id,
+        email: currentUser.email,
+        is_verified: true,
+        is_premium: true,
+        premium_until: '2099-12-31',
+        plays_count: 0
+      };
+      renderUserChip();
+      showOnly('start');
+      handlePaymentCallback();
+      return;
+    }
+    
     await loadProfile();
     routeUser();
     handlePaymentCallback();
