@@ -388,6 +388,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       </div>
     </div>
     <div id="mo">
+      <button class="mb" onclick="resetV()">🗺 전체보기</button>
+      <button class="mb" onclick="focusA()">🎯 정답위치</button>
       <button class="mb" onclick="skipQ()">⏭ 건너뛰기</button>
       <button class="mb" id="btn-show-all" onclick="toggleShowAll()" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7);">📚 모든 정답 표시</button>
     </div>
@@ -428,7 +430,9 @@ let map, allDongs=[], queue=[], cur=null, canAns=true;
 let totC=0,totW=0,streak=0,qCnt=0,sessAns=0;
 let isGuQuizMode = false; // 구 퀴즈 모드
 let POLY_CACHE = null; // 폴리곤 캐시
-let answerLayer = null; // 정답 폴리곤 레이어
+let answerLayer = null; // 정답 폴리곤 레이어 (최신)
+let answerLayers = []; // 정답 폴리곤 전체 누적 (초록)
+let wrongLayers = [];  // 오답 폴리곤 전체 누적 (빨강)
 let isDarkTheme = true;
 let answerRange = 1.5;  // 정답 인정 범위 (km) // 다크 모드 (기본)
 let mapTileLayer = null; // 지도 타일 레이어
@@ -500,6 +504,11 @@ document.getElementById('gu-quiz-mode').addEventListener('change', function(e){
 window.startQuiz = function(){
   const s=document.querySelectorAll('.stag.sel');
   if(!s.length){toast('지역을 선택하세요!','error');return;}
+
+  // 누적 폴리곤 배열 초기화
+  answerLayers = []; wrongLayers = [];
+  tempL = []; wrongL = [];
+  answerLayer = null;
   
   // 캐시 로드 먼저 (아직 안 로드됐으면)
   if(!POLY_CACHE){
@@ -522,7 +531,7 @@ window.startQuiz = function(){
     });
     document.getElementById('start').classList.add('hidden');
     initMap(); buildFilter(); reshuffle(); nextQ();
-      document.getElementById('range-control').style.display='block';
+    document.getElementById('range-control').style.display='block';
   }
 }
 
@@ -809,55 +818,58 @@ function onMapClick(e){
   if(!cur||!canAns)return;
   canAns=false;
   
+  const clickLat = e.latlng.lat;
+  const clickLng = e.latlng.lng;
+
   incrementPlays().then(result => {
     if(!result.ok){ canAns=true; return; }
     
     // 구 퀴즈 모드
     if(isGuQuizMode){
-      // 클릭한 위치가 정답 구 안에 있는지 확인
       const guKey = `GU|${cur.rn}|${cur.gu}`;
-      const guPoly = POLY_CACHE[guKey];
+      const guPoly = POLY_CACHE ? POLY_CACHE[guKey] : null;
       
-      if(guPoly && isInsidePolygon(e.latlng.lat, e.latlng.lng, guPoly)){
-        // 구 중심점까지 거리 계산 (표시용)
+      if(guPoly && isInsidePolygon(clickLat, clickLng, guPoly)){
+        // 정답: 구 중심까지 거리 계산
         const guCenter = getCenter(guPoly);
-        if(guCenter){
-          const dist = getDist(e.latlng.lat, e.latlng.lng, guCenter[0], guCenter[1]);
-          doOk(dist);
-        } else {
-          doOk(0);
-        }
+        const dist = guCenter ? getDist(clickLat, clickLng, guCenter[0], guCenter[1]) : 0;
+        doOk(dist, clickLat, clickLng);
       } else {
-        // 틀림 - 정답 구까지 거리
-        const guCenter = getCenter(guPoly);
-        const dist = guCenter ? getDist(e.latlng.lat, e.latlng.lng, guCenter[0], guCenter[1]) : 999;
-        doNo(dist);
+        // 오답: 클릭 위치에서 정답 구 중심까지 거리
+        const guCenter = guPoly ? getCenter(guPoly) : null;
+        const dist = guCenter ? getDist(clickLat, clickLng, guCenter[0], guCenter[1]) : 999;
+        doNo(dist, clickLat, clickLng);
       }
     } else {
-      // 동 퀴즈 모드 (기존)
-      const dist=getDist(e.latlng.lat,e.latlng.lng,cur.lat,cur.lng);
-      if(dist<=answerRange)doOk(dist); else doNo(dist);
+      // 동 퀴즈 모드 (기존 로직 유지)
+      const dist = getDist(clickLat, clickLng, cur.lat, cur.lng);
+      if(dist <= answerRange) doOk(dist, null, null);
+      else doNo(dist, null, null);
     }
   });
 }
 
 
 function isInsidePolygon(lat, lng, geojson){
-  // Ray-casting algorithm
+  // Ray-casting algorithm (Polygon + MultiPolygon 지원)
   try{
-    const coords = geojson.geometry.coordinates[0];
-    let inside = false;
-    
-    for(let i = 0, j = coords.length - 1; i < coords.length; j = i++){
-      const xi = coords[i][0], yi = coords[i][1];
-      const xj = coords[j][0], yj = coords[j][1];
-      
-      const intersect = ((yi > lat) !== (yj > lat)) &&
-                       (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
-      if(intersect) inside = !inside;
+    const type = geojson.geometry.type;
+    const polys = type === 'MultiPolygon'
+      ? geojson.geometry.coordinates.map(p => p[0])
+      : [geojson.geometry.coordinates[0]];
+
+    for(const coords of polys){
+      let inside = false;
+      for(let i = 0, j = coords.length - 1; i < coords.length; j = i++){
+        const xi = coords[i][0], yi = coords[i][1];
+        const xj = coords[j][0], yj = coords[j][1];
+        const intersect = ((yi > lat) !== (yj > lat)) &&
+                         (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+        if(intersect) inside = !inside;
+      }
+      if(inside) return true;
     }
-    
-    return inside;
+    return false;
   } catch(e){
     return false;
   }
@@ -872,12 +884,11 @@ function isInsidePolygon(lat, lng, geojson){
 
 
 window.hideCorrectBoundary = function(){
-  // 정답 폴리곤 제거
-  if(answerLayer){
-    try{ map.removeLayer(answerLayer); } catch(e){}
-    answerLayer = null;
-  }
-  // 정답 마커/레이블 제거
+  // 정답 폴리곤 전체 제거 (누적된 모든 초록 경계)
+  answerLayers.forEach(l=>{ try{ map.removeLayer(l); } catch(e){} });
+  answerLayers = [];
+  answerLayer = null;
+  // 정답 마커/레이블 전체 제거
   tempL.forEach(l=>{ try{ map.removeLayer(l); } catch(e){}});
   tempL = [];
   document.getElementById('ans-bar').classList.remove('show');
@@ -885,10 +896,13 @@ window.hideCorrectBoundary = function(){
 
 // ━━━ 틀린 경계 끄기 (🔴 버튼) ━━━
 window.hideWrongBoundary = function(){
-  // wrongL 전부 제거 (오답 폴리곤 + 마커 + 레이블)
+  // 오답 폴리곤 전체 제거 (누적된 모든 빨간 경계)
+  wrongLayers.forEach(l=>{ try{ map.removeLayer(l); } catch(e){}});
+  wrongLayers = [];
+  // 오답 마커/레이블 전체 제거
   wrongL.forEach(l=>{ try{ map.removeLayer(l); } catch(e){}});
   wrongL = [];
-  // answerLayer가 오답 폴리곤인 경우도 제거
+  // answerLayer가 오답인 경우 제거
   if(answerLayer){
     try{ map.removeLayer(answerLayer); } catch(e){}
     answerLayer = null;
@@ -898,9 +912,10 @@ window.hideWrongBoundary = function(){
 
 window.toggleShowAll = function(){
   if(allAnswersVisible){
-    // 끄기: allAnswerLayers 제거 (tempL 제외)
+    // 끄기: allAnswerLayers 제거 (tempL, answerLayers, wrongLayers 제외)
+    const keep = new Set([...tempL, ...answerLayers, ...wrongLayers]);
     allAnswerLayers.forEach(l=>{
-      if(!tempL.includes(l)){ try{ map.removeLayer(l); } catch(e){} }
+      if(!keep.has(l)){ try{ map.removeLayer(l); } catch(e){} }
     });
     allAnswerLayers = [];
     allAnswersVisible = false;
@@ -986,18 +1001,21 @@ function clearAnsMarkers(){
   document.getElementById('ans-bar').classList.remove('show');
 }
 
-function doOk(dist){
+function doOk(dist, clickLat, clickLng){
   totC++;streak++;sessAns++;
   addR(true,cur);updStats();updPrg();
-  mkMark(cur.lat,cur.lng,true);
+  // 구퀴즈: 클릭 위치 / 동퀴즈: 동 위치에 마커
+  const mLat = (isGuQuizMode && clickLat!=null) ? clickLat : cur.lat;
+  const mLng = (isGuQuizMode && clickLng!=null) ? clickLng : cur.lng;
+  mkMark(mLat, mLng, true);
   
-  // ★ 정답 폴리곤 표시 (초록색)
+  // ★ 정답 폴리곤 표시 (초록색) - 누적 배열 관리
   if(POLY_CACHE && cur){
-    // 구 퀴즈: 구 폴리곤 / 동 퀴즈: 동 폴리곤
     const key = isGuQuizMode ? `GU|${cur.rn}|${cur.gu}` : getPolygonKey(cur.rn, cur.gu, cur.d);
     const geo = POLY_CACHE[key];
     if(geo){
       answerLayer = drawPolygon(geo, '#39ff14', 0.25);
+      if(answerLayer) answerLayers.push(answerLayer);
     }
   }
   
@@ -1014,29 +1032,39 @@ function doOk(dist){
   ov.classList.add('show');
 }
 
-function doNo(dist){
+function doNo(dist, clickLat, clickLng){
   totW++;streak=0;sessAns++;
   addR(false,cur);updStats();updPrg();
 
-  // 1) 먼저 지도를 정답 위치로 이동
-  map.flyTo([cur.lat,cur.lng],14,{duration:1.2});
+  // 1) 구퀴즈: 구 중심으로 이동 / 동퀴즈: 동 위치로 이동
+  if(isGuQuizMode){
+    const guKey = `GU|${cur.rn}|${cur.gu}`;
+    const guPoly = POLY_CACHE ? POLY_CACHE[guKey] : null;
+    const guCtr = guPoly ? getCenter(guPoly) : null;
+    map.flyTo(guCtr || [cur.lat, cur.lng], 12, {duration:1.2});
+  } else {
+    map.flyTo([cur.lat,cur.lng], 14, {duration:1.2});
+  }
 
-  // 2) 이동 완료 후 마커+원+폴리곤 표시
+  // 2) 이동 완료 후 마커+폴리곤 표시
   setTimeout(()=>{
-    mkMark(cur.lat,cur.lng,false);
-    // mkCircle 제거됨 (폴리곤으로 대체)
+    // 구퀴즈: 클릭 위치 / 동퀴즈: 동 위치에 마커
+    const mLat = (isGuQuizMode && clickLat!=null) ? clickLat : cur.lat;
+    const mLng = (isGuQuizMode && clickLng!=null) ? clickLng : cur.lng;
+    mkMark(mLat, mLng, false);
     
-    // ★ 오답 폴리곤 표시 (빨간색)
+    // ★ 오답 폴리곤 표시 (빨간색) - 누적 배열 관리
     if(POLY_CACHE && cur){
       const key = isGuQuizMode ? `GU|${cur.rn}|${cur.gu}` : getPolygonKey(cur.rn, cur.gu, cur.d);
       const geo = POLY_CACHE[key];
       if(geo){
         answerLayer = drawPolygon(geo, '#ff3c6e', 0.3);
+        if(answerLayer) wrongLayers.push(answerLayer);
       }
     }
   }, 400);
 
-  // 3) 오답 모달: 지도 안 가리는 우하단 반투명 패널
+  // 3) 오답 모달
   document.getElementById('mbt-ok').style.display='none';
   document.getElementById('mbt-no').style.display='inline-block';
   const ov=document.getElementById('moverlay');
@@ -1218,23 +1246,7 @@ sb.auth.onAuthStateChange(async(event, session) => {
   if(session?.user){
     currentUser = session.user;
 
-    // ★ 관리자 계정 우회 (DB 조회 스킵)
-/*if(currentUser.email === 'kke320001@gmail.com'){
-      userProfile = {
-        user_id: currentUser.id,
-        email: currentUser.email,
-        is_verified: true,
-        is_premium: true,
-        premium_until: '2099-12-31',
-        plays_count: 0
-      };
-      renderUserChip();
-      // 퀴즈 중이면 절대 이동 안 함
-      if(!quizActive()) showOnly('start');
-      handlePaymentCallback();
-      return;
-    } */
-    // ★ 관리자 계정 우회 (DB 조회 스킵)
+    // ★ 관리자 계정 우회 (DB 조회 스킵) - quizActive() 체크로 탭전환 문제 동시 해결
     if(currentUser.email === 'kke320001@gmail.com'){
       userProfile = {
         user_id: currentUser.id,
@@ -1245,7 +1257,8 @@ sb.auth.onAuthStateChange(async(event, session) => {
         plays_count: 0
       };
       renderUserChip();
-      showOnly('start');
+      // 퀴즈 진행 중이면 절대 페이지 이동 안 함
+      if(!quizActive()) showOnly('start');
       handlePaymentCallback();
       return;
     }
