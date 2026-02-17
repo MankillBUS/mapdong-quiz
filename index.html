@@ -866,24 +866,11 @@ function isInsidePolygon(lat, lng, geojson){
 
 
 
-window.hideWrongBoundary = function(){
-  if(answerLayer){
-    try{ map.removeLayer(answerLayer); } catch(e){}
-    answerLayer = null;
-  }
-  wrongL = wrongL.filter(layer => {
-    try{
-      if(layer instanceof L.GeoJSON || layer instanceof L.Polygon){
-        map.removeLayer(layer);
-        return false;
-      }
-    } catch(e){}
-    return true;
-  });
-  toast('틀린 경계 숨김', 'info');
-}
 
-// ━━━ 정답 경계 끄기 (🟢 버튼) ━━━
+
+
+
+
 window.hideCorrectBoundary = function(){
   // 정답 폴리곤 제거
   if(answerLayer){
@@ -982,17 +969,16 @@ function getDist(a,b,c,d){
 function mkMark(lat,lng,ok){
   const col=ok?'#39ff14':'#ff3c6e';
   const m=L.circleMarker([lat,lng],{radius:13,fillColor:col,color:'#fff',weight:3,fillOpacity:.9}).addTo(map);
+  // 구 퀴즈: 구이름 표시 / 동 퀴즈: 동이름 표시
+  const labelText = isGuQuizMode ? cur.gu : cur.d;
   const ico=L.divIcon({className:'',iconAnchor:[0,0],
-    html:`<div style="display:inline-block;background:${col};color:#000;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:700;white-space:nowrap;font-family:\'Noto Sans KR\',sans-serif;margin-top:-32px;margin-left:16px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${cur.d}</div>`});
+    html:`<div style="display:inline-block;background:${col};color:#000;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:700;white-space:nowrap;font-family:\'Noto Sans KR\',sans-serif;margin-top:-32px;margin-left:16px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${labelText}</div>`});
   const lb=L.marker([lat,lng],{icon:ico}).addTo(map);
   if(ok){ tempL.push(m,lb); }
   else  { wrongL.push(m,lb); }
 }
 
-function mkCircle(lat,lng){
-  const c=L.circle([lat,lng],{radius:1500,color:'#ff3c6e',weight:3,fillColor:'#ff3c6e',fillOpacity:.08,dashArray:'8 4'}).addTo(map);
-  wrongL.push(c);
-}
+// mkCircle 제거됨 - 폴리곤으로 대체
 
 function clearAnsMarkers(){
   wrongL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
