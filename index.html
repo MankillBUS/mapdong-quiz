@@ -923,6 +923,32 @@ function isInsidePolygon(lat, lng, geojson){
   }
 }
 
+
+function hideCorrectBoundary(){
+  if(answerLayer){
+    try{ map.removeLayer(answerLayer); } catch(e){}
+    answerLayer = null;
+  }
+  toast('정답 경계 숨김', 'info');
+}
+
+function hideWrongBoundary(){
+  if(answerLayer){
+    try{ map.removeLayer(answerLayer); } catch(e){}
+    answerLayer = null;
+  }
+  wrongL = wrongL.filter(layer => {
+    try{
+      if(layer instanceof L.GeoJSON || layer instanceof L.Polygon){
+        map.removeLayer(layer);
+        return false;
+      }
+    } catch(e){}
+    return true;
+  });
+  toast('틀린 경계 숨김', 'info');
+}
+
 function getDist(a,b,c,d){
   const R=6371,dL=(c-a)*Math.PI/180,dO=(d-b)*Math.PI/180;
   const x=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dO/2)**2;
@@ -1171,6 +1197,7 @@ sb.auth.onAuthStateChange(async(event, session) => {
     
     // ★ 관리자 계정 우회 (DB 조회 스킵)
     if(currentUser.email === 'kke320001@gmail.com'){
+      console.log('✅ 관리자 계정 인식:', currentUser.email);
       userProfile = {
         user_id: currentUser.id,
         email: currentUser.email,
@@ -1179,8 +1206,11 @@ sb.auth.onAuthStateChange(async(event, session) => {
         premium_until: '2099-12-31',
         plays_count: 0
       };
+      console.log('✅ 관리자 프로필 생성:', userProfile);
       renderUserChip();
+      console.log('✅ renderUserChip 완료');
       showOnly('start');
+      console.log('✅ showOnly(start) 완료');
       handlePaymentCallback();
       return;
     }
