@@ -1258,7 +1258,7 @@ sb.auth.onAuthStateChange(async(event, session) => {
       };
       renderUserChip();
       // 퀴즈 진행 중이면 절대 페이지 이동 안 함
-      if(!quizActive()) showOnly('start');
+      showOnly('start');
       handlePaymentCallback();
       return;
     }
