@@ -891,7 +891,10 @@ window.hideCorrectBoundary = function(){
   // 정답 마커/레이블 전체 제거
   tempL.forEach(l=>{ try{ map.removeLayer(l); } catch(e){}});
   tempL = [];
-  document.getElementById('ans-bar').classList.remove('show');
+  // ★ 오답이 아직 남아있으면 ans-bar 유지, 없으면 닫기
+  if(wrongL.length === 0 && wrongLayers.length === 0){
+    document.getElementById('ans-bar').classList.remove('show');
+  }
 };
 
 // ━━━ 틀린 경계 끄기 (🔴 버튼) ━━━
@@ -907,7 +910,10 @@ window.hideWrongBoundary = function(){
     try{ map.removeLayer(answerLayer); } catch(e){}
     answerLayer = null;
   }
-  document.getElementById('ans-bar').classList.remove('show');
+  // ★ 정답이 아직 남아있으면 ans-bar 유지, 없으면 닫기
+  if(tempL.length === 0 && answerLayers.length === 0){
+    document.getElementById('ans-bar').classList.remove('show');
+  }
 };
 
 window.toggleShowAll = function(){
@@ -1036,26 +1042,37 @@ function doNo(dist, clickLat, clickLng){
   totW++;streak=0;sessAns++;
   addR(false,cur);updStats();updPrg();
 
+  // ★ cur을 지금 캡처 - setTimeout 내부에서 cur이 바뀌면 잘못된 위치에 마커 찍힘
+  const snapCur = cur;
+  const snapClickLat = clickLat;
+  const snapClickLng = clickLng;
+
   // 1) 구퀴즈: 구 중심으로 이동 / 동퀴즈: 동 위치로 이동
   if(isGuQuizMode){
-    const guKey = `GU|${cur.rn}|${cur.gu}`;
+    const guKey = `GU|${snapCur.rn}|${snapCur.gu}`;
     const guPoly = POLY_CACHE ? POLY_CACHE[guKey] : null;
     const guCtr = guPoly ? getCenter(guPoly) : null;
-    map.flyTo(guCtr || [cur.lat, cur.lng], 12, {duration:1.2});
+    map.flyTo(guCtr || [snapCur.lat, snapCur.lng], 12, {duration:1.2});
   } else {
-    map.flyTo([cur.lat,cur.lng], 14, {duration:1.2});
+    map.flyTo([snapCur.lat, snapCur.lng], 14, {duration:1.2});
   }
 
-  // 2) 이동 완료 후 마커+폴리곤 표시
+  // 2) 이동 완료 후 마커+폴리곤 표시 (snapCur 사용으로 위치 보장)
   setTimeout(()=>{
-    // 구퀴즈: 클릭 위치 / 동퀴즈: 동 위치에 마커
-    const mLat = (isGuQuizMode && clickLat!=null) ? clickLat : cur.lat;
-    const mLng = (isGuQuizMode && clickLng!=null) ? clickLng : cur.lng;
-    mkMark(mLat, mLng, false);
-    
-    // ★ 오답 폴리곤 표시 (빨간색) - 누적 배열 관리
-    if(POLY_CACHE && cur){
-      const key = isGuQuizMode ? `GU|${cur.rn}|${cur.gu}` : getPolygonKey(cur.rn, cur.gu, cur.d);
+    const mLat = (isGuQuizMode && snapClickLat!=null) ? snapClickLat : snapCur.lat;
+    const mLng = (isGuQuizMode && snapClickLng!=null) ? snapClickLng : snapCur.lng;
+    // mkMark는 cur 전역변수 참조하므로, 직접 레이어 생성
+    const col = '#ff3c6e';
+    const labelText = isGuQuizMode ? snapCur.gu : snapCur.d;
+    const wm = L.circleMarker([mLat, mLng], {radius:13,fillColor:col,color:'#fff',weight:3,fillOpacity:.9}).addTo(map);
+    const ico = L.divIcon({className:'', iconAnchor:[0,0],
+      html:`<div style="display:inline-block;background:${col};color:#000;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:700;white-space:nowrap;font-family:'Noto Sans KR',sans-serif;margin-top:-32px;margin-left:16px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${labelText}</div>`});
+    const wlb = L.marker([mLat, mLng], {icon:ico}).addTo(map);
+    wrongL.push(wm, wlb);
+
+    // ★ 오답 폴리곤 표시 (빨간색)
+    if(POLY_CACHE && snapCur){
+      const key = isGuQuizMode ? `GU|${snapCur.rn}|${snapCur.gu}` : getPolygonKey(snapCur.rn, snapCur.gu, snapCur.d);
       const geo = POLY_CACHE[key];
       if(geo){
         answerLayer = drawPolygon(geo, '#ff3c6e', 0.3);
@@ -1073,8 +1090,8 @@ function doNo(dist, clickLat, clickLng){
   document.getElementById('mE').textContent='❌';
   document.getElementById('mT').textContent='틀렸습니다!';
   document.getElementById('mD').innerHTML=isGuQuizMode
-    ? `정답: <span class="mdn"><strong style="color:#ff3c6e">${cur.rn} ${cur.gu}</strong></span><br>동: <strong>${cur.d}</strong><br>클릭 위치에서 <strong>${dist.toFixed(2)}km</strong> 거리` 
-    : `정답: <span class="mdn">${cur.rn} ${cur.gu} ${cur.d}</span><br>클릭 위치에서 <strong>${dist.toFixed(2)}km</strong> 거리`;
+    ? `정답: <span class="mdn"><strong style="color:#ff3c6e">${snapCur.rn} ${snapCur.gu}</strong></span><br>동: <strong>${snapCur.d}</strong><br>클릭 위치에서 <strong>${dist.toFixed(2)}km</strong> 거리`
+    : `정답: <span class="mdn">${snapCur.rn} ${snapCur.gu} ${snapCur.d}</span><br>클릭 위치에서 <strong>${dist.toFixed(2)}km</strong> 거리`;
   ov.classList.add('show');
 }
 
@@ -1257,7 +1274,7 @@ sb.auth.onAuthStateChange(async(event, session) => {
         plays_count: 0
       };
       renderUserChip();
-      // 퀴즈 진행 중이면 절대 페이지 이동 안 함
+      // 로그인 시 항상 시작화면으로 이동
       showOnly('start');
       handlePaymentCallback();
       return;
@@ -1281,6 +1298,20 @@ sb.auth.onAuthStateChange(async(event, session) => {
     } else {
       showOnly('screen-login');
     }
+  }
+});
+
+// ★ 탭 전환 시 퀴즈 유지 - visibilitychange로 처리
+document.addEventListener('visibilitychange', async () => {
+  if(document.visibilityState !== 'visible') return;
+  // 탭으로 돌아왔을 때 퀴즈 중이면 아무것도 하지 않음
+  if(quizActive()) return;
+  // 퀴즈 중이 아닐 때만 세션 재확인
+  const { data: { session } } = await sb.auth.getSession();
+  if(!session) {
+    currentUser = null; userProfile = null;
+    document.getElementById('user-chip').classList.remove('visible');
+    showOnly('screen-login');
   }
 });
 
