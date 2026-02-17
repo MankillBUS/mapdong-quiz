@@ -502,7 +502,7 @@ document.getElementById('gu-quiz-mode').addEventListener('change', function(e){
     : '동 이름을 보고 위치 찾기';
 });
 
-function startQuiz(){
+window.startQuiz = function(){
   const s=document.querySelectorAll('.stag.sel');
   if(!s.length){toast('지역을 선택하세요!','error');return;}
   
@@ -653,7 +653,7 @@ function drawPolygon(geo, color='#00d4ff', fillOpacity=0.3){
 let allAnswersVisible = false;
 let allAnswerLayers = [];
 
-function toggleShowAll(){
+window.toggleShowAll = function(){
   if(allAnswersVisible){
     // 모든 정답 숨기기 (단, tempL은 보호)
     allAnswerLayers.forEach(l => {
@@ -703,13 +703,13 @@ function toggleShowAll(){
   }
 }
 
-function goHome(){
+window.goHome = function(){
   if(confirm('퀴즈를 종료하고 처음으로 돌아가시겠습니까?')){
     location.reload();
   }
 }
 
-function toggleTheme(){
+window.toggleTheme = function(){
   isDarkTheme = !isDarkTheme;
   if(mapTileLayer) map.removeLayer(mapTileLayer);
   
@@ -898,8 +898,6 @@ function onMapClick(e){
     }
   });
 }
-  });
-}
 
 
 function isInsidePolygon(lat, lng, geojson){
@@ -924,7 +922,7 @@ function isInsidePolygon(lat, lng, geojson){
 }
 
 
-function hideCorrectBoundary(){
+window.hideCorrectBoundary = function(){
   if(answerLayer){
     try{ map.removeLayer(answerLayer); } catch(e){}
     answerLayer = null;
@@ -932,7 +930,7 @@ function hideCorrectBoundary(){
   toast('정답 경계 숨김', 'info');
 }
 
-function hideWrongBoundary(){
+window.hideWrongBoundary = function(){
   if(answerLayer){
     try{ map.removeLayer(answerLayer); } catch(e){}
     answerLayer = null;
@@ -1071,9 +1069,9 @@ function closeNoModal(){
   updStats();
 }
 
-function focusA(){if(cur)map.flyTo([cur.lat,cur.lng],14,{duration:1.2});}
-function resetV(){map.flyTo([37.55,127.00],10,{duration:1});}
-function skipQ(){
+window.focusA = function(){if(cur)map.flyTo([cur.lat,cur.lng],14,{duration:1.2});}
+window.resetV = function(){map.flyTo([37.55,127.00],10,{duration:1});}
+window.skipQ = function(){
   if(cur){addR(false,cur,true);totW++;streak=0;sessAns++;updStats();updPrg();}
   nextQ();
 }
@@ -1144,7 +1142,7 @@ async function signInGoogle(){
   if(error) toast('구글 로그인 실패: ' + error.message, 'error');
 }
 
-function toggleAuthMode(){
+window.toggleAuthMode = function(){
   authMode = authMode === 'login' ? 'signup' : 'login';
   const isLogin = authMode === 'login';
   document.getElementById('btn-email-auth').textContent = isLogin ? '로그인' : '회원가입';
@@ -1153,7 +1151,7 @@ function toggleAuthMode(){
   err.className = 'login-err'; err.textContent = '';
 }
 
-async function doEmailAuth(){
+window.doEmailAuth = async function(){
   const email = document.getElementById('inp-email').value.trim();
   const pw    = document.getElementById('inp-pw').value;
   const errEl = document.getElementById('login-err');
