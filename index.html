@@ -388,8 +388,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       </div>
     </div>
     <div id="mo">
-      <button class="mb" onclick="resetV()">🏠 전체보기</button>
-      <button class="mb" onclick="focusA()">🎯 정답위치</button>
       <button class="mb" onclick="skipQ()">⏭ 건너뛰기</button>
       <button class="mb" id="btn-show-all" onclick="toggleShowAll()" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7);">📚 모든 정답 표시</button>
     </div>
@@ -650,55 +648,7 @@ function drawPolygon(geo, color='#00d4ff', fillOpacity=0.3){
 let allAnswersVisible = false;
 let allAnswerLayers = [];
 
-window.toggleShowAll = function(){
-  if(allAnswersVisible){
-    // 모든 정답 숨기기 (단, tempL은 보호)
-    allAnswerLayers.forEach(l => {
-      // tempL에 포함된 레이어는 건드리지 않음
-      if(!tempL.includes(l)){
-        try{ map.removeLayer(l); } catch(e){}
-      }
-    });
-    allAnswerLayers = [];
-    allAnswersVisible = false;
-    document.getElementById('btn-show-all').textContent = '📚 모든 정답 표시';
-    document.getElementById('btn-show-all').style.background = 'linear-gradient(135deg,#a29bfe,#6c5ce7)';
-    toast('모든 정답 숨김', 'info');
-  } else {
-    // 모든 정답 표시
-    if(!allDongs || !allDongs.length){
-      toast('먼저 지역을 선택하고 퀴즈를 시작하세요!', 'error');
-      return;
-    }
-    
-    let count = 0;
-    allDongs.forEach(dong => {
-      const key = getPolygonKey(dong.rn, dong.gu, dong.d);
-      const geo = POLY_CACHE[key];
-      if(geo){
-        // 폴리곤
-        const layer = drawPolygon(geo, '#00d4ff', 0.15);
-        if(layer) allAnswerLayers.push(layer);
-        
-        // 동 이름 레이블
-        const marker = L.marker([dong.lat, dong.lng], {
-          icon: L.divIcon({
-            className: '',
-            iconAnchor: [0, 0],
-            html: `<div style="display:inline-block;background:rgba(0,212,255,0.9);color:#000;padding:3px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;font-family:'Noto Sans KR',sans-serif;box-shadow:0 1px 4px rgba(0,0,0,0.3);">${dong.d}</div>`
-          })
-        }).addTo(map);
-        allAnswerLayers.push(marker);
-        count++;
-      }
-    });
-    
-    allAnswersVisible = true;
-    document.getElementById('btn-show-all').textContent = '✕ 정답 숨기기';
-    document.getElementById('btn-show-all').style.background = 'linear-gradient(135deg,#ff3c6e,#bb1144)';
-    toast(`${count}개 정답 표시됨`, 'info');
-  }
-}
+
 
 window.goHome = function(){
   if(confirm('퀴즈를 종료하고 처음으로 돌아가시겠습니까?')){
@@ -807,24 +757,23 @@ function closeOkModal(){
   // 정답 모달 닫고 다음 문제 (폴리곤 & 레이블 유지)
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
-  
-  // ★ tempL(정답 레이블)은 유지 (제거하지 않음)
-  canAns=true;
-  
-  // ★ 폴리곤은 제거하지 않음 (answerLayer 유지)
-  
-  if(!queue.length)reshuffle();
-  cur=queue.pop(); qCnt++;
-  document.getElementById('qN').textContent='문제 #'+qCnt;
-  
+
+  // ★ tempL(정답 레이블) 유지, answerLayer 유지
+  canAns = true;
+
+  if(!queue.length) reshuffle();
+  cur = queue.pop(); qCnt++;
+  document.getElementById('qN').textContent = '문제 #' + qCnt;
+
+  // 구 퀴즈: 동 이름 보여주고 구 숨김
   if(isGuQuizMode){
-    document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
-    document.getElementById('qD').textContent='❓❓❓';
-    document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동 (동 이름 숨김)';
+    document.getElementById('qR').textContent = '📍 ' + cur.rn;
+    document.getElementById('qD').textContent = cur.d;
+    document.getElementById('qH').textContent = '💡 이 동은 어느 구에 속할까요?';
   } else {
-    document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
-    document.getElementById('qD').textContent=cur.d;
-    document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
+    document.getElementById('qR').textContent = '📍 ' + cur.rn + ' · ' + cur.gu;
+    document.getElementById('qD').textContent = cur.d;
+    document.getElementById('qH').textContent = '💡 ' + cur.gu + ' 관할 행정동';
   }
   updStats();
 }
@@ -832,32 +781,29 @@ function closeOkModal(){
 function nextQ(){
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
-  
-  // ★ 정답 레이블(tempL)은 유지, 오답 마커(wrongL)만 제거
+
+  // ★ wrongL(오답)만 제거, tempL(정답 레이블)은 유지
   wrongL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
-  wrongL=[]; canAns=true;
-  
-  // ★ 이전 정답 폴리곤 제거 (closeNoModal에서도)
-  if(answerLayer){
-    try{map.removeLayer(answerLayer);}catch(e){}
-    answerLayer=null;
-  }
-  
-  if(!queue.length)reshuffle();
-  cur=queue.pop(); qCnt++;
-  document.getElementById('qN').textContent='문제 #'+qCnt;
-  
-  // 구 퀴즈 모드: 구만 보여주고 동 이름 숨김
+  wrongL = []; canAns = true;
+
+  // 이전 폴리곤도 유지 (사용자가 버튼으로 끄기 전까지)
+
+  if(!queue.length) reshuffle();
+  cur = queue.pop(); qCnt++;
+  document.getElementById('qN').textContent = '문제 #' + qCnt;
+
+  // 구 퀴즈: 동 이름 보여주고 구 숨김
   if(isGuQuizMode){
-    document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
-    document.getElementById('qD').textContent='❓❓❓';
-    document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동 (동 이름 숨김)';
+    document.getElementById('qR').textContent = '📍 ' + cur.rn;
+    document.getElementById('qD').textContent = cur.d;
+    document.getElementById('qH').textContent = '💡 이 동은 어느 구에 속할까요?';
   } else {
-    document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
-    document.getElementById('qD').textContent=cur.d;
-    document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
+    document.getElementById('qR').textContent = '📍 ' + cur.rn + ' · ' + cur.gu;
+    document.getElementById('qD').textContent = cur.d;
+    document.getElementById('qH').textContent = '💡 ' + cur.gu + ' 관할 행정동';
   }
   updStats();
+}
 }
 
 function onMapClick(e){
@@ -919,13 +865,7 @@ function isInsidePolygon(lat, lng, geojson){
 }
 
 
-window.hideCorrectBoundary = function(){
-  if(answerLayer){
-    try{ map.removeLayer(answerLayer); } catch(e){}
-    answerLayer = null;
-  }
-  toast('정답 경계 숨김', 'info');
-}
+
 
 window.hideWrongBoundary = function(){
   if(answerLayer){
@@ -943,6 +883,96 @@ window.hideWrongBoundary = function(){
   });
   toast('틀린 경계 숨김', 'info');
 }
+
+// ━━━ 정답 경계 끄기 (🟢 버튼) ━━━
+window.hideCorrectBoundary = function(){
+  // 정답 폴리곤 제거
+  if(answerLayer){
+    try{ map.removeLayer(answerLayer); } catch(e){}
+    answerLayer = null;
+  }
+  // 정답 마커/레이블 제거
+  tempL.forEach(l=>{ try{ map.removeLayer(l); } catch(e){}});
+  tempL = [];
+  document.getElementById('ans-bar').classList.remove('show');
+};
+
+// ━━━ 틀린 경계 끄기 (🔴 버튼) ━━━
+window.hideWrongBoundary = function(){
+  // wrongL 전부 제거 (오답 폴리곤 + 마커 + 레이블)
+  wrongL.forEach(l=>{ try{ map.removeLayer(l); } catch(e){}});
+  wrongL = [];
+  // answerLayer가 오답 폴리곤인 경우도 제거
+  if(answerLayer){
+    try{ map.removeLayer(answerLayer); } catch(e){}
+    answerLayer = null;
+  }
+  document.getElementById('ans-bar').classList.remove('show');
+};
+
+window.toggleShowAll = function(){
+  if(allAnswersVisible){
+    // 끄기: allAnswerLayers 제거 (tempL 제외)
+    allAnswerLayers.forEach(l=>{
+      if(!tempL.includes(l)){ try{ map.removeLayer(l); } catch(e){} }
+    });
+    allAnswerLayers = [];
+    allAnswersVisible = false;
+    document.getElementById('btn-show-all').textContent = '📚 모든 정답 표시';
+    document.getElementById('btn-show-all').style.background = 'linear-gradient(135deg,#a29bfe,#6c5ce7)';
+    return;
+  }
+
+  if(!allDongs || !allDongs.length){
+    toast('지역을 선택하고 퀴즈를 시작하세요!', 'error'); return;
+  }
+
+  let count = 0;
+
+  if(isGuQuizMode){
+    // 구 모드: 구 폴리곤 + 구 이름만
+    const done = new Set();
+    allDongs.forEach(dong=>{
+      const gk = dong.rn + '|' + dong.gu;
+      if(done.has(gk)) return;
+      done.add(gk);
+      const geo = POLY_CACHE ? POLY_CACHE['GU|'+dong.rn+'|'+dong.gu] : null;
+      if(!geo) return;
+      const lyr = drawPolygon(geo, '#00d4ff', 0.15);
+      if(lyr) allAnswerLayers.push(lyr);
+      // 구 이름 레이블
+      try{
+        const coords = geo.geometry.coordinates[0];
+        const lats = coords.map(c=>c[1]), lngs = coords.map(c=>c[0]);
+        const clat = (Math.max(...lats)+Math.min(...lats))/2;
+        const clng = (Math.max(...lngs)+Math.min(...lngs))/2;
+        const mk = L.marker([clat,clng],{icon:L.divIcon({className:'',iconAnchor:[0,0],
+          html:`<div style="display:inline-block;background:rgba(0,212,255,.92);color:#000;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4);">${dong.gu}</div>`
+        })}).addTo(map);
+        allAnswerLayers.push(mk);
+      }catch(e){}
+      count++;
+    });
+  } else {
+    // 동 모드: 동 폴리곤 + 동 이름
+    allDongs.forEach(dong=>{
+      const geo = POLY_CACHE ? POLY_CACHE[getPolygonKey(dong.rn,dong.gu,dong.d)] : null;
+      if(!geo) return;
+      const lyr = drawPolygon(geo, '#00d4ff', 0.15);
+      if(lyr) allAnswerLayers.push(lyr);
+      const mk = L.marker([dong.lat,dong.lng],{icon:L.divIcon({className:'',iconAnchor:[0,0],
+        html:`<div style="display:inline-block;background:rgba(0,212,255,.92);color:#000;padding:3px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.3);">${dong.d}</div>`
+      })}).addTo(map);
+      allAnswerLayers.push(mk);
+      count++;
+    });
+  }
+
+  allAnswersVisible = true;
+  document.getElementById('btn-show-all').textContent = '✕ 숨기기';
+  document.getElementById('btn-show-all').style.background = 'linear-gradient(135deg,#ff3c6e,#bb1144)';
+  toast(count+'개 '+(isGuQuizMode?'구':'동')+' 표시', 'info');
+};
 
 function getDist(a,b,c,d){
   const R=6371,dL=(c-a)*Math.PI/180,dO=(d-b)*Math.PI/180;
@@ -994,7 +1024,7 @@ function doOk(dist){
   document.getElementById('mE').textContent=streak>=5?'🔥':streak>=3?'🎯':'✅';
   document.getElementById('mT').textContent=streak>=5?`연속 ${streak}개 정답!`:'정답입니다!';
   document.getElementById('mD').innerHTML=isGuQuizMode 
-    ? `<span class="mdn">${cur.rn} <strong>${cur.gu}</strong> ${cur.d}</span>` 
+    ? `정답: <span class="mdn"><strong style="color:#39ff14">${cur.rn} ${cur.gu}</strong></span><br>동: <strong>${cur.d}</strong>` 
     : `<span class="mdn">${cur.rn} ${cur.gu} ${cur.d}</span><br>클릭 위치 기준 <strong>${dist.toFixed(2)}km</strong> · ${answerRange.toFixed(1)}km 이내`;
   ov.classList.add('show');
 }
@@ -1030,43 +1060,45 @@ function doNo(dist){
   document.getElementById('mE').textContent='❌';
   document.getElementById('mT').textContent='틀렸습니다!';
   document.getElementById('mD').innerHTML=isGuQuizMode
-    ? `정답: <span class="mdn">${cur.rn} <strong>${cur.gu}</strong> ${cur.d}</span>` 
+    ? `정답: <span class="mdn"><strong style="color:#ff3c6e">${cur.rn} ${cur.gu}</strong></span><br>동: <strong>${cur.d}</strong><br>클릭 위치에서 <strong>${dist.toFixed(2)}km</strong> 거리` 
     : `정답: <span class="mdn">${cur.rn} ${cur.gu} ${cur.d}</span><br>클릭 위치에서 <strong>${dist.toFixed(2)}km</strong> 거리`;
   ov.classList.add('show');
 }
 
 function closeNoModal(){
-  // 오답 모달 닫기 — 정답위치 표시는 유지, ans-bar 표시
+  // 오답 모달 닫기
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
-  if(wrongL.length>0){
-    document.getElementById('ab-label').textContent = isGuQuizMode ? '정답 구' : '정답';
-    document.getElementById('ab-dong-name').textContent = isGuQuizMode ? cur.gu : cur.d;
+
+  // ans-bar: 구 모드면 구이름(동이름), 동 모드면 동이름
+  if(wrongL.length > 0){
+    if(isGuQuizMode){
+      document.getElementById('ab-label').textContent = '정답 구';
+      document.getElementById('ab-dong-name').textContent = cur ? cur.gu + '  (' + cur.d + ')' : '';
+    } else {
+      document.getElementById('ab-label').textContent = '정답';
+      document.getElementById('ab-dong-name').textContent = cur ? cur.d : '';
+    }
     document.getElementById('ans-bar').classList.add('show');
   }
-  // 다음 문제 준비 (tempL 초기화, canAns 활성화)
-  tempL.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
-  tempL=[]; canAns=true;
-  
-  // ★ 폴리곤 유지 (제거하지 않음)
-  // if(answerLayer){
-  //   try{map.removeLayer(answerLayer);}catch(e){}
-  //   answerLayer=null;
-  // }
-  
-  if(!queue.length)reshuffle();
-  cur=queue.pop(); qCnt++;
-  document.getElementById('qN').textContent='문제 #'+qCnt;
-  
-  // 구 퀴즈 모드 적용
+
+  // ★ tempL(정답 레이블) 절대 건드리지 않음 — 유지
+  canAns = true;
+
+  // ★ 폴리곤 유지
+  if(!queue.length) reshuffle();
+  cur = queue.pop(); qCnt++;
+  document.getElementById('qN').textContent = '문제 #' + qCnt;
+
+  // 구 퀴즈: 동 이름 보여주고 구 숨김
   if(isGuQuizMode){
-    document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
-    document.getElementById('qD').textContent='❓❓❓';
-    document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동 (동 이름 숨김)';
+    document.getElementById('qR').textContent = '📍 ' + cur.rn;
+    document.getElementById('qD').textContent = cur.d;
+    document.getElementById('qH').textContent = '💡 이 동은 어느 구에 속할까요?';
   } else {
-    document.getElementById('qR').textContent='📍 '+cur.rn+' · '+cur.gu;
-    document.getElementById('qD').textContent=cur.d;
-    document.getElementById('qH').textContent='💡 '+cur.gu+' 관할 행정동';
+    document.getElementById('qR').textContent = '📍 ' + cur.rn + ' · ' + cur.gu;
+    document.getElementById('qD').textContent = cur.d;
+    document.getElementById('qH').textContent = '💡 ' + cur.gu + ' 관할 행정동';
   }
   updStats();
 }
@@ -1189,15 +1221,20 @@ async function signOut(){
 
 /* ── 세션 감지 & 라우팅 ── */
 sb.auth.onAuthStateChange(async(event, session) => {
-  // ★ 토큰 갱신 시 무시 (탭 전환 문제 방지)
+  // 토큰 갱신은 무시 (탭 전환 시 발생)
   if(event === 'TOKEN_REFRESHED') return;
-  
+
+  // 퀴즈 진행 중 여부 확인
+  function quizActive(){
+    const mapEl = document.getElementById('map');
+    return mapEl && mapEl.offsetParent !== null;
+  }
+
   if(session?.user){
     currentUser = session.user;
-    
+
     // ★ 관리자 계정 우회 (DB 조회 스킵)
     if(currentUser.email === 'kke320001@gmail.com'){
-      console.log('✅ 관리자 계정 인식:', currentUser.email);
       userProfile = {
         user_id: currentUser.id,
         email: currentUser.email,
@@ -1206,22 +1243,31 @@ sb.auth.onAuthStateChange(async(event, session) => {
         premium_until: '2099-12-31',
         plays_count: 0
       };
-      console.log('✅ 관리자 프로필 생성:', userProfile);
       renderUserChip();
-      console.log('✅ renderUserChip 완료');
-      showOnly('start');
-      console.log('✅ showOnly(start) 완료');
+      // 퀴즈 중이면 절대 이동 안 함
+      if(!quizActive()) showOnly('start');
       handlePaymentCallback();
       return;
     }
-    
+
     await loadProfile();
-    routeUser();
+    // 퀴즈 중이면 routeUser 호출 안 함 (페이지 이동 방지)
+    if(!quizActive()) routeUser();
     handlePaymentCallback();
+
   } else {
+    // 로그인 만료
     currentUser = null; userProfile = null;
     document.getElementById('user-chip').classList.remove('visible');
-    showOnly('screen-login');
+
+    if(quizActive()){
+      // 퀴즈 중 → 팝업만 표시, 지도 유지
+      if(confirm('⚠️ 로그인이 만료되었습니다.\n다시 로그인하시겠습니까?')){
+        showOnly('screen-login');
+      }
+    } else {
+      showOnly('screen-login');
+    }
   }
 });
 
