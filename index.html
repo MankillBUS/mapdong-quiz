@@ -300,6 +300,19 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     </div>
   </div>
   
+  <!-- 정답 범위 조절 -->
+  <div style="text-align:center;margin-bottom:16px;width:100%;max-width:400px;">
+    <div style="color:var(--text-dim);font-size:.8rem;margin-bottom:8px;">🎯 정답 인정 범위</div>
+    <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:12px;padding:12px 16px;">
+      <span style="font-size:.85rem;color:var(--text-dim);">1km</span>
+      <input type="range" id="range-slider" min="1" max="15" value="1.5" step="0.5" style="flex:1;height:6px;border-radius:3px;background:linear-gradient(to right,var(--accent),#0099bb);outline:none;cursor:pointer;">
+      <span style="font-size:.85rem;color:var(--text-dim);">15km</span>
+    </div>
+    <div style="margin-top:8px;font-size:.9rem;color:var(--accent);font-weight:700;">
+      현재: <span id="range-value">1.5</span>km
+    </div>
+  </div>
+  
   <button class="sbtn" onclick="startQuiz()">퀴즈 시작! 🚀</button>
 </div>
 
@@ -365,6 +378,15 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       </button>
     </div>
     
+    <!-- 정답 범위 조절 (지도 왼쪽 하단) -->
+    <div id="range-control" style="position:absolute;bottom:20px;left:20px;z-index:1000;background:rgba(13,25,41,.95);border:2px solid var(--border);border-radius:12px;padding:12px 16px;backdrop-filter:blur(8px);display:none;min-width:280px;">
+      <div style="color:var(--text);font-size:.85rem;font-weight:600;margin-bottom:8px;">🎯 정답 범위: <span id="range-value-map" style="color:var(--accent);">1.5km</span></div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:.75rem;color:var(--text-dim);">쉬움</span>
+        <input type="range" id="range-slider-map" min="1" max="15" value="1.5" step="0.5" style="flex:1;height:5px;">
+        <span style="font-size:.75rem;color:var(--text-dim);">어려움</span>
+      </div>
+    </div>
     <div id="mo">
       <button class="mb" onclick="resetV()">🏠 전체보기</button>
       <button class="mb" onclick="focusA()">🎯 정답위치</button>
@@ -373,9 +395,17 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     </div>
     <!-- 오답 정답위치 표시 바 -->
     <div id="ans-bar">
-      <span class="ab-label">📍 정답위치 표시 중</span>
-      <span class="ab-dong" id="ab-dong-name"></span>
-      <button class="ab-close" onclick="clearAnsMarkers()">✕ 정답위치 끄기</button>
+      <div class="ab-left">
+        <div class="ab-icon">✓</div>
+        <span class="ab-text">정답: <strong id="ab-dong-name"></strong></span>
+      </div>
+      <div class="ab-actions">
+        <button class="ab-btn" onclick="focusA()" title="정답 위치로 이동">📍 위치</button>
+        <button class="ab-btn" onclick="resetV()" title="전체 보기">🗺 전체</button>
+        <button class="ab-btn" onclick="hideCorrectAnswer()" title="초록색 정답 경계선 끄기">🟢 정답 경계</button>
+        <button class="ab-btn" onclick="hideWrongMarkers()" title="빨간색 오답 마커 끄기">🔴 오답 마커</button>
+        <button class="ab-btn close" onclick="closeAnswerBar()" title="모두 닫기">✕</button>
+      </div>
     </div>
   </div>
 </div>
@@ -404,14 +434,31 @@ let totC=0,totW=0,streak=0,qCnt=0,sessAns=0;
 let isGuQuizMode = false; // 구 퀴즈 모드
 let POLY_CACHE = null; // 폴리곤 캐시
 let answerLayer = null; // 정답 폴리곤 레이어
-let isDarkTheme = true; // 다크 모드 (기본)
+let isDarkTheme = true;
+let answerRange = 1.5;  // 정답 인정 범위 (km) // 다크 모드 (기본)
 let mapTileLayer = null; // 지도 타일 레이어
 let tempL=[];      // 정답(ok) 임시 레이어
 let wrongL=[];     // 오답 정답위치 마커 (수동으로만 제거)
 
 // 시작 화면 태그
 document.querySelectorAll('.stag').forEach(t=>{
-  t.onclick=()=>{t.classList.toggle('sel');updateCnt();};
+  t.onclick=()=>{t.classList.toggle('sel');updateCnt();
+
+// 정답 범위 조절
+document.getElementById('range-slider').addEventListener('input', function(e){
+  answerRange = parseFloat(e.target.value);
+  document.getElementById('range-value').textContent = answerRange.toFixed(1);
+  document.getElementById('range-slider-map').value = answerRange;
+  document.getElementById('range-value-map').textContent = answerRange.toFixed(1)+'km';
+});
+
+document.getElementById('range-slider-map').addEventListener('input', function(e){
+  answerRange = parseFloat(e.target.value);
+  document.getElementById('range-value-map').textContent = answerRange.toFixed(1)+'km';
+  document.getElementById('range-slider').value = answerRange;
+  document.getElementById('range-value').textContent = answerRange.toFixed(1);
+});
+};
 });
 function updateCnt(){
   const s=document.querySelectorAll('.stag.sel');
@@ -429,6 +476,22 @@ loadPolygonCache().catch(e => console.error('캐시 로드 실패:', e));
   });
 })();
 updateCnt();
+
+// 정답 범위 조절
+document.getElementById('range-slider').addEventListener('input', function(e){
+  answerRange = parseFloat(e.target.value);
+  document.getElementById('range-value').textContent = answerRange.toFixed(1);
+  document.getElementById('range-slider-map').value = answerRange;
+  document.getElementById('range-value-map').textContent = answerRange.toFixed(1)+'km';
+});
+
+document.getElementById('range-slider-map').addEventListener('input', function(e){
+  answerRange = parseFloat(e.target.value);
+  document.getElementById('range-value-map').textContent = answerRange.toFixed(1)+'km';
+  document.getElementById('range-slider').value = answerRange;
+  document.getElementById('range-value').textContent = answerRange.toFixed(1);
+});
+
 
 // 구 퀴즈 모드 토글
 document.getElementById('gu-quiz-mode').addEventListener('change', function(e){
@@ -454,6 +517,7 @@ function startQuiz(){
       });
       document.getElementById('start').classList.add('hidden');
       initMap(); buildFilter(); reshuffle(); nextQ();
+      document.getElementById('range-control').style.display='block';
     });
   } else {
     allDongs=[];
@@ -463,6 +527,7 @@ function startQuiz(){
     });
     document.getElementById('start').classList.add('hidden');
     initMap(); buildFilter(); reshuffle(); nextQ();
+      document.getElementById('range-control').style.display='block';
   }
 }
 
@@ -485,6 +550,22 @@ async function loadPolygonCache(){
     // 시작 화면 개수 업데이트
     updateStagCounts();
     updateCnt();
+
+// 정답 범위 조절
+document.getElementById('range-slider').addEventListener('input', function(e){
+  answerRange = parseFloat(e.target.value);
+  document.getElementById('range-value').textContent = answerRange.toFixed(1);
+  document.getElementById('range-slider-map').value = answerRange;
+  document.getElementById('range-value-map').textContent = answerRange.toFixed(1)+'km';
+});
+
+document.getElementById('range-slider-map').addEventListener('input', function(e){
+  answerRange = parseFloat(e.target.value);
+  document.getElementById('range-value-map').textContent = answerRange.toFixed(1)+'km';
+  document.getElementById('range-slider').value = answerRange;
+  document.getElementById('range-value').textContent = answerRange.toFixed(1);
+});
+
   } catch(e){
     console.error('⚠️ 폴리곤 캐시 로드 실패:', e);
     POLY_CACHE = {};
@@ -574,9 +655,12 @@ let allAnswerLayers = [];
 
 function toggleShowAll(){
   if(allAnswersVisible){
-    // 모든 정답 숨기기
+    // 모든 정답 숨기기 (단, tempL은 보호)
     allAnswerLayers.forEach(l => {
-      try{ map.removeLayer(l); } catch(e){}
+      // tempL에 포함된 레이어는 건드리지 않음
+      if(!tempL.includes(l)){
+        try{ map.removeLayer(l); } catch(e){}
+      }
     });
     allAnswerLayers = [];
     allAnswersVisible = false;
@@ -648,6 +732,16 @@ function toggleTheme(){
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    정답/오답 마커 제어
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+function hideCorrectAnswer(){
+  // 초록색 정답 경계선만 제거 (레이블은 유지)
+  if(answerLayer){
+    try{ map.removeLayer(answerLayer); } catch(e){}
+    answerLayer = null;
+  }
+  toast('정답 경계선 숨김', 'info');
+}
+
 function hideAnswerMarker(){
   if(answerLayer){
     try{ map.removeLayer(answerLayer); } catch(e){}
@@ -776,7 +870,7 @@ function onMapClick(e){
   incrementPlays().then(result => {
     if(!result.ok){ canAns=true; return; }
     const dist=getDist(e.latlng.lat,e.latlng.lng,cur.lat,cur.lng);
-    if(dist<=1.5)doOk(dist); else doNo(dist);
+    if(dist<=answerRange)doOk(dist); else doNo(dist);
   });
 }
 
@@ -828,7 +922,7 @@ function doOk(dist){
   const b=document.getElementById('mbox'); b.className='ok';
   document.getElementById('mE').textContent=streak>=5?'🔥':streak>=3?'🎯':'✅';
   document.getElementById('mT').textContent=streak>=5?`연속 ${streak}개 정답!`:'정답입니다!';
-  document.getElementById('mD').innerHTML=`<span class="mdn">${cur.rn} ${cur.gu} ${cur.d}</span><br>클릭 위치 기준 <strong>${dist.toFixed(2)}km</strong> · 1.5km 이내`;
+  document.getElementById('mD').innerHTML=`<span class="mdn">${cur.rn} ${cur.gu} ${cur.d}</span><br>클릭 위치 기준 <strong>${dist.toFixed(2)}km</strong> · ${answerRange.toFixed(1)}km 이내`;
   ov.classList.add('show');
 }
 
@@ -1099,8 +1193,44 @@ function updateTrialBar(used){
 }
 
 function routeUser(){
-  if(!userProfile?.is_verified){ showOnly('screen-verify'); return; }
-  if(!isActivePremium() && (userProfile?.plays_count||0) >= 300){ showOnly('screen-paywall'); return; }
+  // 로그인 안 됨
+  if(!currentUser){
+    if(document.getElementById('start').classList.contains('hidden')){
+      // 퀴즈 중이었다면 팝업만 표시
+      if(confirm('로그인이 만료되었습니다. 다시 로그인하시겠습니까?')){
+        showOnly('screen-login');
+      }
+    } else {
+      showOnly('screen-login');
+    }
+    return;
+  }
+  
+  // 프로필 없음
+  if(!userProfile){
+    showOnly('screen-login');
+    return;
+  }
+  
+  // 인증 안 됨
+  if(!userProfile.is_verified){
+    showOnly('screen-verify');
+    return;
+  }
+  
+  // 프리미엄 만료 체크 (백그라운드)
+  const now = new Date();
+  const premiumEnd = userProfile.premium_until ? new Date(userProfile.premium_until) : null;
+  if(premiumEnd && now > premiumEnd){
+    // 팝업만 표시 (페이지 이동 X)
+    const dateStr = premiumEnd.toLocaleDateString('ko-KR');
+    toast(`프리미엄 기간이 만료되었습니다 (${dateStr})`, 'error');
+  }
+  
+  // 정상 - 시작 화면으로 (이미 퀴즈 중이면 이동 안 함)
+  if(!document.getElementById('start').classList.contains('hidden')){
+    return;  // 퀴즈 진행 중이면 그대로
+  }
   showOnly('start');
 }
 
