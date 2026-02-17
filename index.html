@@ -1219,7 +1219,7 @@ sb.auth.onAuthStateChange(async(event, session) => {
     currentUser = session.user;
 
     // ★ 관리자 계정 우회 (DB 조회 스킵)
-    if(currentUser.email === 'kke320001@gmail.com'){
+/*if(currentUser.email === 'kke320001@gmail.com'){
       userProfile = {
         user_id: currentUser.id,
         email: currentUser.email,
@@ -1233,8 +1233,23 @@ sb.auth.onAuthStateChange(async(event, session) => {
       if(!quizActive()) showOnly('start');
       handlePaymentCallback();
       return;
+    } */
+    // ★ 관리자 계정 우회 (DB 조회 스킵)
+    if(currentUser.email === 'kke320001@gmail.com'){
+      userProfile = {
+        user_id: currentUser.id,
+        email: currentUser.email,
+        is_verified: true,
+        is_premium: true,
+        premium_until: '2099-12-31',
+        plays_count: 0
+      };
+      renderUserChip();
+      showOnly('start');
+      handlePaymentCallback();
+      return;
     }
-
+    
     await loadProfile();
     // 퀴즈 중이면 routeUser 호출 안 함 (페이지 이동 방지)
     if(!quizActive()) routeUser();
