@@ -23,7 +23,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .login-logo{font-family:'Black Han Sans',sans-serif;font-size:2.2rem;color:var(--accent);text-shadow:0 0 20px var(--accent);margin-bottom:4px;}
 .login-logo span{color:var(--accent2);}
 .login-sub{font-size:.8rem;color:var(--text-dim);margin-bottom:28px;line-height:1.6;}
-.btn-google{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;background:#fff;color:#1a1a2e;border:none;border-radius:12px;padding:14px 20px;font-size:.95rem;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;margin-bottom:12px;}
+.btn-google{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;background:#fff;color:#1a1a2e;border:none;border-radius:12px;padding:14px 20px;font-size:.95rem;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;margin-bottom:12px;}
 .btn-google:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(255,255,255,.2);}
 .btn-google svg{width:21px;height:21px;flex-shrink:0;}
 .login-divider{display:flex;align-items:center;gap:12px;margin:14px 0;color:var(--text-dim);font-size:.73rem;}
@@ -395,15 +395,18 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     </div>
     <!-- 오답 정답위치 표시 바 -->
     <div id="ans-bar">
-      <div style="display:flex;align-items:center;gap:12px;width:100%;padding:10px 18px;">
-        <span style="color:var(--text);font-size:.9rem;flex:1;">
-          정답: <strong id="ab-dong-name" style="color:var(--accent);"></strong>
-        </span>
-        <button class="ab-btn" onclick="hideCorrectBoundary()">🟢 정답 지역 끄기</button>
-        <button class="ab-btn" onclick="hideWrongBoundary()">🔴 틀린 지역 끄기</button>
+      <div class="ab-left">
+        <div class="ab-icon">✓</div>
+        <span class="ab-text">정답: <strong id="ab-dong-name"></strong></span>
+      </div>
+      <div class="ab-actions">
+        <button class="ab-btn" onclick="focusA()" title="정답 위치로 이동">📍 위치</button>
+        <button class="ab-btn" onclick="resetV()" title="전체 보기">🗺 전체</button>
+        <button class="ab-btn" onclick="hideCorrectAnswer()" title="초록색 정답 경계선 끄기">🟢 정답 경계</button>
+        <button class="ab-btn" onclick="hideWrongMarkers()" title="빨간색 오답 마커 끄기">🔴 오답 마커</button>
+        <button class="ab-btn close" onclick="closeAnswerBar()" title="모두 닫기">✕</button>
       </div>
     </div>
-  </div>
   </div>
 </div>
 
@@ -739,29 +742,6 @@ function hideCorrectAnswer(){
   toast('정답 경계선 숨김', 'info');
 }
 
-
-function hideCorrectBoundary(){
-  if(answerLayer){
-    try{ map.removeLayer(answerLayer); } catch(e){}
-    answerLayer = null;
-  }
-  toast('정답 지역 경계 숨김', 'info');
-}
-
-function hideWrongBoundary(){
-  if(answerLayer){
-    try{ map.removeLayer(answerLayer); } catch(e){}
-    answerLayer = null;
-  }
-  wrongL.forEach(l => {
-    if(l._url || (l._layers && Object.keys(l._layers).length > 1)){
-      try{ map.removeLayer(l); } catch(e){}
-    }
-  });
-  wrongL = wrongL.filter(l => !(l._url || (l._layers && Object.keys(l._layers).length > 1)));
-  toast('틀린 지역 경계 숨김', 'info');
-}
-
 function hideAnswerMarker(){
   if(answerLayer){
     try{ map.removeLayer(answerLayer); } catch(e){}
@@ -886,12 +866,61 @@ function nextQ(){
 function onMapClick(e){
   if(!cur||!canAns)return;
   canAns=false;
-  // 플레이 횟수 증가 (300회 초과 시 페이월)
+  
   incrementPlays().then(result => {
     if(!result.ok){ canAns=true; return; }
-    const dist=getDist(e.latlng.lat,e.latlng.lng,cur.lat,cur.lng);
-    if(dist<=answerRange)doOk(dist); else doNo(dist);
+    
+    // 구 퀴즈 모드
+    if(isGuQuizMode){
+      // 클릭한 위치가 정답 구 안에 있는지 확인
+      const guKey = `GU|${cur.rn}|${cur.gu}`;
+      const guPoly = POLY_CACHE[guKey];
+      
+      if(guPoly && isInsidePolygon(e.latlng.lat, e.latlng.lng, guPoly)){
+        // 구 중심점까지 거리 계산 (표시용)
+        const guCenter = getCenter(guPoly);
+        if(guCenter){
+          const dist = getDist(e.latlng.lat, e.latlng.lng, guCenter[0], guCenter[1]);
+          doOk(dist);
+        } else {
+          doOk(0);
+        }
+      } else {
+        // 틀림 - 정답 구까지 거리
+        const guCenter = getCenter(guPoly);
+        const dist = guCenter ? getDist(e.latlng.lat, e.latlng.lng, guCenter[0], guCenter[1]) : 999;
+        doNo(dist);
+      }
+    } else {
+      // 동 퀴즈 모드 (기존)
+      const dist=getDist(e.latlng.lat,e.latlng.lng,cur.lat,cur.lng);
+      if(dist<=answerRange)doOk(dist); else doNo(dist);
+    }
   });
+}
+  });
+}
+
+
+function isInsidePolygon(lat, lng, geojson){
+  // Ray-casting algorithm
+  try{
+    const coords = geojson.geometry.coordinates[0];
+    let inside = false;
+    
+    for(let i = 0, j = coords.length - 1; i < coords.length; j = i++){
+      const xi = coords[i][0], yi = coords[i][1];
+      const xj = coords[j][0], yj = coords[j][1];
+      
+      const intersect = ((yi > lat) !== (yj > lat)) &&
+                       (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+      if(intersect) inside = !inside;
+    }
+    
+    return inside;
+  } catch(e){
+    return false;
+  }
 }
 
 function getDist(a,b,c,d){
@@ -928,7 +957,8 @@ function doOk(dist){
   
   // ★ 정답 폴리곤 표시 (초록색)
   if(POLY_CACHE && cur){
-    const key = getPolygonKey(cur.rn, cur.gu, cur.d);
+    // 구 퀴즈: 구 폴리곤 / 동 퀴즈: 동 폴리곤
+    const key = isGuQuizMode ? `GU|${cur.rn}|${cur.gu}` : getPolygonKey(cur.rn, cur.gu, cur.d);
     const geo = POLY_CACHE[key];
     if(geo){
       answerLayer = drawPolygon(geo, '#39ff14', 0.25);
@@ -960,7 +990,7 @@ function doNo(dist){
     
     // ★ 오답 폴리곤 표시 (빨간색)
     if(POLY_CACHE && cur){
-      const key = getPolygonKey(cur.rn, cur.gu, cur.d);
+      const key = isGuQuizMode ? `GU|${cur.rn}|${cur.gu}` : getPolygonKey(cur.rn, cur.gu, cur.d);
       const geo = POLY_CACHE[key];
       if(geo){
         answerLayer = drawPolygon(geo, '#ff3c6e', 0.3);
@@ -1133,17 +1163,13 @@ async function signOut(){
 
 /* ── 세션 감지 & 라우팅 ── */
 sb.auth.onAuthStateChange(async(event, session) => {
+  // ★ 토큰 갱신 시 무시 (탭 전환 문제 방지)
   if(event === 'TOKEN_REFRESHED') return;
-  
-  const isQuizActive = () => {
-    const mapExists = document.getElementById('map');
-    const startHidden = document.getElementById('start')?.classList.contains('hidden');
-    return mapExists && startHidden;
-  };
   
   if(session?.user){
     currentUser = session.user;
     
+    // ★ 관리자 계정 우회 (DB 조회 스킵)
     if(currentUser.email === 'kke320001@gmail.com'){
       userProfile = {
         user_id: currentUser.id,
@@ -1154,26 +1180,18 @@ sb.auth.onAuthStateChange(async(event, session) => {
         plays_count: 0
       };
       renderUserChip();
-      if(!isQuizActive()) showOnly('start');
+      showOnly('start');
       handlePaymentCallback();
       return;
     }
     
     await loadProfile();
-    if(!isQuizActive()){
-      routeUser();
-    }
+    routeUser();
     handlePaymentCallback();
   } else {
     currentUser = null; userProfile = null;
     document.getElementById('user-chip').classList.remove('visible');
-    if(isQuizActive()){
-      if(confirm('로그인이 만료되었습니다. 다시 로그인하시겠습니까?')){
-        showOnly('screen-login');
-      }
-    } else {
-      showOnly('screen-login');
-    }
+    showOnly('screen-login');
   }
 });
 
