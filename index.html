@@ -611,10 +611,14 @@ function buildDBFromCache(){
 }
 
 function getCenter(geo){
+  // ★ polygon_cache에 미리 계산된 center 필드 우선 사용 (구 퀴즈 정확도)
+  if(geo && geo.center){
+    return [geo.center[0], geo.center[1]];
+  }
   try {
     const type = geo.geometry.type;
-    const coords = type === 'Polygon' 
-      ? geo.geometry.coordinates[0] 
+    const coords = type === 'Polygon'
+      ? geo.geometry.coordinates[0]
       : geo.geometry.coordinates[0][0];
     const lats = coords.map(c => c[1]);
     const lngs = coords.map(c => c[0]);
@@ -947,12 +951,19 @@ window.toggleShowAll = function(){
       if(!geo) return;
       const lyr = drawPolygon(geo, '#00d4ff', 0.15);
       if(lyr) allAnswerLayers.push(lyr);
-      // 구 이름 레이블
+      // 구 이름 레이블 - center 필드 우선 사용
       try{
-        const coords = geo.geometry.coordinates[0];
-        const lats = coords.map(c=>c[1]), lngs = coords.map(c=>c[0]);
-        const clat = (Math.max(...lats)+Math.min(...lats))/2;
-        const clng = (Math.max(...lngs)+Math.min(...lngs))/2;
+        let clat, clng;
+        if(geo.center){
+          // ★ 미리 계산된 정확한 중심 사용
+          clat = geo.center[0];
+          clng = geo.center[1];
+        } else {
+          const coords = geo.geometry.coordinates[0];
+          const lats = coords.map(c=>c[1]), lngs = coords.map(c=>c[0]);
+          clat = (Math.max(...lats)+Math.min(...lats))/2;
+          clng = (Math.max(...lngs)+Math.min(...lngs))/2;
+        }
         const mk = L.marker([clat,clng],{icon:L.divIcon({className:'',iconAnchor:[0,0],
           html:`<div style="display:inline-block;background:rgba(0,212,255,.92);color:#000;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4);">${dong.gu}</div>`
         })}).addTo(map);
@@ -1010,9 +1021,19 @@ function clearAnsMarkers(){
 function doOk(dist, clickLat, clickLng){
   totC++;streak++;sessAns++;
   addR(true,cur);updStats();updPrg();
-  // 구퀴즈: 클릭 위치 / 동퀴즈: 동 위치에 마커
-  const mLat = (isGuQuizMode && clickLat!=null) ? clickLat : cur.lat;
-  const mLng = (isGuQuizMode && clickLng!=null) ? clickLng : cur.lng;
+
+  // 구퀴즈: 정답 구의 center(공식 중심)에 마커 / 동퀴즈: 동 위치에 마커
+  let mLat, mLng;
+  if(isGuQuizMode){
+    const guKey = `GU|${cur.rn}|${cur.gu}`;
+    const guPoly = POLY_CACHE ? POLY_CACHE[guKey] : null;
+    const guCenter = guPoly ? getCenter(guPoly) : null;
+    mLat = guCenter ? guCenter[0] : (clickLat != null ? clickLat : cur.lat);
+    mLng = guCenter ? guCenter[1] : (clickLng != null ? clickLng : cur.lng);
+  } else {
+    mLat = cur.lat;
+    mLng = cur.lng;
+  }
   mkMark(mLat, mLng, true);
   
   // ★ 정답 폴리곤 표시 (초록색) - 누적 배열 관리
@@ -1059,8 +1080,18 @@ function doNo(dist, clickLat, clickLng){
 
   // 2) 이동 완료 후 마커+폴리곤 표시 (snapCur 사용으로 위치 보장)
   setTimeout(()=>{
-    const mLat = (isGuQuizMode && snapClickLat!=null) ? snapClickLat : snapCur.lat;
-    const mLng = (isGuQuizMode && snapClickLng!=null) ? snapClickLng : snapCur.lng;
+    // ★ 구퀴즈: 오답 마커는 정답 구의 center에 / 동퀴즈: 동 위치에
+    let mLat, mLng;
+    if(isGuQuizMode){
+      const guKey = `GU|${snapCur.rn}|${snapCur.gu}`;
+      const guPoly = POLY_CACHE ? POLY_CACHE[guKey] : null;
+      const guCtr = guPoly ? getCenter(guPoly) : null;
+      mLat = guCtr ? guCtr[0] : snapCur.lat;
+      mLng = guCtr ? guCtr[1] : snapCur.lng;
+    } else {
+      mLat = snapCur.lat;
+      mLng = snapCur.lng;
+    }
     // mkMark는 cur 전역변수 참조하므로, 직접 레이어 생성
     const col = '#ff3c6e';
     const labelText = isGuQuizMode ? snapCur.gu : snapCur.d;
