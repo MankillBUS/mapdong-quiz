@@ -1294,8 +1294,8 @@ sb.auth.onAuthStateChange(async(event, session) => {
   if(session?.user){
     currentUser = session.user;
 
-    // ★ 관리자 계정 우회 (DB 조회 스킵) - quizActive() 체크로 탭전환 문제 동시 해결
-    if(currentUser.email === 'kke320001@gmail.com'){
+    // ★ 관리자 계정 우회 (DB 조회 스킵) - 2개 계정 지원
+    if(['kke320001@gmail.com', 'test12@gmail.com'].includes(currentUser.email)){
       userProfile = {
         user_id: currentUser.id,
         email: currentUser.email,
