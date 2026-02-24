@@ -245,23 +245,237 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   </div>
 </div>
 
-<!-- ③ 결제 페이월 화면 -->
-<div id="screen-paywall" class="fs-screen hidden">
-  <div class="pay-card">
-    <div class="pay-icon">🎯</div>
-    <div class="pay-title">체험판 기능을 모두 사용하셨습니다</div>
-    <div class="pay-used">무료 체험 <strong style="color:var(--gold)">300문제</strong>를 모두 풀었습니다!</div>
-    <div class="pay-divider"></div>
-    <div class="pay-plan-label">계속하려면 플랜 결제</div>
-    <div class="pay-price">5,000<span>원 / 월</span></div>
-    <ul class="pay-features">
-      <li>무제한 문제 풀기 (30일간)</li>
-      <li>수도권 전 지역 500+ 행정동</li>
-      <li>정답률 · 연속 스트릭 통계</li>
-      <li>지역별 필터 & 진행률 추적</li>
-    </ul>
-    <button class="btn-pay" id="btn-pay" onclick="startPayment()">💳 결제하기 (5,000원)</button>
-    <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
+<!-- ③ 결제 페이월 화면 (새 슬라이드형) -->
+<div id="screen-paywall" class="fs-screen hidden" style="background:rgba(10,14,26,0.97);overflow-y:auto;">
+
+  <!-- 페이월 wrapper -->
+  <div id="paywall-wrap" style="max-width:520px;width:100%;position:relative;padding:10px;">
+
+    <!-- X 닫기 버튼 (모든 플랜 공통) -->
+    <button id="paywall-close-btn" onclick="closePaywall()" style="position:absolute;top:0;right:0;background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--text-dim);width:38px;height:38px;border-radius:50%;font-size:1.2rem;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;transition:all .2s;" onmouseover="this.style.background='rgba(255,60,110,.2)';this.style.color='#ff3c6e';" onmouseout="this.style.background='rgba(255,255,255,.08)';this.style.color='var(--text-dim)';">✕</button>
+
+    <!-- 헤더 -->
+    <div style="text-align:center;margin-bottom:18px;padding-right:40px;">
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:1.8rem;color:var(--gold);text-shadow:0 0 20px rgba(255,215,0,.4);">💎 프리미엄 플랜</div>
+      <div style="font-size:.8rem;color:var(--text-dim);margin-top:4px;">플랜을 선택하고 MapDong을 무제한으로 즐기세요</div>
+    </div>
+
+    <!-- 슬라이드 네비게이션 -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px;">
+      <button onclick="changePlan(-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:50%;font-size:1.1rem;cursor:pointer;transition:all .2s;flex-shrink:0;" id="plan-prev">◀</button>
+      <div style="display:flex;gap:6px;" id="plan-dots"></div>
+      <button onclick="changePlan(1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:50%;font-size:1.1rem;cursor:pointer;transition:all .2s;flex-shrink:0;" id="plan-next">▶</button>
+    </div>
+
+    <!-- 플랜 카드 슬라이더 컨테이너 -->
+    <div style="overflow:hidden;border-radius:20px;">
+      <div id="plan-slider" style="display:flex;transition:transform .35s cubic-bezier(.4,0,.2,1);">
+
+        <!-- ====== 플랜 1: 1일~25일 ====== -->
+        <div class="plan-slide" style="min-width:100%;padding:0 2px;">
+          <div style="background:linear-gradient(135deg,var(--surface),var(--surface2));border:2px solid var(--gold);border-radius:20px;padding:28px 30px;box-shadow:0 0 40px rgba(255,215,0,.1);">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+              <div>
+                <div style="font-size:.6rem;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">PLAN 1 · 일일권</div>
+                <div style="font-family:'Black Han Sans',sans-serif;font-size:1.3rem;color:var(--text);">원하는 일수만큼</div>
+              </div>
+              <div id="plan1-badge" style="background:rgba(255,215,0,.15);border:1px solid var(--gold);border-radius:8px;padding:3px 10px;font-size:.7rem;color:var(--gold);display:none;">할인 중!</div>
+            </div>
+            <!-- 일수 선택 -->
+            <div style="background:var(--bg);border-radius:12px;padding:14px;margin-bottom:16px;">
+              <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:10px;text-align:center;">이용할 일수를 선택하세요 (1~25일)</div>
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                <input type="range" id="day-slider" min="1" max="25" value="1" step="1"
+                  oninput="updateDayPlan(this.value)"
+                  style="flex:1;height:6px;border-radius:3px;accent-color:var(--gold);cursor:pointer;">
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="font-size:.75rem;color:var(--text-dim);"><span id="day-selected">1</span>일 선택</div>
+                <div style="font-family:'Black Han Sans',sans-serif;font-size:1.6rem;color:var(--gold);" id="day-price">600<span style="font-size:.9rem;color:var(--text-dim);">원</span></div>
+              </div>
+            </div>
+            <ul class="pay-features" style="margin-bottom:18px;">
+              <li>선택한 일수만큼만 결제</li>
+              <li>최소 1일 · 최대 25일</li>
+              <li>1일당 600원 (균일가)</li>
+              <li>수도권 500+ 행정동 무제한</li>
+            </ul>
+            <!-- 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 -->
+            <div id="plan1-discount-info" style="display:none;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.3);border-radius:8px;padding:8px 12px;font-size:.72rem;color:var(--gold);margin-bottom:12px;text-align:center;"></div>
+            <button class="btn-pay" onclick="requestPayment('daily')" id="btn-pay-1">💳 결제하기</button>
+            <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
+          </div>
+        </div>
+
+        <!-- ====== 플랜 2: 1개월 ====== -->
+        <div class="plan-slide" style="min-width:100%;padding:0 2px;">
+          <div style="background:linear-gradient(135deg,var(--surface),var(--surface2));border:2px solid var(--accent);border-radius:20px;padding:28px 30px;box-shadow:0 0 40px rgba(0,212,255,.1);">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+              <div>
+                <div style="font-size:.6rem;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">PLAN 2 · 월간 구독</div>
+                <div style="font-family:'Black Han Sans',sans-serif;font-size:1.3rem;color:var(--text);">1개월 이용권</div>
+              </div>
+              <div id="plan2-badge" style="background:rgba(0,212,255,.15);border:1px solid var(--accent);border-radius:8px;padding:3px 10px;font-size:.7rem;color:var(--accent);display:none;">할인 중!</div>
+            </div>
+            <div style="text-align:center;margin:18px 0;">
+              <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:4px;">1개월 (30일)</div>
+              <div style="font-family:'Black Han Sans',sans-serif;font-size:3rem;color:var(--accent);line-height:1;" id="plan2-price-display">12,000<span style="font-size:1rem;color:var(--text-dim);">원</span></div>
+              <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px;">하루 400원 · 일일권 대비 33% 저렴</div>
+            </div>
+            <ul class="pay-features" style="margin-bottom:18px;">
+              <li>30일 무제한 이용</li>
+              <li>수도권 500+ 행정동 전체</li>
+              <li>정답률 · 연속 스트릭 통계</li>
+              <li>지역별 필터 & 진행률 추적</li>
+            </ul>
+            <!-- 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 -->
+            <div id="plan2-discount-info" style="display:none;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.3);border-radius:8px;padding:8px 12px;font-size:.72rem;color:var(--accent);margin-bottom:12px;text-align:center;"></div>
+            <button class="btn-pay" onclick="requestPayment('monthly')" style="background:linear-gradient(135deg,var(--accent),#0099bb);">💳 결제하기</button>
+            <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
+          </div>
+        </div>
+
+        <!-- ====== 플랜 3: 3개월 ====== -->
+        <div class="plan-slide" style="min-width:100%;padding:0 2px;">
+          <div style="background:linear-gradient(135deg,var(--surface),var(--surface2));border:2px solid #a29bfe;border-radius:20px;padding:28px 30px;box-shadow:0 0 40px rgba(162,155,254,.1);">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+              <div>
+                <div style="font-size:.6rem;color:#a29bfe;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">PLAN 3 · 분기 구독</div>
+                <div style="font-family:'Black Han Sans',sans-serif;font-size:1.3rem;color:var(--text);">3개월 이용권</div>
+              </div>
+              <div id="plan3-badge" style="background:rgba(162,155,254,.15);border:1px solid #a29bfe;border-radius:8px;padding:3px 10px;font-size:.7rem;color:#a29bfe;display:none;">할인 중!</div>
+            </div>
+            <div style="text-align:center;margin:18px 0;">
+              <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:4px;">3개월 (90일)</div>
+              <div style="font-family:'Black Han Sans',sans-serif;font-size:3rem;color:#a29bfe;line-height:1;" id="plan3-price-display">28,000<span style="font-size:1rem;color:var(--text-dim);">원</span></div>
+              <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px;">월 약 9,333원 · 월정액 대비 22% 절약</div>
+            </div>
+            <ul class="pay-features" style="margin-bottom:18px;">
+              <li>90일 무제한 이용</li>
+              <li>수도권 500+ 행정동 전체</li>
+              <li>정답률 · 연속 스트릭 통계</li>
+              <li>지역별 필터 & 진행률 추적</li>
+            </ul>
+            <!-- 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 -->
+            <div id="plan3-discount-info" style="display:none;background:rgba(162,155,254,.08);border:1px solid rgba(162,155,254,.3);border-radius:8px;padding:8px 12px;font-size:.72rem;color:#a29bfe;margin-bottom:12px;text-align:center;"></div>
+            <button class="btn-pay" onclick="requestPayment('quarterly')" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7);">💳 결제하기</button>
+            <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
+          </div>
+        </div>
+
+        <!-- ====== 플랜 4: 6개월 ====== -->
+        <div class="plan-slide" style="min-width:100%;padding:0 2px;">
+          <div style="background:linear-gradient(135deg,var(--surface),var(--surface2));border:2px solid var(--accent3);border-radius:20px;padding:28px 30px;box-shadow:0 0 40px rgba(57,255,20,.1);">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+              <div>
+                <div style="font-size:.6rem;color:var(--accent3);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">PLAN 4 · 반기 구독</div>
+                <div style="font-family:'Black Han Sans',sans-serif;font-size:1.3rem;color:var(--text);">6개월 이용권</div>
+              </div>
+              <div id="plan4-badge" style="background:rgba(57,255,20,.12);border:1px solid var(--accent3);border-radius:8px;padding:3px 10px;font-size:.7rem;color:var(--accent3);display:none;">할인 중!</div>
+            </div>
+            <div style="text-align:center;margin:18px 0;">
+              <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:4px;">6개월 (180일)</div>
+              <div style="font-family:'Black Han Sans',sans-serif;font-size:3rem;color:var(--accent3);line-height:1;" id="plan4-price-display">42,000<span style="font-size:1rem;color:var(--text-dim);">원</span></div>
+              <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px;">월 약 7,000원 · 월정액 대비 42% 절약</div>
+            </div>
+            <ul class="pay-features" style="margin-bottom:18px;">
+              <li>180일 무제한 이용</li>
+              <li>수도권 500+ 행정동 전체</li>
+              <li>정답률 · 연속 스트릭 통계</li>
+              <li>지역별 필터 & 진행률 추적</li>
+              <li>🏆 반기 구독자 배지 제공</li>
+            </ul>
+            <!-- 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 -->
+            <div id="plan4-discount-info" style="display:none;background:rgba(57,255,20,.06);border:1px solid rgba(57,255,20,.3);border-radius:8px;padding:8px 12px;font-size:.72rem;color:var(--accent3);margin-bottom:12px;text-align:center;"></div>
+            <button class="btn-pay" onclick="requestPayment('halfyear')" style="background:linear-gradient(135deg,var(--accent3),#00b300);">💳 결제하기</button>
+            <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
+          </div>
+        </div>
+
+        <!-- ====== 플랜 5: 12개월 ====== -->
+        <div class="plan-slide" style="min-width:100%;padding:0 2px;">
+          <div style="background:linear-gradient(135deg,var(--surface),#1a1230);border:2px solid #ff6b6b;border-radius:20px;padding:28px 30px;box-shadow:0 0 40px rgba(255,107,107,.15);position:relative;overflow:hidden;">
+            <!-- BEST VALUE 리본 -->
+            <div style="position:absolute;top:16px;right:-28px;background:linear-gradient(135deg,#ff6b6b,#ee5a6f);color:#fff;font-size:.65rem;font-weight:700;padding:4px 36px;transform:rotate(35deg);letter-spacing:1px;">BEST VALUE</div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+              <div>
+                <div style="font-size:.6rem;color:#ff6b6b;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">PLAN 5 · 연간 구독</div>
+                <div style="font-family:'Black Han Sans',sans-serif;font-size:1.3rem;color:var(--text);">12개월 이용권</div>
+              </div>
+              <div id="plan5-badge" style="background:rgba(255,107,107,.15);border:1px solid #ff6b6b;border-radius:8px;padding:3px 10px;font-size:.7rem;color:#ff6b6b;display:none;">할인 중!</div>
+            </div>
+            <div style="text-align:center;margin:18px 0;">
+              <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:4px;">12개월 (1년 / 365일)</div>
+              <div style="font-family:'Black Han Sans',sans-serif;font-size:3rem;color:#ff6b6b;line-height:1;" id="plan5-price-display">80,000<span style="font-size:1rem;color:var(--text-dim);">원</span></div>
+              <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px;">월 약 6,667원 · 월정액 대비 <strong style="color:#ff6b6b;">44% 절약</strong></div>
+            </div>
+            <ul class="pay-features" style="margin-bottom:18px;">
+              <li>365일 무제한 이용</li>
+              <li>수도권 500+ 행정동 전체</li>
+              <li>정답률 · 연속 스트릭 통계</li>
+              <li>지역별 필터 & 진행률 추적</li>
+              <li>🏆 연간 구독자 전용 배지</li>
+              <li>⚡ 신규 기능 우선 체험</li>
+            </ul>
+            <!-- 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 -->
+            <div id="plan5-discount-info" style="display:none;background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.3);border-radius:8px;padding:8px 12px;font-size:.72rem;color:#ff6b6b;margin-bottom:12px;text-align:center;"></div>
+            <button class="btn-pay" onclick="requestPayment('yearly')" style="background:linear-gradient(135deg,#ff6b6b,#ee5a6f);">💳 결제하기 (최고 혜택)</button>
+            <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
+          </div>
+        </div>
+
+      </div><!-- /plan-slider -->
+    </div><!-- /overflow:hidden -->
+
+    <!-- 사업자 정보 -->
+    <div style="text-align:center;font-size:.6rem;color:#4a6a85;line-height:1.8;margin-top:14px;">
+      상호명: 워크트래블허브 &nbsp;|&nbsp; 사업자등록번호: 690-17-02022 &nbsp;|&nbsp; 대표자: 김강별
+    </div>
+  </div><!-- /paywall-wrap -->
+</div><!-- /screen-paywall -->
+
+<!-- ④ 환불 약관 동의 모달 -->
+<div id="refund-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);z-index:20000;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:linear-gradient(135deg,var(--surface),var(--surface2));border:2px solid var(--border);border-radius:20px;max-width:500px;width:100%;max-height:90vh;overflow-y:auto;position:relative;">
+    <!-- 닫기 -->
+    <button onclick="closeRefundModal()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--text-dim);width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1;" onmouseover="this.style.background='rgba(255,60,110,.2)';this.style.color='#ff3c6e';" onmouseout="this.style.background='rgba(255,255,255,.08)';this.style.color='var(--text-dim)';">✕</button>
+    <div style="padding:30px 28px 24px;">
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:1.3rem;color:var(--text);margin-bottom:4px;">📄 결제 취소 및 환불 약관</div>
+      <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:18px;">결제 전 반드시 확인해 주세요</div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px 18px;font-size:.76rem;color:#b0c8de;line-height:1.85;max-height:320px;overflow-y:auto;">
+        <div style="font-weight:700;color:var(--text);margin-bottom:8px;">제1조 (결제 취소 및 환불 정책)</div>
+        <p>① 회사와 구매에 관한 계약을 체결한 회원은 아래와 같이 결제에 대한 취소 및 환불을 요구할 수 있습니다.</p>
+        <br>
+        <p>- 이용계약 신청 후, 회사로부터의 서비스가 제공되지 않은 경우 결제 취소가 가능합니다.</p>
+        <br>
+        <p><strong style="color:var(--accent);">a. 정기결제 회원 (월간·분기·반기 구독)</strong><br>
+        환불은 서비스를 이용한 일수를 제외하고 일할 계산으로 진행됩니다. 월 기준은 30일이며, 월 이용료를 30으로 나눈 금액을 하루 이용료로 산정합니다.<br>
+        결제 시점으로부터 24시간 이후 ~ 15일까지는 잔여 일수에 대한 일할 계산으로 처리됩니다.</p>
+        <br>
+        <p><strong style="color:var(--accent);">b. 연간결제 회원 (12개월 구독)</strong><br>
+        연 기준은 12개월이며, 잔여 이용료는 전체 연간 결제 이용료를 365로 나눈 금액 × 잔여 일수로 환불됩니다.</p>
+        <br>
+        <p><strong style="color:var(--accent);">c. 일일권 (1~25일 이용권)</strong><br>
+        이용 개시 전에는 전액 환불이 가능합니다. 이용 개시 후에는 잔여 일수에 대한 일할 계산으로 환불됩니다.</p>
+        <br>
+        <p>- 회원이 서비스 이용 후 상대 프로필카드를 2회 이상 수령한 경우, 잔여 횟수가 남은 회원에 한하여 이용 금액에서 위약금 10%를 제외한 부분 환불이 가능합니다.</p>
+        <br>
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px;">제2조 (회사 귀책사유에 의한 환불)</div>
+        <p>② 회사의 귀책사유로 결제 오류가 발생한 경우 전액 환불합니다.</p>
+        <p>③ 회사의 귀책사유로 서비스가 중단된 경우 잔여 기간에 해당하는 금액을 환불합니다.</p>
+        <br>
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px;">제3조 (환불 방법 및 기간)</div>
+        <p>환불은 원칙적으로 결제 수단과 동일한 방법으로 진행되며, 환불 신청일로부터 영업일 3~5일 이내에 처리됩니다. 환불 관련 문의는 서비스 내 고객센터를 통해 접수해 주세요.</p>
+        <br>
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px;">제4조 (청약철회 제한)</div>
+        <p>「전자상거래 등에서의 소비자보호에 관한 법률」 제17조에 따라, 디지털 콘텐츠의 특성상 이용 개시 후에는 청약철회가 제한될 수 있습니다. 단, 본 약관 제1조에 명시된 예외 사유에 해당하는 경우는 제외합니다.</p>
+      </div>
+      <div id="refund-plan-info" style="background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.2);border-radius:10px;padding:12px 14px;font-size:.78rem;color:var(--gold);margin-top:16px;text-align:center;"></div>
+      <div style="display:flex;gap:10px;margin-top:18px;">
+        <button onclick="rejectRefund()" style="flex:1;background:transparent;border:2px solid var(--border);color:var(--text-dim);border-radius:12px;padding:14px;font-size:.9rem;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='#ff3c6e';this.style.color='#ff3c6e';" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)';">✕ 미동의 (취소)</button>
+        <button onclick="acceptRefundAndPay()" style="flex:2;background:linear-gradient(135deg,var(--gold),#e6a800);color:#000;border:none;border-radius:12px;padding:14px;font-size:.9rem;font-weight:900;font-family:'Black Han Sans',sans-serif;cursor:pointer;transition:all .2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(255,215,0,.4)';" onmouseout="this.style.transform='none';this.style.boxShadow='none';">✓ 동의하고 결제하기</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1502,31 +1716,204 @@ async function startNiceAuth(){
   }
 }
 
-/* ── 결제 ── */
-function showPaywall(e){
+/* ══════════════════════════════════════════════════════
+   💳  프리미엄 플랜 & 결제 시스템
+   ══════════════════════════════════════════════════════ */
+
+/* ── 할인 설정 (이벤트 기간에만 수정하세요) ──────────────────────
+   각 플랜별 할인율을 숫자로 입력 (0 = 할인 없음)
+   이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력    */
+const PLAN_DISCOUNTS = {
+  daily:    0,   /* 일일권 할인율 (%) - 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 */
+  monthly:  0,   /* 1개월권 할인율 (%) - 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 */
+  quarterly:0,   /* 3개월권 할인율 (%) - 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 */
+  halfyear: 0,   /* 6개월권 할인율 (%) - 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 */
+  yearly:   0,   /* 12개월권 할인율 (%) - 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 */
+};
+
+/* ── 플랜 기본 정보 ──────────────────────────────────────────── */
+const PLAN_INFO = {
+  daily:     { base: 600,   label: '일일권',    orderName: 'MapDong 프리미엄 일일권' },
+  monthly:   { base: 12000, label: '1개월권',   orderName: 'MapDong 프리미엄 1개월' },
+  quarterly: { base: 28000, label: '3개월권',   orderName: 'MapDong 프리미엄 3개월' },
+  halfyear:  { base: 42000, label: '6개월권',   orderName: 'MapDong 프리미엄 6개월' },
+  yearly:    { base: 80000, label: '12개월권',  orderName: 'MapDong 프리미엄 12개월' },
+};
+
+/* 할인 적용된 최종 가격 계산 */
+function calcPrice(planKey, days = 1) {
+  const info     = PLAN_INFO[planKey];
+  const disc     = PLAN_DISCOUNTS[planKey];
+  let   base     = planKey === 'daily' ? info.base * days : info.base;
+  if(disc > 0) base = Math.round(base * (1 - disc / 100));
+  return base;
+}
+
+/* ── 슬라이더 상태 ─────────────────────────────────────────── */
+let currentPlanIndex = 0;
+let selectedDays     = 1;
+let pendingPlanKey   = null;
+const PLAN_KEYS      = ['daily','monthly','quarterly','halfyear','yearly'];
+
+/* 플랜 슬라이더 초기화 */
+function initPlanSlider() {
+  const dotsEl = document.getElementById('plan-dots');
+  dotsEl.innerHTML = '';
+  PLAN_KEYS.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.id    = `dot-${i}`;
+    d.style.cssText = `width:8px;height:8px;border-radius:50%;background:var(--border);transition:all .3s;cursor:pointer;`;
+    d.onclick = () => goToPlan(i);
+    dotsEl.appendChild(d);
+  });
+  goToPlan(0);
+  applyAllDiscounts();
+}
+
+function goToPlan(index) {
+  currentPlanIndex = Math.max(0, Math.min(PLAN_KEYS.length - 1, index));
+  const slider = document.getElementById('plan-slider');
+  slider.style.transform = `translateX(-${currentPlanIndex * 100}%)`;
+  document.querySelectorAll('#plan-dots div').forEach((d, i) => {
+    d.style.background = i === currentPlanIndex ? 'var(--gold)' : 'var(--border)';
+    d.style.transform  = i === currentPlanIndex ? 'scale(1.3)' : 'scale(1)';
+  });
+  document.getElementById('plan-prev').style.opacity = currentPlanIndex === 0 ? '0.3' : '1';
+  document.getElementById('plan-next').style.opacity = currentPlanIndex === PLAN_KEYS.length - 1 ? '0.3' : '1';
+}
+
+function changePlan(dir) {
+  goToPlan(currentPlanIndex + dir);
+}
+
+/* 일일권 슬라이더 업데이트 */
+function updateDayPlan(days) {
+  selectedDays = parseInt(days);
+  document.getElementById('day-selected').textContent = selectedDays;
+  const disc  = PLAN_DISCOUNTS['daily'];
+  const price = calcPrice('daily', selectedDays);
+  const orig  = 600 * selectedDays;
+  document.getElementById('day-price').innerHTML =
+    `${price.toLocaleString()}<span style="font-size:.9rem;color:var(--text-dim);">원</span>` +
+    (disc > 0 ? ` <span style="font-size:.7rem;text-decoration:line-through;color:var(--text-dim);">${orig.toLocaleString()}원</span>` : '');
+}
+
+/* 모든 플랜 할인 적용 표시 */
+function applyAllDiscounts() {
+  const planEls = [
+    { key:'daily',     priceId: null,                   badgeId:'plan1-badge', infoId:'plan1-discount-info' },
+    { key:'monthly',   priceId:'plan2-price-display',   badgeId:'plan2-badge', infoId:'plan2-discount-info' },
+    { key:'quarterly', priceId:'plan3-price-display',   badgeId:'plan3-badge', infoId:'plan3-discount-info' },
+    { key:'halfyear',  priceId:'plan4-price-display',   badgeId:'plan4-badge', infoId:'plan4-discount-info' },
+    { key:'yearly',    priceId:'plan5-price-display',   badgeId:'plan5-badge', infoId:'plan5-discount-info' },
+  ];
+  planEls.forEach(({ key, priceId, badgeId, infoId }) => {
+    const disc = PLAN_DISCOUNTS[key];
+    const badge = document.getElementById(badgeId);
+    const info  = document.getElementById(infoId);
+    if(disc > 0) {
+      badge.style.display = 'block';
+      info.style.display  = 'block';
+      info.textContent    = `🎉 이벤트 할인 ${disc}% 적용 중! 지금 결제하면 특별가`;
+      if(priceId) {
+        const base  = PLAN_INFO[key].base;
+        const final = calcPrice(key);
+        const color = document.getElementById(priceId).style.color || 'var(--accent)';
+        document.getElementById(priceId).innerHTML =
+          `${final.toLocaleString()}<span style="font-size:1rem;color:var(--text-dim);">원</span> ` +
+          `<span style="font-size:1.2rem;text-decoration:line-through;color:var(--text-dim);">${base.toLocaleString()}원</span>`;
+      }
+    } else {
+      badge.style.display = 'none';
+      info.style.display  = 'none';
+    }
+  });
+  updateDayPlan(selectedDays);
+}
+
+/* ── 페이월 열기/닫기 ──────────────────────────────────────── */
+function showPaywall(e) {
   if(e) e.stopPropagation();
   document.getElementById('user-dropdown').classList.remove('show');
   showOnly('screen-paywall');
+  setTimeout(initPlanSlider, 50);
 }
 
-async function startPayment(){
+function closePaywall() {
+  /* 이전 화면으로 돌아가기: 로그인→start 화면, 게임중→main */
+  const wasInGame = !document.getElementById('main').style.display || document.getElementById('main').style.display !== 'none';
+  if(wasInGame) {
+    document.getElementById('screen-paywall').classList.add('hidden');
+  } else {
+    showOnly('screen-start');
+  }
+}
+
+/* ── 환불 모달 ─────────────────────────────────────────────── */
+function requestPayment(planKey) {
   if(!currentUser){ toast('로그인이 필요합니다', 'error'); return; }
-  const btn = document.getElementById('btn-pay');
-  btn.disabled = true; btn.textContent = '결제창 여는 중...';
+  pendingPlanKey = planKey;
+  const modal = document.getElementById('refund-modal');
+  const info  = document.getElementById('refund-plan-info');
+  const disc  = PLAN_DISCOUNTS[planKey];
+  let   amount;
+  let   planLabel;
+  if(planKey === 'daily') {
+    amount    = calcPrice('daily', selectedDays);
+    planLabel = `일일권 ${selectedDays}일 · ${amount.toLocaleString()}원`;
+  } else {
+    amount    = calcPrice(planKey);
+    planLabel = `${PLAN_INFO[planKey].label} · ${amount.toLocaleString()}원`;
+  }
+  info.innerHTML = `선택한 플랜: <strong>${planLabel}</strong>` +
+    (disc > 0 ? ` <span style="color:var(--accent3);">(${disc}% 할인 적용)</span>` : '');
+  modal.style.display = 'flex';
+}
+
+function closeRefundModal() {
+  document.getElementById('refund-modal').style.display = 'none';
+  pendingPlanKey = null;
+}
+
+function rejectRefund() {
+  document.getElementById('refund-modal').style.display = 'none';
+  pendingPlanKey = null;
+  toast('결제가 취소되었습니다.', '');
+}
+
+async function acceptRefundAndPay() {
+  document.getElementById('refund-modal').style.display = 'none';
+  if(!pendingPlanKey) return;
+  await startPayment(pendingPlanKey);
+  pendingPlanKey = null;
+}
+
+/* ── 실제 토스페이먼츠 결제 호출 ───────────────────────────── */
+async function startPayment(planKey) {
+  if(!currentUser){ toast('로그인이 필요합니다', 'error'); return; }
+  const info     = PLAN_INFO[planKey];
+  const disc     = PLAN_DISCOUNTS[planKey];
+  let   amount   = planKey === 'daily' ? calcPrice('daily', selectedDays) : calcPrice(planKey);
+  let   orderName = planKey === 'daily'
+    ? `MapDong 프리미엄 일일권 ${selectedDays}일`
+    : info.orderName;
+
   try {
     const tossPayments = TossPayments(TOSS_CLIENT_KEY);
-    const orderId = `mapdong_${currentUser.id}_${Date.now()}`;
+    const orderId = `mapdong_${planKey}_${currentUser.id}_${Date.now()}`;
     const name    = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || '사용자';
     await tossPayments.requestPayment('카드', {
-      amount: 5000, orderId, orderName: 'MapDong 프리미엄 1개월',
-      customerName: name, customerEmail: currentUser.email,
-      successUrl: `${window.location.origin}?payment=success&orderId=${orderId}`,
+      amount,
+      orderId,
+      orderName,
+      customerName:  name,
+      customerEmail: currentUser.email,
+      successUrl: `${window.location.origin}?payment=success&orderId=${orderId}&plan=${planKey}&days=${selectedDays}`,
       failUrl:    `${window.location.origin}?payment=fail`,
     });
-  } catch(e){
-    toast(e.code === 'USER_CANCEL' ? '결제를 취소하셨습니다' : '결제 오류: ' + e.message,
-          e.code === 'USER_CANCEL' ? '' : 'error');
-    btn.disabled = false; btn.textContent = '💳 결제하기 (5,000원)';
+  } catch(err) {
+    toast(err.code === 'USER_CANCEL' ? '결제를 취소하셨습니다' : '결제 오류: ' + err.message,
+          err.code === 'USER_CANCEL' ? '' : 'error');
   }
 }
 
