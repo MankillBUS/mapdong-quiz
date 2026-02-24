@@ -9,6 +9,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://js.tosspayments.com/v1/payment"></script>
+<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <style>
 :root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1e3a5f;--accent:#00d4ff;--accent2:#ff3c6e;--accent3:#39ff14;--text:#e8f4fd;--text-dim:#7a9bb5;--gold:#ffd700;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -174,6 +175,65 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .leaflet-container{background:#0a1628!important;}
 ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 .stag-cnt{font-size:.7em;opacity:.65;font-weight:400;margin-left:2px;}
+
+/* ── 개인정보 약관 모달 ── */
+#privacy-modal{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(10px);z-index:90000;display:none;align-items:center;justify-content:center;padding:16px;}
+#privacy-modal.show{display:flex;}
+.privacy-card{background:linear-gradient(135deg,var(--surface),var(--surface2));border:2px solid var(--accent);border-radius:20px;max-width:520px;width:100%;max-height:92vh;overflow:hidden;display:flex;flex-direction:column;position:relative;box-shadow:0 0 60px rgba(0,212,255,.15);}
+.privacy-header{padding:22px 24px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.privacy-body{padding:16px 24px;overflow-y:auto;flex:1;}
+.privacy-footer{padding:16px 24px;border-top:1px solid var(--border);flex-shrink:0;display:flex;gap:10px;}
+.privacy-close-btn{position:absolute;top:14px;right:14px;background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--text-dim);width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;z-index:1;}
+.privacy-close-btn:hover{background:rgba(255,60,110,.2);color:#ff3c6e;border-color:#ff3c6e;}
+.privacy-section{margin-bottom:14px;}
+.privacy-section-title{font-size:.78rem;font-weight:700;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.privacy-section p{font-size:.74rem;color:#b0c8de;line-height:1.8;}
+.privacy-table{width:100%;border-collapse:collapse;font-size:.72rem;margin-top:8px;}
+.privacy-table th{background:rgba(0,212,255,.08);color:var(--accent);padding:7px 10px;text-align:left;border:1px solid var(--border);font-weight:600;}
+.privacy-table td{padding:7px 10px;border:1px solid var(--border);color:#b0c8de;vertical-align:top;}
+.privacy-agree-check{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--text);cursor:pointer;margin-bottom:4px;}
+.privacy-agree-check input{width:16px;height:16px;cursor:pointer;accent-color:var(--accent);}
+.privacy-btn-reject{flex:1;background:transparent;border:2px solid var(--border);color:var(--text-dim);border-radius:12px;padding:13px;font-size:.88rem;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;}
+.privacy-btn-reject:hover{border-color:#ff3c6e;color:#ff3c6e;}
+.privacy-btn-agree{flex:2;background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;border:none;border-radius:12px;padding:13px;font-size:.88rem;font-weight:900;font-family:'Black Han Sans',sans-serif;cursor:pointer;transition:all .2s;}
+.privacy-btn-agree:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,212,255,.4);}
+.privacy-btn-agree:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+
+/* ── 회원가입 폼 모달 ── */
+#signup-modal{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(10px);z-index:85000;display:none;align-items:center;justify-content:center;padding:16px;}
+#signup-modal.show{display:flex;}
+.signup-card{background:linear-gradient(135deg,var(--surface),var(--surface2));border:1px solid var(--border);border-radius:20px;max-width:480px;width:100%;max-height:94vh;overflow:hidden;display:flex;flex-direction:column;position:relative;box-shadow:0 0 60px rgba(0,212,255,.1);}
+.signup-header{padding:20px 24px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.signup-body{padding:16px 24px;overflow-y:auto;flex:1;}
+.signup-close-btn{position:absolute;top:14px;right:14px;background:rgba(255,255,255,.08);border:1px solid var(--border);color:var(--text-dim);width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;z-index:1;}
+.signup-close-btn:hover{background:rgba(255,60,110,.2);color:#ff3c6e;border-color:#ff3c6e;}
+.signup-field{margin-bottom:14px;}
+.signup-label{font-size:.72rem;color:var(--text-dim);margin-bottom:5px;display:flex;align-items:center;gap:5px;}
+.signup-label .req{color:var(--accent2);font-size:.75rem;}
+.signup-input{background:var(--bg);border:1.5px solid var(--border);color:var(--text);border-radius:10px;padding:11px 14px;font-size:.88rem;font-family:'Noto Sans KR',sans-serif;outline:none;transition:border-color .2s;width:100%;}
+.signup-input:focus{border-color:var(--accent);}
+.signup-input::placeholder{color:var(--text-dim);}
+.signup-input.error{border-color:var(--accent2);}
+.signup-input.ok{border-color:var(--accent3);}
+.signup-hint{font-size:.67rem;color:var(--text-dim);margin-top:4px;line-height:1.5;}
+.signup-hint.err{color:var(--accent2);}
+.signup-hint.ok{color:var(--accent3);}
+.phone-row{display:flex;gap:6px;align-items:center;}
+.phone-part{background:var(--bg);border:1.5px solid var(--border);color:var(--text);border-radius:10px;padding:11px 10px;font-size:.88rem;font-family:'Noto Sans KR',sans-serif;outline:none;transition:border-color .2s;text-align:center;width:100%;}
+.phone-part:focus{border-color:var(--accent);}
+.phone-sep{color:var(--text-dim);font-weight:700;flex-shrink:0;}
+.btn-nice-signup{background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;border:none;border-radius:10px;padding:11px 14px;font-size:.72rem;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0;}
+.btn-nice-signup:hover{box-shadow:0 4px 14px rgba(0,212,255,.4);}
+.btn-nice-signup:disabled{opacity:.4;cursor:not-allowed;}
+.addr-row{display:flex;gap:8px;align-items:flex-start;}
+.btn-addr-search{background:linear-gradient(135deg,#a29bfe,#6c5ce7);color:#fff;border:none;border-radius:10px;padding:11px 14px;font-size:.75rem;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0;}
+.btn-addr-search:hover{box-shadow:0 4px 14px rgba(162,155,254,.4);}
+.signup-submit{width:100%;background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;border:none;border-radius:12px;padding:14px;font-size:1rem;font-weight:900;font-family:'Black Han Sans',sans-serif;cursor:pointer;transition:all .2s;margin-top:6px;letter-spacing:1px;}
+.signup-submit:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,212,255,.4);}
+.signup-submit:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.pw-strength{display:flex;gap:4px;margin-top:5px;}
+.pw-strength-bar{height:4px;flex:1;border-radius:2px;background:var(--border);transition:background .3s;}
+.verified-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(57,255,20,.1);border:1px solid var(--accent3);border-radius:8px;padding:4px 10px;font-size:.7rem;color:var(--accent3);margin-top:6px;}
 .quiz-mode-toggle{display:inline-flex;align-items:center;cursor:pointer;user-select:none;}
 .quiz-mode-toggle input[type="checkbox"]{display:none;}
 .toggle-label{position:relative;display:inline-flex;align-items:center;background:rgba(255,255,255,.05);border:2px solid var(--border);border-radius:24px;padding:6px 12px;transition:all .3s;min-width:160px;justify-content:center;gap:8px;}
@@ -1451,14 +1511,8 @@ async function signInGoogle(){
   if(error) toast('구글 로그인 실패: ' + error.message, 'error');
 }
 
-window.toggleAuthMode = function(){
-  authMode = authMode === 'login' ? 'signup' : 'login';
-  const isLogin = authMode === 'login';
-  document.getElementById('btn-email-auth').textContent = isLogin ? '로그인' : '회원가입';
-  document.getElementById('switch-link').textContent    = isLogin ? '회원가입' : '로그인';
-  const err = document.getElementById('login-err');
-  err.className = 'login-err'; err.textContent = '';
-}
+/* toggleAuthMode는 하단 회원가입 모달 시스템에서 재정의됩니다 */
+// window.toggleAuthMode — 하단 재정의 버전 사용
 
 window.doEmailAuth = async function(){
   const email = document.getElementById('inp-email').value.trim();
@@ -1937,7 +1991,362 @@ async function handlePaymentCallback(){
     else toast('결제 확인 실패: ' + data.error, 'error');
   } catch(e){ toast('결제 처리 중 오류가 발생했습니다', 'error'); }
 }
+
+
+/* ══════════════════════════════════════════════════════
+   📋  개인정보 약관 + 회원가입 폼 시스템
+   ══════════════════════════════════════════════════════ */
+
+/* ── 약관 동의 상태 ── */
+let privacyAgreed = false;
+
+function openPrivacyModal() {
+  privacyAgreed = false;
+  document.getElementById('privacy-agree-cb').checked = false;
+  document.getElementById('privacy-btn-agree').disabled = true;
+  document.getElementById('privacy-modal').classList.add('show');
+}
+
+function closePrivacyModal() {
+  document.getElementById('privacy-modal').classList.remove('show');
+}
+
+function onPrivacyCheck(cb) {
+  privacyAgreed = cb.checked;
+  document.getElementById('privacy-btn-agree').disabled = !privacyAgreed;
+}
+
+function acceptPrivacyAndOpenSignup() {
+  if(!privacyAgreed){ toast('약관에 동의해 주세요.', 'error'); return; }
+  closePrivacyModal();
+  openSignupModal();
+}
+
+function rejectPrivacy() {
+  closePrivacyModal();
+  toast('약관 미동의로 회원가입이 취소되었습니다.', '');
+}
+
+/* ── 회원가입 폼 ── */
+let signupPhoneVerified = false;
+
+function openSignupModal() {
+  signupPhoneVerified = false;
+  ['su-nickname','su-email','su-pw','su-pw2','su-phone1','su-phone2','su-phone3','su-addr','su-addr-detail'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el){ el.value=''; }
+  });
+  const bars = document.getElementById('su-pw-strength');
+  if(bars) bars.querySelectorAll('.pw-strength-bar').forEach(b => b.style.background = 'var(--border)');
+  const errEl = document.getElementById('su-err');
+  if(errEl){ errEl.textContent=''; errEl.style.display='none'; }
+  const badge = document.getElementById('su-verified-badge');
+  if(badge) badge.style.display='none';
+  document.getElementById('signup-modal').classList.add('show');
+}
+
+function closeSignupModal() {
+  document.getElementById('signup-modal').classList.remove('show');
+}
+
+function checkPwStrength(pw) {
+  const bars = document.getElementById('su-pw-strength').querySelectorAll('.pw-strength-bar');
+  let score = 0;
+  if(pw.length >= 8) score++;
+  if(/[A-Z]/.test(pw)) score++;
+  if(/[0-9]/.test(pw)) score++;
+  if(/[^A-Za-z0-9]/.test(pw)) score++;
+  const colors = ['#ff3c6e','#ff8c00','#ffd700','#39ff14'];
+  bars.forEach((b, i) => {
+    b.style.background = i < score ? colors[score - 1] : 'var(--border)';
+  });
+  const hasSequential = /(?:abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz|012|123|234|345|456|567|678|789)/i.test(pw);
+  return { score, hasSequential };
+}
+
+function onPwInput() {
+  const pw   = document.getElementById('su-pw').value;
+  const hint = document.getElementById('su-pw-hint');
+  const { score, hasSequential } = checkPwStrength(pw);
+  if(!pw){ hint.textContent=''; hint.className='signup-hint'; return; }
+  if(hasSequential){
+    hint.textContent='❌ 연속된 문자(123, abc 등)는 사용할 수 없습니다.';
+    hint.className='signup-hint err'; return;
+  }
+  const msgs = ['','약함 – 더 복잡하게 만들어주세요','보통 – 숫자/특수문자를 추가하세요','강함 – 거의 다 왔어요!','매우 강함 ✓'];
+  hint.textContent = msgs[score];
+  hint.className = 'signup-hint' + (score < 3 ? ' err' : ' ok');
+}
+
+function onPw2Input() {
+  const pw   = document.getElementById('su-pw').value;
+  const pw2  = document.getElementById('su-pw2').value;
+  const hint = document.getElementById('su-pw2-hint');
+  if(!pw2){ hint.textContent=''; return; }
+  if(pw === pw2){ hint.textContent='✓ 비밀번호가 일치합니다.'; hint.className='signup-hint ok'; }
+  else          { hint.textContent='❌ 비밀번호가 일치하지 않습니다.'; hint.className='signup-hint err'; }
+}
+
+function onPhoneInput(el, maxLen) {
+  el.value = el.value.replace(/\D/g, '').slice(0, maxLen);
+  updateNiceSignupBtn();
+}
+
+function updateNiceSignupBtn() {
+  const p1  = document.getElementById('su-phone1').value;
+  const p2  = document.getElementById('su-phone2').value;
+  const p3  = document.getElementById('su-phone3').value;
+  const btn = document.getElementById('btn-nice-signup');
+  btn.disabled = !(p1.length >= 2 && p2.length >= 3 && p3.length >= 4);
+}
+
+async function startNiceAuthSignup() {
+  const btn = document.getElementById('btn-nice-signup');
+  btn.disabled = true; btn.textContent = '인증 중...';
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const token = session?.access_token;
+    if(!token){ toast('회원가입 완료 후 본인인증을 진행해주세요.','error'); btn.disabled=false; btn.textContent='📲 본인인증'; return; }
+    const res = await fetch(`${EDGE}/nice-request`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+    });
+    if(!res.ok){ toast('⚙️ 인증 서버 준비 중입니다.','error'); btn.disabled=false; btn.textContent='📲 본인인증'; return; }
+    const { enc_data, token_version_id, integrity_value } = await res.json();
+    const popup = window.open('','nice-auth','width=500,height=550,left=200,top=100');
+    const form  = document.createElement('form');
+    form.method='POST'; form.action='https://nice.checkplus.co.kr/CheckPlusSafeModel/checkplus.cb'; form.target='nice-auth';
+    [['m','checkplusService'],['token_version_id',token_version_id],['enc_data',enc_data],['integrity_value',integrity_value]]
+      .forEach(([k,v]) => { const i=document.createElement('input'); i.type='hidden'; i.name=k; i.value=v; form.appendChild(i); });
+    document.body.appendChild(form); form.submit(); document.body.removeChild(form);
+    const timer = setInterval(async () => {
+      if(popup.closed){
+        clearInterval(timer);
+        await loadProfile();
+        if(userProfile?.is_verified){
+          signupPhoneVerified = true;
+          document.getElementById('su-verified-badge').style.display='inline-flex';
+          toast('✅ 본인인증 완료!','success');
+        } else { toast('인증이 완료되지 않았습니다.','error'); }
+        btn.disabled=false; btn.textContent='📲 본인인증';
+      }
+    }, 500);
+  } catch(e){ toast('인증 오류: '+e.message,'error'); btn.disabled=false; btn.textContent='📲 본인인증'; }
+}
+
+function openAddrSearch() {
+  new daum.Postcode({
+    oncomplete: function(data) {
+      document.getElementById('su-addr').value = data.roadAddress || data.jibunAddress;
+      document.getElementById('su-addr-detail').focus();
+    }
+  }).open();
+}
+
+function suErr(msg) {
+  const el = document.getElementById('su-err');
+  el.textContent = msg; el.style.display = 'block';
+  el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+async function submitSignup() {
+  document.getElementById('su-err').style.display='none';
+  const nickname = document.getElementById('su-nickname').value.trim();
+  const email    = document.getElementById('su-email').value.trim();
+  const pw       = document.getElementById('su-pw').value;
+  const pw2      = document.getElementById('su-pw2').value;
+  const p1       = document.getElementById('su-phone1').value;
+  const p2       = document.getElementById('su-phone2').value;
+  const p3       = document.getElementById('su-phone3').value;
+  const addr     = document.getElementById('su-addr').value.trim();
+  const addrDt   = document.getElementById('su-addr-detail').value.trim();
+
+  if(!nickname)                    { suErr('닉네임을 입력해주세요.'); return; }
+  if(nickname.length<2||nickname.length>10){ suErr('닉네임은 2~10자로 입력해주세요.'); return; }
+  if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ suErr('올바른 이메일을 입력해주세요.'); return; }
+  if(!pw)                          { suErr('비밀번호를 입력해주세요.'); return; }
+  if(pw.length<8)                  { suErr('비밀번호는 8자 이상이어야 합니다.'); return; }
+  if(!/[A-Z]/.test(pw))            { suErr('비밀번호에 대문자를 포함해주세요.'); return; }
+  if(!/[0-9]/.test(pw))            { suErr('비밀번호에 숫자를 포함해주세요.'); return; }
+  if(!/[^A-Za-z0-9]/.test(pw))     { suErr('비밀번호에 특수문자를 포함해주세요.'); return; }
+  const { hasSequential } = checkPwStrength(pw);
+  if(hasSequential)                { suErr('연속된 문자(123, abc 등)는 사용 불가합니다.'); return; }
+  if(pw!==pw2)                     { suErr('비밀번호 확인이 일치하지 않습니다.'); return; }
+  if(!p1||!p2||!p3)                { suErr('휴대폰 번호를 입력해주세요.'); return; }
+
+  const phone = `${p1}-${p2}-${p3}`;
+  const fullAddr = addr ? (addrDt ? addr+' '+addrDt : addr) : '';
+
+  const btn = document.getElementById('su-submit');
+  btn.disabled=true; btn.textContent='가입 처리 중...';
+
+  try {
+    const { data, error } = await sb.auth.signUp({
+      email, password: pw,
+      options: { data: { name: nickname, nickname, phone, address: fullAddr } }
+    });
+    if(error){
+      const msg = error.message.includes('already registered') ? '이미 가입된 이메일입니다.'
+                : error.message.includes('weak')               ? '비밀번호가 너무 단순합니다.'
+                : error.message;
+      suErr(msg); btn.disabled=false; btn.textContent='✓ 회원가입 완료하기'; return;
+    }
+    if(data?.user?.id){
+      await sb.from('user_profiles').upsert({
+        user_id: data.user.id, nickname, phone, address: fullAddr,
+        is_verified:false, is_premium:false, plays_count:0
+      },{ onConflict:'user_id' });
+    }
+    closeSignupModal();
+    const errEl = document.getElementById('login-err');
+    errEl.textContent='✅ 인증 메일이 발송되었습니다! 이메일을 확인한 뒤 로그인해주세요.';
+    errEl.className='login-err show ok';
+    toast('🎉 회원가입 완료! 이메일 인증 후 로그인해주세요.','success');
+  } catch(e){
+    suErr('오류가 발생했습니다: '+e.message);
+    btn.disabled=false; btn.textContent='✓ 회원가입 완료하기';
+  }
+}
+
+window.toggleAuthMode = function() {
+  const isCurrentLogin = authMode === 'login';
+  if(isCurrentLogin){
+    // 회원가입 클릭 → 약관 모달 열기 (authMode 변경 안 함)
+    openPrivacyModal();
+  } else {
+    authMode = 'login';
+    document.getElementById('btn-email-auth').textContent = '로그인';
+    document.getElementById('switch-link').textContent    = '회원가입';
+    const err = document.getElementById('login-err');
+    err.className='login-err'; err.textContent='';
+  }
+}
+
 </script>
+
+<!-- 🔐 개인정보 수집·이용 동의 모달 -->
+<div id="privacy-modal">
+  <div class="privacy-card">
+    <button class="privacy-close-btn" onclick="closePrivacyModal()">✕</button>
+    <div class="privacy-header">
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:1.3rem;color:var(--accent);">🔐 개인정보 수집·이용 동의</div>
+      <div style="font-size:.72rem;color:var(--text-dim);margin-top:4px;">「개인정보 보호법」 제15조에 따라 아래 내용을 안내드립니다.</div>
+    </div>
+    <div class="privacy-body">
+      <div class="privacy-section">
+        <div class="privacy-section-title">📌 수집 항목 및 이용 목적</div>
+        <table class="privacy-table">
+          <tr><th>수집 항목</th><th>수집 목적</th><th>보유 기간</th></tr>
+          <tr><td>이메일 주소</td><td>회원 식별, 로그인, 서비스 안내</td><td>탈퇴 시까지</td></tr>
+          <tr><td>닉네임</td><td>서비스 내 회원 표시명</td><td>탈퇴 시까지</td></tr>
+          <tr><td>실명 (본인인증 시)</td><td>중복 가입 방지, 본인 확인</td><td>탈퇴 시 즉시 파기</td></tr>
+          <tr><td>휴대폰 번호</td><td>본인인증, 이벤트 당첨 연락</td><td>탈퇴 시까지</td></tr>
+          <tr><td>주소</td><td>이벤트 경품/선물 배송</td><td>배송 완료 후 6개월</td></tr>
+        </table>
+      </div>
+      <div class="privacy-section">
+        <div class="privacy-section-title">🗃️ 개인정보 보관 및 파기 안내</div>
+        <p style="background:rgba(255,215,0,.06);border:1px solid rgba(255,215,0,.2);border-radius:8px;padding:10px 12px;">
+          「개인정보 보호법」 제21조에 따라 아래와 같이 처리됩니다.<br><br>
+          <strong style="color:var(--gold);">⏱ 휴면 계정 전환:</strong> 마지막 로그인일로부터 <strong style="color:var(--gold);">90일</strong> 이상 미로그인 시 <strong style="color:var(--accent2);">휴면 계정</strong>으로 전환됩니다.<br><br>
+          <strong style="color:var(--gold);">🗑 개인정보 파기:</strong> 휴면 전환 이후 <strong style="color:var(--gold);">1년(12개월)</strong> 추가 로그인이 없으면 해당 계정의 개인정보를 <strong style="color:var(--accent2);">완전 파기</strong>합니다.<br><br>
+          <span style="color:var(--text-dim);font-size:.68rem;">※ 파기 30일 전 가입 이메일로 사전 안내 메일이 발송됩니다. 메일 수신 후 로그인하면 휴면 해제 및 파기가 취소됩니다.</span>
+        </p>
+      </div>
+      <div class="privacy-section">
+        <div class="privacy-section-title">🚫 제3자 제공</div>
+        <p>수집된 개인정보는 원칙적으로 제3자에게 제공하지 않습니다. 단, 이벤트 경품 배송 시 배송업체에 수령인 성명·주소·연락처를 제공할 수 있으며, 이 경우 사전에 별도 안내합니다.</p>
+      </div>
+      <div class="privacy-section">
+        <div class="privacy-section-title">✅ 정보주체의 권리</div>
+        <p>회원은 언제든지 개인정보에 대한 열람·수정·삭제·처리 정지를 요청할 수 있습니다.<br>
+        <strong style="color:var(--accent);">사업자:</strong> 워크트래블허브 &nbsp;|&nbsp; <strong style="color:var(--accent);">대표:</strong> 김강별 &nbsp;|&nbsp; <strong style="color:var(--accent);">사업자번호:</strong> 690-17-02022</p>
+      </div>
+      <div style="background:rgba(255,60,110,.06);border:1px solid rgba(255,60,110,.2);border-radius:8px;padding:10px 12px;font-size:.72rem;color:#b0c8de;line-height:1.7;margin-bottom:12px;">
+        ※ 위 개인정보 수집·이용 동의를 거부할 권리가 있습니다. 단, 거부 시 MapDong 서비스 회원가입 및 이용이 제한됩니다.
+      </div>
+      <label class="privacy-agree-check">
+        <input type="checkbox" id="privacy-agree-cb" onchange="onPrivacyCheck(this)">
+        위 개인정보 수집·이용 약관을 모두 읽었으며, <strong style="color:var(--accent);">&nbsp;전체 동의합니다.</strong>
+      </label>
+    </div>
+    <div class="privacy-footer">
+      <button class="privacy-btn-reject" onclick="rejectPrivacy()">✕ 미동의 (취소)</button>
+      <button class="privacy-btn-agree" id="privacy-btn-agree" disabled onclick="acceptPrivacyAndOpenSignup()">✓ 동의하고 회원가입</button>
+    </div>
+  </div>
+</div>
+
+<!-- 📝 회원가입 폼 모달 -->
+<div id="signup-modal">
+  <div class="signup-card">
+    <button class="signup-close-btn" onclick="closeSignupModal()">✕</button>
+    <div class="signup-header">
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:1.3rem;color:var(--text);">📝 회원가입</div>
+      <div style="font-size:.7rem;color:var(--text-dim);margin-top:3px;">개인정보 약관에 동의하셨습니다 ✓</div>
+    </div>
+    <div class="signup-body">
+      <div id="su-err" style="display:none;background:rgba(255,60,110,.1);border:1px solid var(--accent2);border-radius:8px;padding:10px 14px;font-size:.78rem;color:var(--accent2);margin-bottom:12px;"></div>
+
+      <div class="signup-field">
+        <div class="signup-label">닉네임 <span class="req">*</span></div>
+        <input class="signup-input" id="su-nickname" type="text" placeholder="사용할 닉네임 (2~10자)" maxlength="10">
+      </div>
+
+      <div class="signup-field">
+        <div class="signup-label">인증할 이메일 <span class="req">*</span></div>
+        <input class="signup-input" id="su-email" type="email" placeholder="example@email.com">
+        <div class="signup-hint">회원가입 후 이메일 인증 링크가 발송됩니다.</div>
+      </div>
+
+      <div class="signup-field">
+        <div class="signup-label">비밀번호 <span class="req">*</span></div>
+        <input class="signup-input" id="su-pw" type="password" placeholder="대문자 + 숫자 + 특수문자 포함, 8자 이상" oninput="onPwInput()">
+        <div class="pw-strength" id="su-pw-strength">
+          <div class="pw-strength-bar"></div><div class="pw-strength-bar"></div>
+          <div class="pw-strength-bar"></div><div class="pw-strength-bar"></div>
+        </div>
+        <div class="signup-hint" id="su-pw-hint">대문자·숫자·특수문자 포함 필수 · 연속 문자(123, abc) 사용 불가</div>
+      </div>
+
+      <div class="signup-field">
+        <div class="signup-label">비밀번호 재확인 <span class="req">*</span></div>
+        <input class="signup-input" id="su-pw2" type="password" placeholder="비밀번호를 다시 입력해주세요" oninput="onPw2Input()">
+        <div class="signup-hint" id="su-pw2-hint"></div>
+      </div>
+
+      <div class="signup-field">
+        <div class="signup-label">휴대폰 번호 <span class="req">*</span></div>
+        <div class="phone-row">
+          <input class="phone-part" id="su-phone1" type="tel" maxlength="3" placeholder="010" oninput="onPhoneInput(this,3)" style="max-width:72px;">
+          <span class="phone-sep">-</span>
+          <input class="phone-part" id="su-phone2" type="tel" maxlength="4" placeholder="0000" oninput="onPhoneInput(this,4)">
+          <span class="phone-sep">-</span>
+          <input class="phone-part" id="su-phone3" type="tel" maxlength="4" placeholder="0000" oninput="onPhoneInput(this,4)">
+          <button class="btn-nice-signup" id="btn-nice-signup" disabled onclick="startNiceAuthSignup()">📲 본인인증</button>
+        </div>
+        <div id="su-verified-badge" class="verified-badge" style="display:none;">✅ 본인인증 완료</div>
+        <div class="signup-hint">휴대폰 번호 입력 후 본인인증을 진행해주세요.</div>
+      </div>
+
+      <div class="signup-field">
+        <div class="signup-label">주소 <span style="font-size:.68rem;color:var(--text-dim);">(선택 – 이벤트 선물 수령 시 필요)</span></div>
+        <div style="display:flex;align-items:flex-start;gap:5px;background:rgba(255,215,0,.07);border:1px solid rgba(255,215,0,.2);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:.71rem;color:var(--gold);line-height:1.6;">
+          🎁 각종 이벤트로 선물이 지급될 예정입니다. 선물을 받기 위해 주소를 정확하게 입력하여 주세요.
+        </div>
+        <div class="addr-row">
+          <input class="signup-input" id="su-addr" type="text" placeholder="주소검색 버튼을 눌러 주소를 찾아보세요" readonly style="cursor:pointer;" onclick="openAddrSearch()">
+          <button class="btn-addr-search" onclick="openAddrSearch()">🔍 주소검색</button>
+        </div>
+        <input class="signup-input" id="su-addr-detail" type="text" placeholder="상세 주소 입력 (동, 호수 등)" style="margin-top:7px;">
+      </div>
+
+      <button class="signup-submit" id="su-submit" onclick="submitSignup()">✓ 회원가입 완료하기</button>
+      <div style="text-align:center;font-size:.68rem;color:var(--text-dim);margin-top:10px;padding-bottom:4px;">이미 계정이 있으신가요? <span style="color:var(--accent);cursor:pointer;" onclick="closeSignupModal()">로그인으로 돌아가기</span></div>
+    </div>
+  </div>
+</div>
+
 </div>
 </body>
 </html>
