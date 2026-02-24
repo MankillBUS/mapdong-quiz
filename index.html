@@ -1566,9 +1566,37 @@ sb.auth.onAuthStateChange(async(event, session) => {
   if(session?.user){
     currentUser = session.user;
 
-    // ★ 관리자/프리미엄 여부는 DB user_profiles.role 컬럼으로 판별
-    //   (이메일 하드코딩 제거 — 보안 패치)
-    //   관리자 추가/삭제: Supabase Dashboard > user_profiles > role 컬럼 수정
+    // ╔═══════════════════════════════════════════════════════╗
+    // ║  🚧 임시 슈퍼패스 — 나이스 API 승인 완료 후 삭제 예정  ║
+    // ║                                                         ║
+    // ║  삭제 시점: 나이스 본인인증 정식 승인 후                 ║
+    // ║  삭제 방법: 이 if 블록 전체(╔~╝ 주석 포함) 제거         ║
+    // ║                                                         ║
+    // ║  존재 이유:                                              ║
+    // ║    - 나이스 미승인 기간 중 관리자 계정 로그인 보장        ║
+    // ║    - user_profiles row 없어도 동작                      ║
+    // ║    - DB role 컬럼 방식과 병행 운영 (이중 안전망)          ║
+    // ╚═══════════════════════════════════════════════════════╝
+    const TEMP_SUPERPASS_EMAILS = [
+      'kke320001@gmail.com',  // 운영 관리자 — 나이스 승인 후 삭제
+      'test12@gmail.com',     // 테스트 관리자 — 나이스 승인 후 삭제
+    ];
+    if(TEMP_SUPERPASS_EMAILS.includes(currentUser.email)){
+      userProfile = {
+        user_id:       currentUser.id,
+        email:         currentUser.email,
+        role:          'admin',        // DB role 방식과 통일
+        is_verified:   true,
+        is_premium:    true,
+        premium_until: '2099-12-31',
+        plays_count:   0,
+      };
+      renderUserChip();
+      showOnly('start');
+      handlePaymentCallback();
+      return;
+    }
+    // ↑ 슈퍼패스 끝 ─────────────────────────────────────────────
     
     await loadProfile();
     // 퀴즈 중이면 routeUser 호출 안 함 (페이지 이동 방지)
@@ -1609,11 +1637,11 @@ async function loadProfile(){
   const { data } = await sb.from('user_profiles')
     .select('*').eq('user_id', currentUser.id).maybeSingle();
   userProfile = data;
-  
-  // 보안 패치: role=admin → DB 기준 관리자 처리 (이메일 하드코딩 제거)
+
+  // DB role=admin 이면 프리미엄 강제 적용 (슈퍼패스 삭제 후에도 동작)
   if(userProfile?.role === 'admin'){
-    userProfile.is_premium    = true;
     userProfile.is_verified   = true;
+    userProfile.is_premium    = true;
     userProfile.premium_until = '2099-12-31';
   }
 
@@ -2298,71 +2326,66 @@ function suErr(msg) {
 
 async function submitSignup() {
   document.getElementById('su-err').style.display='none';
-  const nickname = document.getElementById('su-nickname').value.trim();
-  const email    = document.getElementById('su-email').value.trim();
-  const pw       = document.getElementById('su-pw').value;
-  const pw2      = document.getElementById('su-pw2').value;
-  const addr     = document.getElementById('su-addr').value.trim();
-  const addrDt   = document.getElementById('su-addr-detail').value.trim();
+  const nickname  = document.getElementById('su-nickname').value.trim();
+  const email     = document.getElementById('su-email').value.trim();
+  const pw        = document.getElementById('su-pw').value;
+  const pw2       = document.getElementById('su-pw2').value;
+  const realName  = document.getElementById('su-realname').value.trim();
+  const p1        = document.getElementById('su-phone1').value;
+  const p2        = document.getElementById('su-phone2').value;
+  const p3        = document.getElementById('su-phone3').value;
+  const addr      = document.getElementById('su-addr').value.trim();
+  const addrDt    = document.getElementById('su-addr-detail').value.trim();
 
-  // ── 클라이언트 유효성 검사 (1차 필터) ─────────────────────────
-  if(!nickname)                     { suErr('닉네임을 입력해주세요.'); return; }
+  if(!nickname)                    { suErr('닉네임을 입력해주세요.'); return; }
   if(nickname.length<2||nickname.length>10){ suErr('닉네임은 2~10자로 입력해주세요.'); return; }
   if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ suErr('올바른 이메일을 입력해주세요.'); return; }
-  if(!pw)                           { suErr('비밀번호를 입력해주세요.'); return; }
-  if(pw.length<8)                   { suErr('비밀번호는 8자 이상이어야 합니다.'); return; }
-  if(!/[A-Z]/.test(pw))             { suErr('비밀번호에 대문자를 포함해주세요.'); return; }
-  if(!/[0-9]/.test(pw))             { suErr('비밀번호에 숫자를 포함해주세요.'); return; }
-  if(!/[^A-Za-z0-9]/.test(pw))      { suErr('비밀번호에 특수문자를 포함해주세요.'); return; }
+  if(!pw)                          { suErr('비밀번호를 입력해주세요.'); return; }
+  if(pw.length<8)                  { suErr('비밀번호는 8자 이상이어야 합니다.'); return; }
+  if(!/[A-Z]/.test(pw))            { suErr('비밀번호에 대문자를 포함해주세요.'); return; }
+  if(!/[0-9]/.test(pw))            { suErr('비밀번호에 숫자를 포함해주세요.'); return; }
+  if(!/[^A-Za-z0-9]/.test(pw))     { suErr('비밀번호에 특수문자를 포함해주세요.'); return; }
   const { hasSequential } = checkPwStrength(pw);
-  if(hasSequential)                 { suErr('연속된 문자(123, abc 등)는 사용 불가합니다.'); return; }
-  if(pw!==pw2)                      { suErr('비밀번호 확인이 일치하지 않습니다.'); return; }
-  if(!signupPhoneVerified)          { suErr('휴대폰 본인인증을 먼저 완료해주세요.'); return; }
+  if(hasSequential)                { suErr('연속된 문자(123, abc 등)는 사용 불가합니다.'); return; }
+  if(pw!==pw2)                     { suErr('비밀번호 확인이 일치하지 않습니다.'); return; }
+  if(!realName)                    { suErr('실명을 입력해주세요.'); return; }
+  if(!signupPhoneVerified)         { suErr('휴대폰 본인인증을 먼저 완료해주세요.'); return; }
+  if(!p1||!p2||!p3)                { suErr('휴대폰 번호를 입력해주세요.'); return; }
 
+  const phone = `${p1}-${p2}-${p3}`;
   const fullAddr = addr ? (addrDt ? addr+' '+addrDt : addr) : '';
+
   const btn = document.getElementById('su-submit');
   btn.disabled=true; btn.textContent='가입 처리 중...';
 
   try {
-    // ── 현재 세션 토큰 (익명 포함) ──────────────────────────────
-    const { data: { session } } = await sb.auth.getSession();
-    const token = session?.access_token;
-    if(!token){ suErr('세션이 만료되었습니다. 페이지를 새로고침 후 다시 시도해주세요.'); btn.disabled=false; btn.textContent='✓ 회원가입 완료하기'; return; }
-
-    // ── 보안 핵심: register-user Edge Function 호출 ──────────────
-    //   실명/전화번호는 서버(nice_auth_sessions DB)에서 직접 가져옴
-    //   프론트에서 변조해도 서버에서 무시됨
-    const res = await fetch(`${EDGE}/register-user`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        nickname,
-        email,
-        password: pw,
-        address:  fullAddr,
-        // ⚠️ realName, phone 은 보내지 않음
-        //    서버가 nice_auth_sessions DB에서 직접 가져옴 (파라미터 변조 방지)
-      }),
+    const { data, error } = await sb.auth.signUp({
+      email, password: pw,
+      options: { data: { name: nickname, nickname, real_name: realName, phone, address: fullAddr } }
     });
-
-    const result = await res.json();
-
-    if(!res.ok){
-      suErr(result.error || '회원가입 중 오류가 발생했습니다.');
-      btn.disabled=false; btn.textContent='✓ 회원가입 완료하기';
-      return;
+    if(error){
+      const msg = error.message.includes('already registered') ? '이미 가입된 이메일입니다.'
+                : error.message.includes('weak')               ? '비밀번호가 너무 단순합니다.'
+                : error.message;
+      suErr(msg); btn.disabled=false; btn.textContent='✓ 회원가입 완료하기'; return;
     }
-
-    // ── 성공 ──────────────────────────────────────────────────
+    if(data?.user?.id){
+      await sb.from('user_profiles').upsert({
+        user_id:     data.user.id,
+        nickname:    nickname,
+        real_name:   realName,          /* 나이스 인증으로 확인된 실명 */
+        phone:       phone,
+        address:     fullAddr,
+        is_verified: signupPhoneVerified, /* 인증 완료 시 true */
+        is_premium:  false,
+        plays_count: 0
+      },{ onConflict:'user_id' });
+    }
     closeSignupModal();
     const errEl = document.getElementById('login-err');
     errEl.textContent='✅ 인증 메일이 발송되었습니다! 이메일을 확인한 뒤 로그인해주세요.';
     errEl.className='login-err show ok';
     toast('🎉 회원가입 완료! 이메일 인증 후 로그인해주세요.','success');
-
   } catch(e){
     suErr('오류가 발생했습니다: '+e.message);
     btn.disabled=false; btn.textContent='✓ 회원가입 완료하기';
