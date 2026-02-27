@@ -310,6 +310,124 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 /* 사이트 푸터 (#side 맨 아래, 스크롤로 확인) ─────── */
 #site-footer{background:transparent;border-top:1px solid var(--border);padding:12px 10px;text-align:center;font-size:.58rem;color:#2e4a62;line-height:1.9;margin-top:auto;}
 #site-footer strong{color:#3d6070;}
+
+/* ── 1. 환불규정 버튼 (새 디자인) ───────────────────── */
+.refund-link-row{text-align:center;margin-top:8px;}
+.refund-link-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  background:rgba(255,215,0,.1);
+  border:1px solid rgba(255,215,0,.35);
+  color:var(--gold);
+  border-radius:8px;padding:6px 14px;
+  font-size:.72rem;font-weight:600;
+  font-family:'Noto Sans KR',sans-serif;
+  cursor:pointer;transition:all .2s;
+}
+.refund-link-btn:hover{background:rgba(255,215,0,.22);border-color:var(--gold);transform:translateY(-1px);}
+
+/* ── 4. 헤더 공지 롤링 인라인 ─────────────────────── */
+#header-notice{
+  flex:1;min-width:0;max-width:420px;
+  display:flex;align-items:center;
+  background:rgba(255,30,30,.07);
+  border:1px solid rgba(255,80,80,.18);
+  border-radius:8px;height:30px;
+  overflow:hidden;cursor:pointer;
+  margin:0 8px;
+}
+#header-notice.hidden{display:none!important;}
+#header-notice .hn-label{
+  flex-shrink:0;background:rgba(200,30,30,.75);
+  color:#fff;font-size:.6rem;font-weight:700;
+  padding:0 8px;height:100%;
+  display:flex;align-items:center;
+  white-space:nowrap;letter-spacing:.5px;
+}
+#header-notice .hn-text{
+  flex:1;font-size:.7rem;color:#ff8888;
+  font-weight:600;padding:0 10px;
+  white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;transition:opacity .35s;
+}
+#header-notice .hn-text.fade{opacity:0;}
+#header-notice .hn-date{
+  flex-shrink:0;font-size:.6rem;
+  color:rgba(255,100,100,.5);padding:0 8px;
+  white-space:nowrap;
+}
+
+/* ── 5. 사이드 패널 토글 ───────────────────────────── */
+#side-toggle{
+  position:absolute;left:0;top:50%;
+  transform:translateY(-50%);
+  z-index:600;
+  background:var(--surface);
+  border:2px solid var(--border);
+  border-left:none;
+  border-radius:0 8px 8px 0;
+  width:18px;height:56px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .2s;
+  font-size:.75rem;color:var(--text-dim);
+}
+#side-toggle:hover{background:var(--surface2);color:var(--accent);border-color:var(--accent);}
+#mapw{flex:1;position:relative;}
+#main.side-collapsed #side{display:none;}
+#main.side-collapsed #side-toggle{left:0;border-radius:0 8px 8px 0;}
+
+/* ── 6. 토스 결제 위젯 모달 ────────────────────────── */
+#toss-modal{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.88);
+  backdrop-filter:blur(8px);
+  z-index:25000;
+  align-items:center;justify-content:center;
+  padding:16px;
+}
+#toss-modal.show{display:flex!important;}
+#toss-modal-inner{
+  background:linear-gradient(135deg,var(--surface),var(--surface2));
+  border:2px solid var(--border);
+  border-radius:20px;
+  max-width:540px;width:100%;
+  max-height:92vh;overflow-y:auto;
+  position:relative;
+}
+#toss-modal-close{
+  position:absolute;top:14px;right:14px;
+  background:rgba(255,255,255,.08);
+  border:1px solid var(--border);
+  color:var(--text-dim);width:32px;height:32px;
+  border-radius:50%;font-size:1rem;
+  cursor:pointer;z-index:1;
+  display:flex;align-items:center;justify-content:center;
+}
+#toss-modal-close:hover{background:rgba(255,60,110,.2);color:#ff3c6e;}
+#toss-modal-title{
+  font-family:'Black Han Sans',sans-serif;
+  font-size:1.1rem;color:var(--text);
+  padding:22px 24px 14px;
+  border-bottom:1px solid var(--border);
+}
+#toss-modal-order-info{
+  padding:12px 24px;
+  font-size:.78rem;color:var(--text-dim);
+  border-bottom:1px solid var(--border);
+}
+#toss-modal-order-info strong{color:var(--gold);}
+/* 토스 위젯이 렌더링될 div들 */
+#payment-method-container{padding:16px 24px 0;}
+#agreement-container{padding:0 24px;}
+#toss-modal-pay-btn{
+  margin:16px 24px 20px;width:calc(100% - 48px);
+  background:linear-gradient(135deg,var(--gold),#e6a800);
+  color:#000;border:none;border-radius:12px;
+  padding:15px;font-size:1rem;font-weight:900;
+  font-family:'Black Han Sans',sans-serif;
+  cursor:pointer;transition:all .2s;letter-spacing:1px;
+}
+#toss-modal-pay-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(255,215,0,.4);}
+#toss-modal-pay-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
 </style>
 </head>
 <body>
@@ -674,6 +792,12 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   </div>
   
   <button class="sbtn" onclick="startQuiz()">퀴즈 시작! 🚀</button>
+  <!-- 3. 지역 선택화면 사업자 정보 -->
+  <div style="margin-top:18px;text-align:center;font-size:.6rem;color:#3a5a75;line-height:2;">
+    <strong style="color:#4a7a9b;">워크트래블허브</strong> &nbsp;|&nbsp;
+    사업자: 690-17-02022 &nbsp;|&nbsp; 통신판매업: 제2025-서울서초-3783호<br>
+    대표: 김강별 &nbsp;|&nbsp; 서울 서초구 서초동 1362-23 더포인트 3층 &nbsp;|&nbsp; ☎ 070-7782-3601
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════════════════
@@ -698,6 +822,12 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div class="logo" onclick="goHome()" style="cursor:pointer;" title="처음으로 가기">Map<span>Dong</span></div>
     <button onclick="goHome()" style="background:linear-gradient(135deg,#ff9f43,#ee5a6f);border:none;border-radius:8px;padding:6px 14px;font-size:0.85rem;font-weight:700;color:#000;cursor:pointer;transition:all 0.2s;margin-left:12px;">🏠 처음으로</button>
     <button id="btn-cs" onclick="openCS()">🛎 고객센터</button>
+  <!-- 4. 헤더 인라인 공지 롤링 -->
+  <div id="header-notice" class="hidden" onclick="openCS()">
+    <div class="hn-label">📢 공지</div>
+    <div class="hn-text" id="hn-text">공지사항이 없습니다</div>
+    <div class="hn-date" id="hn-date"></div>
+  </div>
   <div id="header-right" style="display:flex;align-items:center;gap:10px;">
   <div id="stats-bar">
     <div class="sb"><div class="sl">문제</div><div class="sv" id="sQ">-</div></div>
@@ -722,13 +852,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   </div>
 </div>
 
-<div id="notice-banner" class="hidden">
-  <div class="notice-label">📢 공지</div>
-  <div class="notice-track-wrap">
-    <div class="notice-item" id="notice-text" onclick="openCS()">공지사항을 불러오는 중...</div>
-  </div>
-  <span style="flex-shrink:0;font-size:.6rem;color:rgba(255,100,100,.5);padding:0 10px;white-space:nowrap;" id="notice-date"></span>
-</div>
 
 <!-- 메인 -->
 <div id="main">
@@ -763,6 +886,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <span style="cursor:pointer;color:#3d6a7a;text-decoration:underline;" onclick="openCS()">고객센터</span>
     </footer>
   </div>
+  <!-- 5. 사이드 패널 토글 버튼 -->
+  <div id="side-toggle" onclick="toggleSidePanel()" title="패널 접기/펼치기">▶</div>
   <div id="mapw">
     <div id="map"></div>
     
@@ -2089,39 +2214,147 @@ async function acceptRefundAndPay() {
 }
 
 /* ── 실제 토스페이먼츠 결제 호출 ───────────────────────────── */
+
+/* ════════════════════════════════════════════════════════════
+   💳 토스페이먼츠 v2 결제 위젯 (올바른 구현)
+   
+   ▶ 문제 원인:
+     기존 코드는 widgets.requestPayment()를 바로 호출했는데,
+     이 방식은 위젯(결제수단 선택 UI)을 화면에 먼저 렌더링한 뒤
+     사용자가 결제수단을 선택하고 '결제하기'를 눌러야 합니다.
+     즉, renderPaymentMethods()와 renderAgreement()를 먼저 호출해서
+     결제수단 선택 화면을 보여줘야 하는데, 그 단계가 없었습니다.
+   
+   ▶ 해결 방법:
+     1) 결제하기 버튼 클릭 → 모달 열기
+     2) 모달 안에서 위젯 렌더링 (결제수단 선택 UI 표시)
+     3) 사용자가 결제수단 선택 후 '결제하기' 버튼 클릭
+     4) requestPayment() 호출 → 토스 결제창
+   ════════════════════════════════════════════════════════ */
+
+let _tossWidgets = null;      // 현재 초기화된 widgets 인스턴스
+let _tossPlanKey = null;      // 결제할 플랜
+let _tossAmount  = 0;         // 결제 금액
+let _tossOrderId = null;      // 주문 ID
+
+/* ── 결제 버튼 클릭 → 모달 열기 + 위젯 렌더링 ─────────────── */
 async function startPayment(planKey) {
   if(!currentUser){ toast('로그인이 필요합니다', 'error'); return; }
-  const info     = PLAN_INFO[planKey];
-  const disc     = PLAN_DISCOUNTS[planKey];
-  let   amount   = planKey === 'daily' ? calcPrice('daily', selectedDays) : calcPrice(planKey);
-  let   orderName = planKey === 'daily'
-    ? `MapDong 프리미엄 일일권 ${selectedDays}일`
+
+  const info      = PLAN_INFO[planKey];
+  _tossPlanKey    = planKey;
+  _tossAmount     = planKey === 'daily' ? calcPrice('daily', selectedDays) : calcPrice(planKey);
+  const orderName = planKey === 'daily'
+    ? 'MapDong 프리미엄 일일권 ' + selectedDays + '일'
     : info.orderName;
+  _tossOrderId    = 'mapdong_' + planKey + '_' + currentUser.id.slice(0,8) + '_' + Date.now();
+
+  // 주문 정보 표시
+  document.getElementById('toss-order-name').textContent  = orderName;
+  document.getElementById('toss-amount-display').innerHTML =
+    '<strong style="color:var(--gold);font-size:1.1rem;">' +
+    _tossAmount.toLocaleString() + '원</strong>';
+
+  // 결제 버튼 비활성화 (위젯 로딩 전)
+  const payBtn = document.getElementById('toss-modal-pay-btn');
+  payBtn.disabled = true;
+  payBtn.textContent = '결제수단을 선택해 주세요';
+
+  // 모달 열기
+  document.getElementById('toss-modal').classList.add('show');
+
+  // 위젯 컨테이너 초기화
+  document.getElementById('payment-method-container').innerHTML = '';
+  document.getElementById('agreement-container').innerHTML = '';
 
   try {
+    const customerKey  = window.btoa(currentUser.id).slice(0, 20);
     const tossPayments = TossPayments(TOSS_CLIENT_KEY);
-    const orderId    = 'mapdong_' + planKey + '_' + currentUser.id.slice(0,8) + '_' + Date.now();
-    const customerKey = window.btoa(currentUser.id).slice(0, 20);
-    const name       = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || '사용자';
+    _tossWidgets       = tossPayments.widgets({ customerKey });
 
-    // 토스페이먼츠 v2 위젯 방식 (심사용)
-    const widgets = tossPayments.widgets({ customerKey });
-    await widgets.setAmount({ currency: 'KRW', value: amount });
+    // 결제 금액 설정
+    await _tossWidgets.setAmount({ currency: 'KRW', value: _tossAmount });
 
-    await widgets.requestPayment({
-      orderId,
-      orderName,
+    // ★ 핵심: 결제수단 선택 UI 렌더링
+    await _tossWidgets.renderPaymentMethods({
+      selector:   '#payment-method-container',
+      variantKey: 'DEFAULT',
+    });
+
+    // ★ 핵심: 이용약관 UI 렌더링
+    await _tossWidgets.renderAgreement({
+      selector:   '#agreement-container',
+      variantKey: 'AGREEMENT',
+    });
+
+    // 렌더링 완료 → 버튼 활성화
+    payBtn.disabled    = false;
+    payBtn.textContent = '💳 결제하기 (' + _tossAmount.toLocaleString() + '원)';
+
+  } catch(err) {
+    document.getElementById('toss-modal').classList.remove('show');
+    toast('결제 초기화 오류: ' + err.message, 'error');
+    console.error('Toss init error:', err);
+  }
+}
+
+/* ── 모달 닫기 ─────────────────────────────────────────────── */
+function closeTossModal() {
+  document.getElementById('toss-modal').classList.remove('show');
+  _tossWidgets = null;
+  document.getElementById('payment-method-container').innerHTML = '';
+  document.getElementById('agreement-container').innerHTML = '';
+}
+
+/* ── 결제하기 버튼 → requestPayment 호출 ──────────────────── */
+async function confirmTossPayment() {
+  if(!_tossWidgets){ toast('결제를 다시 시도해 주세요', 'error'); return; }
+
+  const payBtn = document.getElementById('toss-modal-pay-btn');
+  payBtn.disabled    = true;
+  payBtn.textContent = '결제 처리 중...';
+
+  const name = currentUser.user_metadata?.name
+    || currentUser.email?.split('@')[0]
+    || '사용자';
+
+  try {
+    await _tossWidgets.requestPayment({
+      orderId:             _tossOrderId,
+      orderName:           document.getElementById('toss-order-name').textContent,
       customerName:        name,
       customerEmail:       currentUser.email,
       customerMobilePhone: userProfile?.phone?.replace(/-/g,'') || '01000000000',
-      successUrl: window.location.origin + '?payment=success&orderId=' + orderId + '&plan=' + planKey + '&days=' + selectedDays,
+      successUrl: window.location.origin + '?payment=success&orderId=' + _tossOrderId
+                  + '&plan=' + _tossPlanKey + '&days=' + selectedDays,
       failUrl:    window.location.origin + '?payment=fail',
     });
   } catch(err) {
-    toast(err.code === 'USER_CANCEL' ? '결제를 취소하셨습니다' : '결제 오류: ' + err.message,
-          err.code === 'USER_CANCEL' ? '' : 'error');
+    payBtn.disabled    = false;
+    payBtn.textContent = '💳 결제하기 (' + _tossAmount.toLocaleString() + '원)';
+    if(err.code !== 'USER_CANCEL') {
+      toast('결제 오류: ' + err.message, 'error');
+      console.error('Toss payment error:', err);
+    } else {
+      toast('결제를 취소하셨습니다', '');
+    }
   }
 }
+
+/* ── 5. 사이드 패널 토글 ──────────────────────────────────── */
+function toggleSidePanel() {
+  const main   = document.getElementById('main');
+  const toggle = document.getElementById('side-toggle');
+  const isCollapsed = main.classList.contains('side-collapsed');
+  main.classList.toggle('side-collapsed', !isCollapsed);
+  toggle.textContent = isCollapsed ? '◀' : '▶';
+  toggle.title = isCollapsed ? '패널 접기' : '패널 펼치기';
+  // 지도 리사이즈
+  setTimeout(() => {
+    if(window.quizMap) window.quizMap.invalidateSize();
+  }, 320);
+}
+
 
 async function handlePaymentCallback(){
   const params = new URLSearchParams(window.location.search);
@@ -2181,15 +2414,34 @@ function openCSRefund()  {
   csTab('refund');
 }
 function closeCS() {
+  document.getElementById('screen-cs').classList.add('hidden');
+  // 2. 돌아갈 때 로그인/등급 재확인
+  _csReturnWithAuthCheck();
+}
+
+async function _csReturnWithAuthCheck() {
+  // 세션 재확인
+  const { data: { session } } = await sb.auth.getSession();
+  if(!session) { showOnly('screen-login'); return; }
+
+  // 프로필 재로드
+  await loadProfile();
+
   const prev = window._csPrevScreen;
+
+  if(!currentUser) { showOnly('screen-login'); return; }
+  if(!userProfile)  { showOnly('screen-login'); return; }
+  if(!userProfile.is_verified) { showOnly('screen-verify'); return; }
+
+  // 관리자 / 프리미엄 / 일반 — 모두 퀴즈 화면(start 또는 게임)으로
   if(prev === 'game') {
-    // 퀴즈 화면으로 복귀: screen-cs만 숨김
-    document.getElementById('screen-cs').classList.add('hidden');
-  } else if(prev === 'start') {
-    showOnly('start');
-  } else {
-    showOnly('screen-login');
+    // 퀴즈 중이었으면 헤더/main만 보이게 (이미 화면에 있음)
+    renderUserChip();
+    return;
   }
+  // 나머지는 start 화면으로
+  showOnly('start');
+  renderUserChip();
 }
 
 /* ── 탭 전환 ─────────────────────────────────────────────── */
@@ -2407,7 +2659,7 @@ async function loadNotices() {
     .limit(10);
 
   csNoticeList = data || [];
-  const banner = document.getElementById('notice-banner');
+  const banner = document.getElementById('header-notice');
 
   if(csNoticeList.length === 0) {
     banner.classList.add('hidden');
@@ -2418,25 +2670,26 @@ async function loadNotices() {
   csNoticeIdx = 0;
   showNoticeItem(0);
 
-  // 기존 타이머 클리어
   if(csRollingTimer) clearInterval(csRollingTimer);
-  // 5~7초마다 롤링
+  // 6초마다 롤링 (무한 반복)
   csRollingTimer = setInterval(() => {
-    const textEl = document.getElementById('notice-text');
-    textEl.classList.add('fade-out');
+    const textEl = document.getElementById('hn-text');
+    textEl.classList.add('fade');
     setTimeout(() => {
       csNoticeIdx = (csNoticeIdx + 1) % csNoticeList.length;
       showNoticeItem(csNoticeIdx);
-      textEl.classList.remove('fade-out');
-    }, 400);
+      textEl.classList.remove('fade');
+    }, 350);
   }, 6000);
 }
 
 function showNoticeItem(idx) {
   const n = csNoticeList[idx];
   if(!n) return;
-  document.getElementById('notice-text').textContent = n.title;
-  document.getElementById('notice-date').textContent = fmtDate(n.created_at);
+  const textEl = document.getElementById('hn-text');
+  const dateEl = document.getElementById('hn-date');
+  if(textEl) textEl.textContent = n.title;
+  if(dateEl) dateEl.textContent = fmtDate(n.created_at);
 }
 
 /* ── 유틸 함수 ───────────────────────────────────────────── */
@@ -2451,10 +2704,13 @@ function fmtDate(iso) {
 
 /* ── 공지 배너 표시 조건 (페이월/cs 화면에서 숨김) ──────── */
 function updateNoticeBanner() {
-  const banner = document.getElementById('notice-banner');
-  if(csNoticeList.length === 0) return;
-  const hideScreens = ['screen-paywall','screen-cs','screen-verify'];
-  const shouldHide = hideScreens.some(id => !document.getElementById(id).classList.contains('hidden'));
+  const banner = document.getElementById('header-notice');
+  if(!banner || csNoticeList.length === 0) return;
+  const hideScreens = ['screen-paywall','screen-cs','screen-verify','screen-login'];
+  const shouldHide = hideScreens.some(id => {
+    const el = document.getElementById(id);
+    return el && !el.classList.contains('hidden');
+  });
   if(shouldHide) banner.classList.add('hidden');
   else banner.classList.remove('hidden');
 }
@@ -2986,6 +3242,28 @@ window.toggleAuthMode = function() {
   </div>
 </div>
 
+</div>
+
+<!-- ══════════════════════════════════════════════
+     💳 토스페이먼츠 v2 결제 위젯 모달
+     ════════════════════════════════════════════ -->
+<div id="toss-modal">
+  <div id="toss-modal-inner">
+    <button id="toss-modal-close" onclick="closeTossModal()">✕</button>
+    <div id="toss-modal-title">💳 결제하기</div>
+    <div id="toss-modal-order-info">
+      <div id="toss-order-name" style="font-size:.86rem;color:var(--text);font-weight:700;margin-bottom:4px;"></div>
+      <div>결제 금액: <strong id="toss-amount-display"></strong></div>
+    </div>
+    <!-- 토스 결제수단 위젯 렌더링 영역 -->
+    <div id="payment-method-container"></div>
+    <!-- 토스 이용약관 위젯 렌더링 영역 -->
+    <div id="agreement-container"></div>
+    <!-- 결제 버튼 -->
+    <button id="toss-modal-pay-btn" onclick="confirmTossPayment()" disabled>
+      결제수단을 선택해 주세요
+    </button>
+  </div>
 </div>
 </body>
 </html>
