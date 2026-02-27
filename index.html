@@ -109,7 +109,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 #toast.show{transform:translateX(-50%) translateY(0);}
 #toast.success{border-color:var(--accent3);color:var(--accent3);}
 #toast.error{border-color:var(--accent2);color:var(--accent2);}
-#header{background:linear-gradient(135deg,#0d1929,#111827);border-bottom:2px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:1000;position:relative;}
+#header{background:linear-gradient(135deg,#0d1929,#111827);border-bottom:2px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:0;flex-shrink:0;z-index:1000;position:relative;}
 #header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);}
 .logo{font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:var(--accent);text-shadow:0 0 15px var(--accent);letter-spacing:2px;}
 .logo span{color:var(--accent2);}
@@ -327,13 +327,13 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 /* ── 4. 헤더 공지 롤링 인라인 ─────────────────────── */
 #header-notice{
-  flex:1;min-width:0;max-width:420px;
+  flex:1;min-width:0;max-width:500px;
   display:flex;align-items:center;
   background:rgba(255,30,30,.07);
   border:1px solid rgba(255,80,80,.18);
   border-radius:8px;height:30px;
   overflow:hidden;cursor:pointer;
-  margin:0 8px;
+  margin:0 12px;
 }
 #header-notice.hidden{display:none!important;}
 #header-notice .hn-label{
@@ -434,6 +434,37 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 <!-- ① 로그인 화면 -->
 <div id="screen-login" class="fs-screen">
+
+  <!-- 로그인 화면 전용 공지 롤링 바 (비로그인도 읽기 가능) -->
+  <div id="login-notice-bar" class="hidden"
+    style="position:absolute;top:0;left:0;right:0;height:32px;
+           display:flex;align-items:center;overflow:hidden;
+           background:rgba(200,20,20,.08);
+           border-bottom:1px solid rgba(255,60,60,.18);
+           cursor:pointer;z-index:10;"
+    onclick="openCS()">
+    <div style="flex-shrink:0;background:rgba(200,30,30,.8);color:#fff;
+                font-size:.6rem;font-weight:700;padding:0 12px;
+                height:100%;display:flex;align-items:center;
+                white-space:nowrap;letter-spacing:.5px;">
+      📢 공지
+    </div>
+    <div id="ln-text"
+      style="flex:1;font-size:.7rem;color:#ff9090;font-weight:600;
+             padding:0 14px;white-space:nowrap;overflow:hidden;
+             text-overflow:ellipsis;transition:opacity .35s;">
+      공지사항을 불러오는 중...
+    </div>
+    <div id="ln-date"
+      style="flex-shrink:0;font-size:.6rem;
+             color:rgba(255,120,120,.5);padding:0 10px;white-space:nowrap;">
+    </div>
+    <div style="flex-shrink:0;font-size:.6rem;color:rgba(255,120,120,.4);
+                padding:0 12px;white-space:nowrap;">
+      고객센터 →
+    </div>
+  </div>
+
   <div class="login-card">
     <div class="login-logo">Map<span>Dong</span></div>
     <div class="login-sub">수도권 동(洞) 위치 퀴즈<br>로그인 후 무료 300문제 체험 가능</div>
@@ -828,7 +859,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div class="hn-text" id="hn-text">공지사항이 없습니다</div>
     <div class="hn-date" id="hn-date"></div>
   </div>
-  <div id="header-right" style="display:flex;align-items:center;gap:10px;">
+  <div id="header-right" style="display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0;">
   <div id="stats-bar">
     <div class="sb"><div class="sl">문제</div><div class="sv" id="sQ">-</div></div>
     <div class="sb"><div class="sl">정답</div><div class="sv" style="color:#39ff14" id="sC">0</div></div>
@@ -1859,6 +1890,7 @@ sb.auth.onAuthStateChange(async(event, session) => {
       }
     } else {
       showOnly('screen-login');
+      loadNotices(); // 비로그인 시에도 공지 표시
     }
   }
 });
@@ -2483,14 +2515,25 @@ async function renderCSBoard() {
     return;
   }
 
-  const canWrite = !!currentUser;
+  const canWrite = !!currentUser;  // 로그인한 회원만 글쓰기 가능
   const notices  = csPostList.filter(p => p.is_notice);
   const normals  = csPostList.filter(p => !p.is_notice);
 
   body.innerHTML = `
     <div class="cs-board-header">
       <div style="font-size:.76rem;color:var(--text-dim);">전체 <strong style="color:var(--text);">${csPostList.length}</strong>개</div>
-      ${canWrite ? '<button class="cs-write-btn" onclick="csWriteForm()">✏️ 글쓰기</button>' : '<div style="font-size:.72rem;color:var(--text-dim);">로그인 후 글쓰기 가능</div>'}
+      ${canWrite
+        ? '<button class="cs-write-btn" onclick="csWriteForm()">✏️ 글쓰기</button>'
+        : `<div style="display:flex;align-items:center;gap:8px;">
+             <span style="font-size:.7rem;color:var(--text-dim);">🔒 회원만 글쓰기 가능</span>
+             <button onclick="closeCS()"
+               style="background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);
+                      color:var(--accent);border-radius:6px;padding:4px 10px;
+                      font-size:.68rem;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+               로그인하기
+             </button>
+           </div>`
+      }
     </div>
     <div class="cs-post-list" id="cs-post-list">
       ${csPostList.length === 0 ? '<div style="text-align:center;padding:32px;color:var(--text-dim);font-size:.78rem;">아직 게시물이 없습니다.</div>' :
@@ -2648,37 +2691,53 @@ function getRefundHtml() {
    공지 롤링 시스템
    ══════════════════════════════════════════════ */
 async function loadNotices() {
-  // 최근 7일 이내 공지사항만
+  // 최근 7일 이내 공지사항만 — 로그인 여부와 무관하게 호출 가능
   const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString();
-  const { data } = await sb
-    .from('cs_posts')
-    .select('id, title, created_at')
-    .eq('is_notice', true)
-    .gte('created_at', weekAgo)
-    .order('created_at', { ascending: false })
-    .limit(10);
+  try {
+    const { data } = await sb
+      .from('cs_posts')
+      .select('id, title, created_at')
+      .eq('is_notice', true)
+      .gte('created_at', weekAgo)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    csNoticeList = data || [];
+  } catch(e) {
+    csNoticeList = [];
+  }
 
-  csNoticeList = data || [];
-  const banner = document.getElementById('header-notice');
+  // 헤더 공지박스 (퀴즈 화면)
+  const headerBanner = document.getElementById('header-notice');
+  // 로그인 화면 공지바
+  const loginBar = document.getElementById('login-notice-bar');
 
   if(csNoticeList.length === 0) {
-    banner.classList.add('hidden');
+    if(headerBanner) headerBanner.classList.add('hidden');
+    if(loginBar)     loginBar.classList.add('hidden');
     return;
   }
 
-  banner.classList.remove('hidden');
+  if(headerBanner) headerBanner.classList.remove('hidden');
+  if(loginBar)     loginBar.classList.remove('hidden');
+
   csNoticeIdx = 0;
   showNoticeItem(0);
 
   if(csRollingTimer) clearInterval(csRollingTimer);
   // 6초마다 롤링 (무한 반복)
   csRollingTimer = setInterval(() => {
-    const textEl = document.getElementById('hn-text');
-    textEl.classList.add('fade');
+    // 헤더 fade
+    const hnText = document.getElementById('hn-text');
+    if(hnText) hnText.classList.add('fade');
+    // 로그인바 fade
+    const lnText = document.getElementById('ln-text');
+    if(lnText) lnText.style.opacity = '0';
+
     setTimeout(() => {
       csNoticeIdx = (csNoticeIdx + 1) % csNoticeList.length;
       showNoticeItem(csNoticeIdx);
-      textEl.classList.remove('fade');
+      if(hnText) hnText.classList.remove('fade');
+      if(lnText) lnText.style.opacity = '1';
     }, 350);
   }, 6000);
 }
@@ -2686,13 +2745,24 @@ async function loadNotices() {
 function showNoticeItem(idx) {
   const n = csNoticeList[idx];
   if(!n) return;
-  const textEl = document.getElementById('hn-text');
-  const dateEl = document.getElementById('hn-date');
-  if(textEl) textEl.textContent = n.title;
-  if(dateEl) dateEl.textContent = fmtDate(n.created_at);
+  // 헤더 공지박스
+  const hnText = document.getElementById('hn-text');
+  const hnDate = document.getElementById('hn-date');
+  if(hnText) hnText.textContent = n.title;
+  if(hnDate) hnDate.textContent = fmtDate(n.created_at);
+  // 로그인 화면 공지바
+  const lnText = document.getElementById('ln-text');
+  const lnDate = document.getElementById('ln-date');
+  if(lnText) lnText.textContent = n.title;
+  if(lnDate) lnDate.textContent = fmtDate(n.created_at);
 }
 
-/* ── 유틸 함수 ───────────────────────────────────────────── */
+/* ── 페이지 첫 로드 즉시 공지 불러오기 ───────────────────── */
+// 로그인 여부와 무관하게 공지사항을 바로 표시
+(async function initNoticesOnLoad() {
+  await loadNotices();
+  updateNoticeBanner();
+})();
 function escHtml(str) {
   return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -2702,17 +2772,22 @@ function fmtDate(iso) {
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
 }
 
-/* ── 공지 배너 표시 조건 (페이월/cs 화면에서 숨김) ──────── */
+/* ── 공지 배너 표시 조건 ──────────────────────────────────── */
 function updateNoticeBanner() {
-  const banner = document.getElementById('header-notice');
-  if(!banner || csNoticeList.length === 0) return;
-  const hideScreens = ['screen-paywall','screen-cs','screen-verify','screen-login'];
-  const shouldHide = hideScreens.some(id => {
+  if(csNoticeList.length === 0) return;
+
+  // 헤더 공지박스: 로그인/결제/CS/인증 화면에선 숨김 (헤더 자체가 안 보이므로)
+  const headerBanner = document.getElementById('header-notice');
+  const hideHeader = ['screen-paywall','screen-cs','screen-verify','screen-login'].some(id => {
     const el = document.getElementById(id);
     return el && !el.classList.contains('hidden');
   });
-  if(shouldHide) banner.classList.add('hidden');
-  else banner.classList.remove('hidden');
+  if(headerBanner) headerBanner.classList.toggle('hidden', hideHeader);
+
+  // 로그인 화면 공지바: 로그인 화면일 때만 표시
+  const loginBar = document.getElementById('login-notice-bar');
+  const onLoginScreen = !document.getElementById('screen-login').classList.contains('hidden');
+  if(loginBar) loginBar.classList.toggle('hidden', !onLoginScreen);
 }
 
 
