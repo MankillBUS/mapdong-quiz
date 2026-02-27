@@ -520,7 +520,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
     <!-- 설명 -->
     <div style="font-size:.85rem;color:#8ab4cc;margin-bottom:4px;line-height:1.6;">
-      플랜 결제시 수도권 500+ 이상 행정동 무제한 퀴즈
+      플랜 결제 시 수도권 500+ 이상 행정동 무제한 퀴즈
     </div>
     <div style="font-size:.72rem;color:#5a8090;margin-bottom:0px;line-height:1.5;">
       추후 <span style="color:#a0c4d8;">지방 · 해외 지역 출시 예정</span> 🌏
@@ -3216,11 +3216,71 @@ window.toggleAuthMode = function() {
           <tr><th>수집 항목</th><th>수집 목적</th><th>보유 기간</th></tr>
           <tr><td>이메일 주소</td><td>회원 식별, 로그인, 서비스 안내</td><td>탈퇴 시까지</td></tr>
           <tr><td>닉네임</td><td>서비스 내 회원 표시명</td><td>탈퇴 시까지</td></tr>
-          <tr><td>실명 (본인인증 시)</td><td>중복 가입 방지, 본인 확인</td><td>탈퇴 시 즉시 파기</td></tr>
+          <tr><td>실명 (본인인증 시)</td><td>중복 가입 방지, 본인 확인</td><td>인증 완료 후 즉시 파기</td></tr>
           <tr><td>휴대폰 번호</td><td>본인인증, 이벤트 당첨 연락</td><td>탈퇴 시까지</td></tr>
           <tr><td>주소</td><td>이벤트 경품/선물 배송</td><td>배송 완료 후 6개월</td></tr>
         </table>
       </div>
+
+      <!-- ★ 본인인증 개인정보 처리 안내 (신규 추가) -->
+      <div class="privacy-section">
+        <div class="privacy-section-title">🪪 본인인증 개인정보 처리 안내</div>
+        <div style="background:linear-gradient(135deg,rgba(0,212,255,.05),rgba(0,150,180,.08));
+                    border:2px solid rgba(0,212,255,.3);
+                    border-radius:12px;padding:16px 16px;line-height:1.9;
+                    font-size:.74rem;color:#b0c8de;">
+
+          <!-- 핵심 강조 박스 -->
+          <div style="background:rgba(255,215,0,.08);border:1.5px solid rgba(255,215,0,.4);
+                      border-radius:8px;padding:12px 14px;margin-bottom:12px;
+                      font-size:.78rem;">
+            <div style="font-weight:900;color:#ffd700;font-size:.82rem;margin-bottom:6px;
+                        letter-spacing:.5px;">
+              🔒 주민등록번호 수집 완전 금지
+            </div>
+            <div style="color:#e0d090;line-height:1.8;">
+              본 서비스는 <strong style="color:#ffd700;">주민등록번호를 수집하지 않습니다.</strong><br>
+              본인인증 절차에서 주민등록번호는 인증기관(나이스평가정보)의 서버에서만
+              처리되며, <strong style="color:#ffd700;">당사 서버에는 일절 전송·저장되지 않습니다.</strong>
+            </div>
+          </div>
+
+          <!-- 처리 흐름 -->
+          <div style="margin-bottom:10px;">
+            <strong style="color:var(--accent);">① 인증 처리 방식</strong><br>
+            휴대폰 본인인증 시 나이스평가정보의 본인확인 서비스를 통해 처리되며,
+            당사는 인증 결과로 <strong style="color:var(--accent2);">고유 회원 식별번호(CI)</strong>만을 수신합니다.
+          </div>
+
+          <!-- 즉시 파기 강조 -->
+          <div style="background:rgba(255,60,110,.08);border:1.5px solid rgba(255,60,110,.3);
+                      border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+            <strong style="color:#ff8099;font-size:.78rem;">
+              ② 수집 정보 즉시 파기
+            </strong><br>
+            <span style="color:#d0a0b0;">
+              본인인증 과정에서 수신된 <strong style="color:#ff8099;">실명·휴대폰 번호</strong>는
+              회원 식별번호(CI) 생성 즉시 <strong style="color:#ff6080;">완전 파기</strong>됩니다.<br>
+              당사 데이터베이스에는 <strong style="color:#ff8099;">오직 회원 식별번호만</strong> 보관되며,
+              원본 개인정보는 어떠한 형태로도 저장·보관하지 않습니다.
+            </span>
+          </div>
+
+          <!-- 법적 근거 -->
+          <div style="font-size:.68rem;color:#6a8a9a;line-height:1.7;
+                      border-top:1px solid rgba(255,255,255,.08);padding-top:10px;">
+            <strong style="color:#7aabb0;">📋 관련 법령 근거</strong><br>
+            •「개인정보 보호법」 제24조 — 고유식별정보의 처리 제한<br>
+            •「개인정보 보호법」 제21조 — 개인정보의 파기<br>
+            •「정보통신망 이용촉진 및 정보보호 등에 관한 법률」 제23조 — 주민번호 수집 금지<br>
+            <span style="color:#4a7080;margin-top:4px;display:block;">
+              ※ 본인인증 서비스 제공자: 나이스평가정보(주) | 위탁 업무: 본인확인 서비스 운영
+            </span>
+          </div>
+        </div>
+      </div>
+      <!-- /본인인증 안내 끝 -->
+
       <div class="privacy-section">
         <div class="privacy-section-title">🗃️ 개인정보 보관 및 파기 안내</div>
         <p style="background:rgba(255,215,0,.06);border:1px solid rgba(255,215,0,.2);border-radius:8px;padding:10px 12px;">
