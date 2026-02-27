@@ -335,7 +335,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   overflow:hidden;cursor:pointer;
   margin:0 8px;
 }
-#header-notice.hidden{display:none!important;}
 #header-notice .hn-label{
   flex-shrink:0;background:rgba(200,30,30,.75);
   color:#fff;font-size:.6rem;font-weight:700;
@@ -359,7 +358,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 /* ── 5. 사이드 패널 토글 ───────────────────────────── */
 /* #main이 side-toggle의 기준점 */
 #side-toggle{
-  position:absolute;left:256px;top:50%;   /* 265px(side 너비) - 9px = 256px */
+  position:absolute;left:247px;top:50%;   /* 265px(side 너비) - 18px(버튼 너비) = 247px — 테두리 안쪽 */
   transform:translateY(-50%);
   z-index:700;
   background:var(--surface);
@@ -441,6 +440,36 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 <!-- ① 로그인 화면 -->
 <div id="screen-login" class="fs-screen">
+
+  <!-- 로그인 화면 공지 롤링 바 (상단 고정, 비로그인도 읽기 가능) -->
+  <div id="login-notice-bar" class="hidden"
+    style="position:absolute;top:0;left:0;right:0;height:32px;
+           display:flex;align-items:center;overflow:hidden;z-index:10;
+           background:rgba(200,20,20,.08);
+           border-bottom:1px solid rgba(255,60,60,.18);
+           cursor:pointer;"
+    onclick="openCS()">
+    <div style="flex-shrink:0;background:rgba(200,30,30,.8);color:#fff;
+                font-size:.6rem;font-weight:700;padding:0 12px;height:100%;
+                display:flex;align-items:center;white-space:nowrap;letter-spacing:.5px;">
+      📢 공지
+    </div>
+    <div id="ln-text"
+      style="flex:1;font-size:.7rem;color:#ff9090;font-weight:600;
+             padding:0 14px;white-space:nowrap;overflow:hidden;
+             text-overflow:ellipsis;transition:opacity .35s;">
+      공지사항 로딩 중...
+    </div>
+    <div id="ln-date"
+      style="flex-shrink:0;font-size:.6rem;color:rgba(255,120,120,.5);
+             padding:0 10px;white-space:nowrap;">
+    </div>
+    <div style="flex-shrink:0;font-size:.6rem;color:rgba(255,120,120,.4);
+                padding:0 12px;white-space:nowrap;">
+      고객센터 →
+    </div>
+  </div>
+
   <div class="login-card">
     <div class="login-logo">Map<span>Dong</span></div>
     <div class="login-sub">수도권 동(洞) 위치 퀴즈<br>로그인 후 무료 300문제 체험 가능</div>
@@ -829,10 +858,10 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div class="logo" onclick="goHome()" style="cursor:pointer;" title="처음으로 가기">Map<span>Dong</span></div>
     <button onclick="goHome()" style="background:linear-gradient(135deg,#ff9f43,#ee5a6f);border:none;border-radius:8px;padding:6px 14px;font-size:0.85rem;font-weight:700;color:#000;cursor:pointer;transition:all 0.2s;margin-left:12px;">🏠 처음으로</button>
     <button id="btn-cs" onclick="openCS()">🛎 고객센터</button>
-  <!-- 4. 헤더 인라인 공지 롤링 -->
-  <div id="header-notice" class="hidden" onclick="openCS()">
+  <!-- 헤더 인라인 공지 롤링 — 항상 표시 -->
+  <div id="header-notice" onclick="openCS()">
     <div class="hn-label">📢 공지</div>
-    <div class="hn-text" id="hn-text">공지사항이 없습니다</div>
+    <div class="hn-text" id="hn-text">공지 로딩 중...</div>
     <div class="hn-date" id="hn-date"></div>
   </div>
   <div id="header-right" style="display:flex;align-items:center;gap:10px;">
@@ -2658,35 +2687,50 @@ function getRefundHtml() {
 async function loadNotices() {
   // 최근 7일 이내 공지사항만
   const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString();
-  const { data } = await sb
-    .from('cs_posts')
-    .select('id, title, created_at')
-    .eq('is_notice', true)
-    .gte('created_at', weekAgo)
-    .order('created_at', { ascending: false })
-    .limit(10);
+  try {
+    const { data } = await sb
+      .from('cs_posts')
+      .select('id, title, created_at')
+      .eq('is_notice', true)
+      .gte('created_at', weekAgo)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    csNoticeList = data || [];
+  } catch(e) {
+    csNoticeList = [];
+  }
 
-  csNoticeList = data || [];
-  const banner = document.getElementById('header-notice');
-
+  // 공지 없으면 placeholder
+  const hnText = document.getElementById('hn-text');
+  const hnDate = document.getElementById('hn-date');
   if(csNoticeList.length === 0) {
-    banner.classList.add('hidden');
+    if(hnText) hnText.textContent = '등록된 공지사항이 없습니다';
+    if(hnDate) hnDate.textContent = '';
+    // 로그인 화면 공지바 숨김
+    const lbar = document.getElementById('login-notice-bar');
+    if(lbar) lbar.classList.add('hidden');
     return;
   }
 
-  banner.classList.remove('hidden');
   csNoticeIdx = 0;
   showNoticeItem(0);
+
+  // 로그인 화면 공지바 표시
+  const lbar = document.getElementById('login-notice-bar');
+  if(lbar) lbar.classList.remove('hidden');
 
   if(csRollingTimer) clearInterval(csRollingTimer);
   // 6초마다 롤링 (무한 반복)
   csRollingTimer = setInterval(() => {
     const textEl = document.getElementById('hn-text');
-    textEl.classList.add('fade');
+    if(textEl) textEl.classList.add('fade');
+    const lnText = document.getElementById('ln-text');
+    if(lnText) lnText.style.opacity = '0';
     setTimeout(() => {
       csNoticeIdx = (csNoticeIdx + 1) % csNoticeList.length;
       showNoticeItem(csNoticeIdx);
-      textEl.classList.remove('fade');
+      if(textEl) textEl.classList.remove('fade');
+      if(lnText) lnText.style.opacity = '1';
     }, 350);
   }, 6000);
 }
@@ -2694,10 +2738,16 @@ async function loadNotices() {
 function showNoticeItem(idx) {
   const n = csNoticeList[idx];
   if(!n) return;
-  const textEl = document.getElementById('hn-text');
-  const dateEl = document.getElementById('hn-date');
-  if(textEl) textEl.textContent = n.title;
-  if(dateEl) dateEl.textContent = fmtDate(n.created_at);
+  // 헤더 공지박스
+  const hnText = document.getElementById('hn-text');
+  const hnDate = document.getElementById('hn-date');
+  if(hnText) hnText.textContent = n.title;
+  if(hnDate) hnDate.textContent = fmtDate(n.created_at);
+  // 로그인 화면 공지바
+  const lnText = document.getElementById('ln-text');
+  const lnDate = document.getElementById('ln-date');
+  if(lnText) lnText.textContent = n.title;
+  if(lnDate) lnDate.textContent = fmtDate(n.created_at);
 }
 
 /* ── 유틸 함수 ───────────────────────────────────────────── */
@@ -2710,17 +2760,15 @@ function fmtDate(iso) {
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
 }
 
-/* ── 공지 배너 표시 조건 (페이월/cs 화면에서 숨김) ──────── */
+/* ── 공지 배너 표시 조건 ──────────────────────────────────── */
 function updateNoticeBanner() {
-  const banner = document.getElementById('header-notice');
-  if(!banner || csNoticeList.length === 0) return;
-  const hideScreens = ['screen-paywall','screen-cs','screen-verify','screen-login'];
-  const shouldHide = hideScreens.some(id => {
-    const el = document.getElementById(id);
-    return el && !el.classList.contains('hidden');
-  });
-  if(shouldHide) banner.classList.add('hidden');
-  else banner.classList.remove('hidden');
+  // 헤더 공지박스는 항상 표시 (hidden 조작 없음)
+  // 로그인 화면 공지바만 조건 제어
+  const lbar = document.getElementById('login-notice-bar');
+  if(!lbar) return;
+  const onLogin = !document.getElementById('screen-login').classList.contains('hidden');
+  if(csNoticeList.length > 0 && onLogin) lbar.classList.remove('hidden');
+  else lbar.classList.add('hidden');
 }
 
 
