@@ -1225,7 +1225,7 @@ function getCenter(geo) {
 async function loadPolygonCache() {
   try {
     // v3 → v2 → flat 순서로 시도
-    let res = await fetch('polygon_cache_v3.json');
+    let res = await fetch('polygon_cache.json');
     if (!res.ok) res = await fetch('polygon_cache_v2.json');
     if (!res.ok) res = await fetch('polygon_cache.json');
     if (!res.ok) throw new Error('캐시 파일 없음');
