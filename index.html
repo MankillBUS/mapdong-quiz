@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="https://js.tosspayments.com/v1/payment"></script>
+<script src="https://js.tosspayments.com/v2/standard"></script>
 <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <style>
 :root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1e3a5f;--accent:#00d4ff;--accent2:#ff3c6e;--accent3:#39ff14;--text:#e8f4fd;--text-dim:#7a9bb5;--gold:#ffd700;}
@@ -251,6 +251,56 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 </head>
 <body>
 
+<!-- ═══════════════════════════════════════════════════════
+     🛎 고객센터 FAB 버튼 (모든 화면 공통 고정)
+     ════════════════════════════════════════════════════ -->
+<button id="cs-fab" onclick="openCS()">🛎 고객센터</button>
+
+<!-- ═══════════════════════════════════════════════════════
+     📢 공지사항 롤링 배너 (로그인·start·퀴즈 화면에 표시)
+     ════════════════════════════════════════════════════ -->
+<div id="notice-banner" class="hidden">
+  <div class="notice-label">📢 공지</div>
+  <div class="notice-track-wrap">
+    <div class="notice-track">
+      <div class="notice-item" id="notice-text" onclick="openCSNotice()">공지사항을 불러오는 중...</div>
+    </div>
+  </div>
+  <div style="flex-shrink:0;font-size:.62rem;color:rgba(255,100,100,.6);padding:0 10px;white-space:nowrap;" id="notice-date"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     💬 고객센터 모달
+     ════════════════════════════════════════════════════ -->
+<div id="cs-modal">
+  <div class="cs-wrap">
+    <div class="cs-header">
+      <div class="cs-title">🛎 고객센터</div>
+      <button class="cs-close" onclick="closeCS()">✕</button>
+    </div>
+    <div class="cs-tabs">
+      <div class="cs-tab active" onclick="csTab('board')" id="tab-board">게시판</div>
+      <div class="cs-tab" onclick="csTab('refund')" id="tab-refund">환불 약관</div>
+    </div>
+    <div class="cs-body" id="cs-body">
+      <!-- 동적으로 채워짐 -->
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     🏢 사이트 공통 푸터
+     ════════════════════════════════════════════════════ -->
+<footer id="site-footer">
+  <strong>워크트래블허브</strong> &nbsp;|&nbsp;
+  대표자: 김강별 &nbsp;|&nbsp;
+  사업자등록번호: 690-17-02022 &nbsp;|&nbsp;
+  통신판매업 신고번호: 제2025-서울서초-3783호<br>
+  사업장 주소: 서울특별시 서초구 서초동 1362-23 더포인트 3층 &nbsp;|&nbsp;
+  유선번호: 070-7782-3601 &nbsp;|&nbsp;
+  고객센터: <span style="cursor:pointer;color:#4a9abb;text-decoration:underline;" onclick="openCS()">고객센터 바로가기</span>
+</footer>
+
 <!-- ① 로그인 화면 -->
 <div id="screen-login" class="fs-screen">
   <div class="login-card">
@@ -270,7 +320,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     </div>
   </div>
   <!-- 요금제 상품 표시 -->
-  <div style="background:linear-gradient(135deg,#111827,#1a2235);border:1px solid #ffd700;border-radius:12px;padding:14px 28px;text-align:center;display:inline-block;width:auto;max-width:96vw;">
+  <div style="background:linear-gradient(135deg,#111827,#1a2235);border:1px solid #ffd700;border-radius:12px;padding:14px 24px;text-align:center;max-width:420px;width:100%;">
     <div style="font-size:.6rem;color:#ffd700;letter-spacing:2px;margin-bottom:4px;">💎 PREMIUM PLAN</div>
     <div style="font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:#fff;margin-bottom:2px;">MapDong 프리미엄</div>
     <div style="font-size:.75rem;color:#7a9bb5;margin-bottom:8px;">수도권 500+ 행정동 무제한 퀴즈</div>
@@ -281,7 +331,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     </div>
 
     <!-- 사업자 정보 -->
-<div style="text-align:center;font-size:.64rem;color:#4a6a85;line-height:1.8;white-space:nowrap;padding:0 4px;">
+<div style="text-align:center;font-size:.64rem;color:#4a6a85;line-height:1.8;max-width:420px;width:100%;padding:0 10px;">
   <span>상호명: 워크트래블허브</span> &nbsp;|&nbsp;
   <span>사업자등록번호: 690-17-02022</span> &nbsp;|&nbsp;
   <span>통신판매업: 제2025-서울서초-3783호</span> &nbsp;|&nbsp;
@@ -369,6 +419,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
             <div id="plan1-discount-info" style="display:none;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.3);border-radius:8px;padding:8px 12px;font-size:.72rem;color:var(--gold);margin-bottom:12px;text-align:center;"></div>
             <button class="btn-pay" onclick="requestPayment('daily')" id="btn-pay-1">💳 결제하기</button>
             <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
+            <div class="refund-link-row"><button class="refund-link-btn" onclick="openCSRefund()">환불규정 →</button></div>
           </div>
         </div>
 
@@ -397,6 +448,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
             <div id="plan2-discount-info" style="display:none;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.3);border-radius:8px;padding:8px 12px;font-size:.72rem;color:var(--accent);margin-bottom:12px;text-align:center;"></div>
             <button class="btn-pay" onclick="requestPayment('monthly')" style="background:linear-gradient(135deg,var(--accent),#0099bb);">💳 결제하기</button>
             <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
+            <div class="refund-link-row"><button class="refund-link-btn" onclick="openCSRefund()">환불규정 →</button></div>
           </div>
         </div>
 
@@ -425,6 +477,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
             <div id="plan3-discount-info" style="display:none;background:rgba(162,155,254,.08);border:1px solid rgba(162,155,254,.3);border-radius:8px;padding:8px 12px;font-size:.72rem;color:#a29bfe;margin-bottom:12px;text-align:center;"></div>
             <button class="btn-pay" onclick="requestPayment('quarterly')" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7);">💳 결제하기</button>
             <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
+            <div class="refund-link-row"><button class="refund-link-btn" onclick="openCSRefund()">환불규정 →</button></div>
           </div>
         </div>
 
@@ -454,6 +507,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
             <div id="plan4-discount-info" style="display:none;background:rgba(57,255,20,.06);border:1px solid rgba(57,255,20,.3);border-radius:8px;padding:8px 12px;font-size:.72rem;color:var(--accent3);margin-bottom:12px;text-align:center;"></div>
             <button class="btn-pay" onclick="requestPayment('halfyear')" style="background:linear-gradient(135deg,var(--accent3),#00b300);">💳 결제하기</button>
             <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
+            <div class="refund-link-row"><button class="refund-link-btn" onclick="openCSRefund()">환불규정 →</button></div>
           </div>
         </div>
 
@@ -486,6 +540,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
             <div id="plan5-discount-info" style="display:none;background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.3);border-radius:8px;padding:8px 12px;font-size:.72rem;color:#ff6b6b;margin-bottom:12px;text-align:center;"></div>
             <button class="btn-pay" onclick="requestPayment('yearly')" style="background:linear-gradient(135deg,#ff6b6b,#ee5a6f);">💳 결제하기 (최고 혜택)</button>
             <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
+            <div class="refund-link-row"><button class="refund-link-btn" onclick="openCSRefund()">환불규정 →</button></div>
           </div>
         </div>
 
@@ -493,7 +548,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     </div><!-- /overflow:hidden -->
 
     <!-- 사업자 정보 -->
-    <div style="text-align:center;font-size:.6rem;color:#4a6a85;line-height:1.8;margin-top:14px;white-space:nowrap;">
+    <div style="text-align:center;font-size:.6rem;color:#4a6a85;line-height:1.8;margin-top:14px;">
       상호명: 워크트래블허브 &nbsp;|&nbsp; 사업자등록번호: 690-17-02022 &nbsp;|&nbsp; 통신판매업: 제2025-서울서초-3783호 &nbsp;|&nbsp; 대표자: 김강별
     </div>
   </div><!-- /paywall-wrap -->
@@ -508,32 +563,45 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <div style="font-family:'Black Han Sans',sans-serif;font-size:1.3rem;color:var(--text);margin-bottom:4px;">📄 결제 취소 및 환불 약관</div>
       <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:18px;">결제 전 반드시 확인해 주세요</div>
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px 18px;font-size:.76rem;color:#b0c8de;line-height:1.85;max-height:320px;overflow-y:auto;">
-        <div style="font-weight:700;color:var(--text);margin-bottom:8px;">제1조 (결제 취소 및 환불 정책)</div>
-        <p>① 회사와 구매에 관한 계약을 체결한 회원은 아래와 같이 결제에 대한 취소 및 환불을 요구할 수 있습니다.</p>
+        <div style="font-weight:700;color:var(--text);margin-bottom:8px;">제1조 (환불 정책 기본 원칙)</div>
+        <p>① 본 서비스는 「전자상거래 등에서의 소비자보호에 관한 법률」 및 관련 법령에 따라 환불을 처리합니다.</p>
+        <p>② 이용계약 신청 후 서비스가 제공되지 않은 경우(이용 개시 전)에는 전액 환불이 가능합니다.</p>
+        <p>③ 본 서비스는 디지털 콘텐츠(기간제 이용권)의 특성상, <strong style="color:#ffd700;">결제일 당일은 이용이 개시된 것으로 간주하여 결제 당일 환불은 불가합니다.</strong> 또한 환불 신청 처리를 위한 검토 기간(영업일 기준 2~5일)이 소요됩니다.</p>
         <br>
-        <p>- 이용계약 신청 후, 회사로부터의 서비스가 제공되지 않은 경우 결제 취소가 가능합니다.</p>
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px;">제2조 (일일권 환불 정책 / 1~25일)</div>
+        <p><strong style="color:var(--accent);">대상:</strong> 1일 ~ 25일 이용권</p>
+        <p>• <strong style="color:#ffd700;">결제 당일: 환불 불가</strong> (이용 개시일로 간주)</p>
+        <p>• 결제 다음날 이후 환불 신청 시: <strong>구매일수에서 이미 사용한 일수를 차감한 뒤, 추가로 10일을 위약금으로 공제</strong>한 잔여 일수에 해당하는 금액을 환불합니다.</p>
+        <p>• 공제 후 환불 가능 일수가 0일 이하인 경우 환불이 불가합니다.</p>
+        <p style="background:rgba(255,215,0,.07);border-left:3px solid var(--gold);padding:8px 12px;border-radius:0 6px 6px 0;margin-top:6px;">
+          <strong style="color:var(--gold);">📌 계산 예시:</strong> 22일권 구매 후 5일 사용 시 환불 신청<br>
+          → (22일 - 5일 사용) - 10일 위약금 = <strong>7일분 환불</strong> (7일 × 600원 = 4,200원)</p>
         <br>
-        <p><strong style="color:var(--accent);">a. 정기결제 회원 (월간·분기·반기 구독)</strong><br>
-        환불은 서비스를 이용한 일수를 제외하고 일할 계산으로 진행됩니다. 월 기준은 30일이며, 월 이용료를 30으로 나눈 금액을 하루 이용료로 산정합니다.<br>
-        결제 시점으로부터 24시간 이후 ~ 15일까지는 잔여 일수에 대한 일할 계산으로 처리됩니다.</p>
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px;">제3조 (1개월 구독 환불 정책)</div>
+        <p><strong style="color:var(--accent);">대상:</strong> 1개월(30일) 구독권</p>
+        <p>• <strong style="color:#ffd700;">1개월 구독권은 환불이 불가합니다.</strong></p>
+        <p>• 단, 회사의 귀책사유로 서비스가 중단된 경우에는 잔여 기간에 해당하는 금액을 환불합니다.</p>
         <br>
-        <p><strong style="color:var(--accent);">b. 연간결제 회원 (12개월 구독)</strong><br>
-        연 기준은 12개월이며, 잔여 이용료는 전체 연간 결제 이용료를 365로 나눈 금액 × 잔여 일수로 환불됩니다.</p>
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px;">제4조 (3개월·6개월·12개월 구독 환불 정책)</div>
+        <p><strong style="color:var(--accent);">대상:</strong> 3개월·6개월·12개월 구독권</p>
+        <p>• 환불은 <strong>개월 단위</strong>로만 가능합니다. 일할 계산 환불은 적용되지 않습니다.</p>
+        <p>• 환불 신청일 기준으로 (총 이용일수 + 10일 위약금)을 공제한 뒤, <strong>완전한 1개월(30일) 단위가 1개월 이상 남은 경우에 한해</strong> 해당 개월수만큼 환불합니다.</p>
+        <p>• 환불 금액 = 결제 금액 ÷ 총 구독 개월수 × 환불 가능 개월수</p>
+        <p style="background:rgba(255,215,0,.07);border-left:3px solid var(--gold);padding:8px 12px;border-radius:0 6px 6px 0;margin-top:6px;">
+          <strong style="color:var(--gold);">📌 계산 예시 (3개월 / 28,000원):</strong> 5일 사용 후 환불 신청<br>
+          → 5일 사용 + 10일 위약금 = 15일 공제<br>
+          → 3개월(90일) - 15일 = <strong>75일 잔여 → 2개월 15일</strong><br>
+          → 완전한 1개월 단위: <strong>2개월</strong> → 환불액: 28,000원 ÷ 3 × 2 = <strong>약 18,667원 환불</strong></p>
         <br>
-        <p><strong style="color:var(--accent);">c. 일일권 (1~25일 이용권)</strong><br>
-        이용 개시 전에는 전액 환불이 가능합니다. 이용 개시 후에는 잔여 일수에 대한 일할 계산으로 환불됩니다.</p>
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px;">제5조 (회사 귀책사유에 의한 환불)</div>
+        <p>① 회사의 귀책사유로 결제 오류가 발생한 경우 전액 환불합니다.</p>
+        <p>② 회사의 귀책사유로 서비스가 중단된 경우 잔여 기간에 해당하는 금액을 환불합니다. 이 경우 위약금을 공제하지 않습니다.</p>
         <br>
-        <p>- 회원이 서비스 이용 후 상대 프로필카드를 2회 이상 수령한 경우, 잔여 횟수가 남은 회원에 한하여 이용 금액에서 위약금 10%를 제외한 부분 환불이 가능합니다.</p>
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px;">제6조 (환불 방법 및 기간)</div>
+        <p>환불은 원칙적으로 결제 수단과 동일한 방법으로 진행되며, 환불 신청일로부터 영업일 3~5일 이내에 처리됩니다. 환불 관련 문의는 서비스 내 고객센터 게시판을 통해 접수해 주세요.</p>
         <br>
-        <div style="font-weight:700;color:var(--text);margin-bottom:6px;">제2조 (회사 귀책사유에 의한 환불)</div>
-        <p>② 회사의 귀책사유로 결제 오류가 발생한 경우 전액 환불합니다.</p>
-        <p>③ 회사의 귀책사유로 서비스가 중단된 경우 잔여 기간에 해당하는 금액을 환불합니다.</p>
-        <br>
-        <div style="font-weight:700;color:var(--text);margin-bottom:6px;">제3조 (환불 방법 및 기간)</div>
-        <p>환불은 원칙적으로 결제 수단과 동일한 방법으로 진행되며, 환불 신청일로부터 영업일 3~5일 이내에 처리됩니다. 환불 관련 문의는 서비스 내 고객센터를 통해 접수해 주세요.</p>
-        <br>
-        <div style="font-weight:700;color:var(--text);margin-bottom:6px;">제4조 (청약철회 제한)</div>
-        <p>「전자상거래 등에서의 소비자보호에 관한 법률」 제17조에 따라, 디지털 콘텐츠의 특성상 이용 개시 후에는 청약철회가 제한될 수 있습니다. 단, 본 약관 제1조에 명시된 예외 사유에 해당하는 경우는 제외합니다.</p>
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px;">제7조 (청약철회 제한)</div>
+        <p>「전자상거래 등에서의 소비자보호에 관한 법률」 제17조에 따라, 디지털 콘텐츠의 특성상 이용 개시 후에는 청약철회가 제한될 수 있습니다. 단, 본 약관 각 조에 명시된 환불 사유에 해당하는 경우는 제외합니다.</p>
       </div>
       <div id="refund-plan-info" style="background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.2);border-radius:10px;padding:12px 14px;font-size:.78rem;color:var(--gold);margin-top:16px;text-align:center;"></div>
       <div style="display:flex;gap:10px;margin-top:18px;">
@@ -1479,7 +1547,7 @@ function addR(ok,q,skip){
 ════════════════════════════════════════════ */
 const SUPABASE_URL  = 'https://emgsueepzioudqnitkyn.supabase.co';
 const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemlvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkwNzQsImV4cCI6MjA4NjU2NTA3NH0.epR1k3MVh0MfZejFh9VflCNOS8Uz8EuCZlez5OBMz3s'
-const TOSS_CLIENT_KEY = 'YOUR_TOSS_CLIENT_KEY';   // 토스 대시보드 > 클라이언트 키
+const TOSS_CLIENT_KEY = 'test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm'; // 토스 심사용 테스트 키 — 실 서비스 전 대시보드 키로 교체
 const EDGE = `${SUPABASE_URL}/functions/v1`;
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1595,6 +1663,7 @@ sb.auth.onAuthStateChange(async(event, session) => {
       renderUserChip();
       showOnly('start');
       handlePaymentCallback();
+      loadNotices();
       return;
     }
     // ↑ 슈퍼패스 끝 ─────────────────────────────────────────────
@@ -1603,6 +1672,7 @@ sb.auth.onAuthStateChange(async(event, session) => {
     // 퀴즈 중이면 routeUser 호출 안 함 (페이지 이동 방지)
     if(!quizActive()) routeUser();
     handlePaymentCallback();
+    loadNotices(); // 공지 롤링 시작
 
   } else {
     // 로그인 만료
@@ -1982,16 +2052,22 @@ async function startPayment(planKey) {
 
   try {
     const tossPayments = TossPayments(TOSS_CLIENT_KEY);
-    const orderId = `mapdong_${planKey}_${currentUser.id}_${Date.now()}`;
-    const name    = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || '사용자';
-    await tossPayments.requestPayment('카드', {
-      amount,
+    const orderId    = 'mapdong_' + planKey + '_' + currentUser.id.slice(0,8) + '_' + Date.now();
+    const customerKey = window.btoa(currentUser.id).slice(0, 20);
+    const name       = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || '사용자';
+
+    // 토스페이먼츠 v2 위젯 방식 (심사용)
+    const widgets = tossPayments.widgets({ customerKey });
+    await widgets.setAmount({ currency: 'KRW', value: amount });
+
+    await widgets.requestPayment({
       orderId,
       orderName,
-      customerName:  name,
-      customerEmail: currentUser.email,
-      successUrl: `${window.location.origin}?payment=success&orderId=${orderId}&plan=${planKey}&days=${selectedDays}`,
-      failUrl:    `${window.location.origin}?payment=fail`,
+      customerName:        name,
+      customerEmail:       currentUser.email,
+      customerMobilePhone: userProfile?.phone?.replace(/-/g,'') || '01000000000',
+      successUrl: window.location.origin + '?payment=success&orderId=' + orderId + '&plan=' + planKey + '&days=' + selectedDays,
+      failUrl:    window.location.origin + '?payment=fail',
     });
   } catch(err) {
     toast(err.code === 'USER_CANCEL' ? '결제를 취소하셨습니다' : '결제 오류: ' + err.message,
@@ -2018,6 +2094,311 @@ async function handlePaymentCallback(){
     if(res.ok){ toast('🎉 ' + (data.message||'프리미엄 활성화 완료!'), 'success'); await loadProfile(); routeUser(); }
     else toast('결제 확인 실패: ' + data.error, 'error');
   } catch(e){ toast('결제 처리 중 오류가 발생했습니다', 'error'); }
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   🛎 고객센터 & 공지 롤링 시스템
+   ════════════════════════════════════════════════════════ */
+
+/* ── Supabase 고객센터 테이블: cs_posts
+   컬럼: id, user_id, nickname, title, content, is_notice,
+         created_at, updated_at
+   ──────────────────────────────────────────────────────── */
+
+let csCurrentTab  = 'board';
+let csPostList    = [];
+let csViewingPost = null;
+let csEditingPost = null;
+let csNoticeList  = [];
+let csNoticeIdx   = 0;
+let csRollingTimer = null;
+
+/* ── 고객센터 열기/닫기 ──────────────────────────────────── */
+function openCS() {
+  document.getElementById('cs-modal').classList.add('show');
+  csTab('board');
+}
+function openCSNotice() {
+  document.getElementById('cs-modal').classList.add('show');
+  csTab('board');
+}
+function openCSRefund() {
+  document.getElementById('cs-modal').classList.add('show');
+  csTab('refund');
+}
+function closeCS() {
+  document.getElementById('cs-modal').classList.remove('show');
+}
+document.getElementById('cs-modal').addEventListener('click', function(e){
+  if(e.target === this) closeCS();
+});
+
+/* ── 탭 전환 ─────────────────────────────────────────────── */
+function csTab(tab) {
+  csCurrentTab = tab;
+  document.getElementById('tab-board').classList.toggle('active', tab === 'board');
+  document.getElementById('tab-refund').classList.toggle('active', tab === 'refund');
+  if(tab === 'board') renderCSBoard();
+  else renderCSRefund();
+}
+
+/* ── 관리자 판별 ─────────────────────────────────────────── */
+function isAdmin() {
+  return userProfile?.role === 'admin' ||
+    ['kke320001@gmail.com','test12@gmail.com'].includes(currentUser?.email);
+}
+
+/* ══════════════════════════════════════════════════
+   게시판 렌더링
+   ══════════════════════════════════════════════ */
+async function renderCSBoard() {
+  const body = document.getElementById('cs-body');
+  body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-dim);font-size:.8rem;">불러오는 중...</div>';
+  csViewingPost = null;
+  csEditingPost = null;
+
+  try {
+    const { data, error } = await sb
+      .from('cs_posts')
+      .select('id, user_id, nickname, title, content, is_notice, created_at')
+      .order('is_notice', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if(error) throw error;
+    csPostList = data || [];
+  } catch(e) {
+    body.innerHTML = `<div style="text-align:center;padding:40px;color:#ff6b6b;font-size:.8rem;">게시판을 불러오지 못했습니다.<br><small>${e.message}</small><br><small style="color:var(--text-dim);margin-top:8px;display:block;">※ Supabase에 cs_posts 테이블을 생성해주세요.</small></div>`;
+    return;
+  }
+
+  const canWrite = !!currentUser;
+  const notices  = csPostList.filter(p => p.is_notice);
+  const normals  = csPostList.filter(p => !p.is_notice);
+
+  body.innerHTML = `
+    <div class="cs-board-header">
+      <div style="font-size:.76rem;color:var(--text-dim);">전체 <strong style="color:var(--text);">${csPostList.length}</strong>개</div>
+      ${canWrite ? '<button class="cs-write-btn" onclick="csWriteForm()">✏️ 글쓰기</button>' : '<div style="font-size:.72rem;color:var(--text-dim);">로그인 후 글쓰기 가능</div>'}
+    </div>
+    <div class="cs-post-list" id="cs-post-list">
+      ${csPostList.length === 0 ? '<div style="text-align:center;padding:32px;color:var(--text-dim);font-size:.78rem;">아직 게시물이 없습니다.</div>' :
+        csPostList.map(p => `
+          <div class="cs-post-item ${p.is_notice ? 'notice-post' : ''}" onclick="csViewPost(${p.id})">
+            <div class="cs-post-top">
+              <div class="cs-post-title">${escHtml(p.title)}</div>
+              ${p.is_notice ? '<span class="cs-notice-badge">📢 공지</span>' : ''}
+            </div>
+            <div class="cs-post-meta">${escHtml(p.nickname || '익명')} · ${fmtDate(p.created_at)}</div>
+            <div class="cs-post-preview">${escHtml((p.content||'').slice(0,60))}${(p.content||'').length>60?'...':''}</div>
+          </div>`).join('')}
+    </div>`;
+}
+
+/* ── 게시물 상세 ──────────────────────────────────────────── */
+async function csViewPost(postId) {
+  const post = csPostList.find(p => p.id === postId);
+  if(!post) return;
+  csViewingPost = post;
+  const isMine  = currentUser && post.user_id === currentUser.id;
+  const canEdit = isMine || isAdmin();
+
+  const body = document.getElementById('cs-body');
+  body.innerHTML = `
+    <div class="cs-detail">
+      ${post.is_notice ? '<div style="display:inline-block;background:rgba(255,60,60,.15);color:#ff3c6e;border:1px solid rgba(255,60,60,.4);border-radius:6px;padding:2px 10px;font-size:.7rem;font-weight:700;margin-bottom:10px;">📢 공지사항</div>' : ''}
+      <div class="cs-detail-title">${escHtml(post.title)}</div>
+      <div class="cs-detail-meta">
+        <span>✍️ ${escHtml(post.nickname||'익명')}</span>
+        <span>🕐 ${fmtDate(post.created_at)}</span>
+      </div>
+      <div class="cs-detail-body">${escHtml(post.content||'')}</div>
+      <div class="cs-detail-btns">
+        <button class="cs-btn-back" onclick="renderCSBoard()">← 목록</button>
+        ${canEdit ? `<button class="cs-btn-edit" onclick="csEditForm(${post.id})">✏️ 수정</button>
+        <button class="cs-btn-delete" onclick="csDeletePost(${post.id})">🗑 삭제</button>` : ''}
+      </div>
+    </div>`;
+}
+
+/* ── 글쓰기 폼 ───────────────────────────────────────────── */
+function csWriteForm(editPost = null) {
+  if(!currentUser){ toast('로그인이 필요합니다', 'error'); return; }
+  csEditingPost = editPost;
+  const isEdit  = !!editPost;
+  const admin   = isAdmin();
+
+  const body = document.getElementById('cs-body');
+  body.innerHTML = `
+    <div class="cs-form">
+      <div style="font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:4px;">${isEdit ? '✏️ 게시물 수정' : '✏️ 새 게시물 작성'}</div>
+      ${admin ? `<label class="cs-notice-toggle">
+        <input type="checkbox" id="cs-is-notice" ${isEdit && editPost.is_notice ? 'checked' : ''}>
+        <span style="margin-left:6px;">📢 공지사항으로 등록 (관리자 전용)</span>
+      </label>` : ''}
+      <input class="cs-input" id="cs-title-input" placeholder="제목을 입력하세요" value="${isEdit ? escHtml(editPost.title) : ''}">
+      <textarea class="cs-textarea" id="cs-content-input" placeholder="내용을 입력하세요">${isEdit ? escHtml(editPost.content||'') : ''}</textarea>
+      <div class="cs-form-btns">
+        <button class="cs-btn-cancel" onclick="${isEdit ? 'csViewPost('+editPost.id+')' : 'renderCSBoard()'}">취소</button>
+        <button class="cs-btn-submit" onclick="${isEdit ? 'csUpdatePost('+editPost.id+')' : 'csSubmitPost()'}">
+          ${isEdit ? '✓ 수정 완료' : '✓ 게시물 올리기'}
+        </button>
+      </div>
+    </div>`;
+}
+
+function csEditForm(postId) {
+  const post = csPostList.find(p => p.id === postId);
+  if(post) csWriteForm(post);
+}
+
+/* ── 게시물 등록 ─────────────────────────────────────────── */
+async function csSubmitPost() {
+  const title   = document.getElementById('cs-title-input')?.value.trim();
+  const content = document.getElementById('cs-content-input')?.value.trim();
+  const isNotice= isAdmin() && document.getElementById('cs-is-notice')?.checked;
+
+  if(!title)  { toast('제목을 입력해주세요','error'); return; }
+  if(!content){ toast('내용을 입력해주세요','error'); return; }
+
+  const nick = userProfile?.nickname || currentUser?.user_metadata?.name || currentUser?.email?.split('@')[0] || '회원';
+
+  const { error } = await sb.from('cs_posts').insert({
+    user_id:   currentUser.id,
+    nickname:  nick,
+    title,
+    content,
+    is_notice: isNotice,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  });
+
+  if(error){ toast('등록 실패: ' + error.message, 'error'); return; }
+  toast('게시물이 등록되었습니다 ✅', 'success');
+  await renderCSBoard();
+  if(isNotice) loadNotices(); // 공지 갱신
+}
+
+/* ── 게시물 수정 ─────────────────────────────────────────── */
+async function csUpdatePost(postId) {
+  const title   = document.getElementById('cs-title-input')?.value.trim();
+  const content = document.getElementById('cs-content-input')?.value.trim();
+  const isNotice= isAdmin() && document.getElementById('cs-is-notice')?.checked;
+
+  if(!title)  { toast('제목을 입력해주세요','error'); return; }
+  if(!content){ toast('내용을 입력해주세요','error'); return; }
+
+  const { error } = await sb.from('cs_posts').update({
+    title, content, is_notice: isNotice, updated_at: new Date().toISOString()
+  }).eq('id', postId);
+
+  if(error){ toast('수정 실패: ' + error.message, 'error'); return; }
+  toast('수정되었습니다 ✅', 'success');
+  await renderCSBoard();
+  if(isNotice) loadNotices();
+}
+
+/* ── 게시물 삭제 ─────────────────────────────────────────── */
+async function csDeletePost(postId) {
+  if(!confirm('이 게시물을 삭제하시겠습니까?')) return;
+  const post = csPostList.find(p => p.id === postId);
+  const isMine = currentUser && post?.user_id === currentUser.id;
+  if(!isMine && !isAdmin()){ toast('권한이 없습니다','error'); return; }
+
+  const { error } = await sb.from('cs_posts').delete().eq('id', postId);
+  if(error){ toast('삭제 실패: ' + error.message, 'error'); return; }
+  toast('삭제되었습니다','success');
+  await renderCSBoard();
+  loadNotices();
+}
+
+/* ══════════════════════════════════════════════════
+   환불 약관 탭
+   ══════════════════════════════════════════════ */
+function renderCSRefund() {
+  const body = document.getElementById('cs-body');
+  // 기존 refund-modal 내용을 그대로 가져와 표시
+  const refundContent = document.querySelector('#refund-modal .cs-refund-content-inner');
+  body.innerHTML = `
+    <div style="font-size:.78rem;color:var(--text-dim);margin-bottom:14px;">
+      결제 전 반드시 확인해 주세요. 아래 환불 약관은 결제 진행 시에도 동일하게 표시됩니다.
+    </div>
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:16px 18px;font-size:.76rem;color:#b0c8de;line-height:1.85;max-height:480px;overflow-y:auto;">
+      ${getRefundHtml()}
+    </div>`;
+}
+
+function getRefundHtml() {
+  const el = document.querySelector('#refund-modal [style*="max-height:320px"]');
+  return el ? el.innerHTML : '<p>환불 약관을 불러오지 못했습니다.</p>';
+}
+
+/* ══════════════════════════════════════════════════
+   공지 롤링 시스템
+   ══════════════════════════════════════════════ */
+async function loadNotices() {
+  // 최근 7일 이내 공지사항만
+  const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString();
+  const { data } = await sb
+    .from('cs_posts')
+    .select('id, title, created_at')
+    .eq('is_notice', true)
+    .gte('created_at', weekAgo)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  csNoticeList = data || [];
+  const banner = document.getElementById('notice-banner');
+
+  if(csNoticeList.length === 0) {
+    banner.classList.add('hidden');
+    return;
+  }
+
+  banner.classList.remove('hidden');
+  csNoticeIdx = 0;
+  showNoticeItem(0);
+
+  // 기존 타이머 클리어
+  if(csRollingTimer) clearInterval(csRollingTimer);
+  // 5~7초마다 롤링
+  csRollingTimer = setInterval(() => {
+    const textEl = document.getElementById('notice-text');
+    textEl.classList.add('fade-out');
+    setTimeout(() => {
+      csNoticeIdx = (csNoticeIdx + 1) % csNoticeList.length;
+      showNoticeItem(csNoticeIdx);
+      textEl.classList.remove('fade-out');
+    }, 400);
+  }, 6000);
+}
+
+function showNoticeItem(idx) {
+  const n = csNoticeList[idx];
+  if(!n) return;
+  document.getElementById('notice-text').textContent = n.title;
+  document.getElementById('notice-date').textContent = fmtDate(n.created_at);
+}
+
+/* ── 유틸 함수 ───────────────────────────────────────────── */
+function escHtml(str) {
+  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtDate(iso) {
+  if(!iso) return '';
+  const d = new Date(iso);
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+}
+
+/* ── 공지 배너 표시 조건 (화면에 따라 on/off) ────────────── */
+function updateNoticeBanner() {
+  const banner = document.getElementById('notice-banner');
+  if(csNoticeList.length === 0) return;
+  // 결제 화면에서는 숨김
+  const inPaywall = !document.getElementById('screen-paywall').classList.contains('hidden');
+  if(inPaywall) banner.classList.add('hidden');
+  else if(csNoticeList.length > 0) banner.classList.remove('hidden');
 }
 
 
