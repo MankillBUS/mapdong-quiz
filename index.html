@@ -109,7 +109,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 #toast.show{transform:translateX(-50%) translateY(0);}
 #toast.success{border-color:var(--accent3);color:var(--accent3);}
 #toast.error{border-color:var(--accent2);color:var(--accent2);}
-#header{background:linear-gradient(135deg,#0d1929,#111827);border-bottom:2px solid var(--border);padding:10px 20px;display:flex;align-items:center;flex-shrink:0;z-index:1000;position:relative;}
+#header{background:linear-gradient(135deg,#0d1929,#111827);border-bottom:2px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:1000;position:relative;}
 #header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);}
 .logo{font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:var(--accent);text-shadow:0 0 15px var(--accent);letter-spacing:2px;}
 .logo span{color:var(--accent2);}
@@ -326,51 +326,46 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .refund-link-btn:hover{background:rgba(255,215,0,.22);border-color:var(--gold);transform:translateY(-1px);}
 
 /* ── 4. 헤더 공지 롤링 인라인 ─────────────────────── */
-/* ── 헤더 인라인 공지 롤링 ──────────────────────────────── */
 #header-notice{
-  flex:1;min-width:0;
+  flex:1;min-width:0;max-width:420px;
   display:flex;align-items:center;
   background:rgba(255,30,30,.07);
   border:1px solid rgba(255,80,80,.18);
-  border-radius:8px;height:32px;
+  border-radius:8px;height:30px;
   overflow:hidden;cursor:pointer;
-  margin:0 12px;
-  transition:border-color .2s, background .2s;
+  margin:0 8px;
 }
-#header-notice:hover{
-  background:rgba(255,30,30,.12);
-  border-color:rgba(255,80,80,.35);
-}
+#header-notice.hidden{display:none!important;}
 #header-notice .hn-label{
-  flex-shrink:0;
-  background:rgba(200,30,30,.75);
+  flex-shrink:0;background:rgba(200,30,30,.75);
   color:#fff;font-size:.6rem;font-weight:700;
-  padding:0 10px;height:100%;
+  padding:0 8px;height:100%;
   display:flex;align-items:center;
   white-space:nowrap;letter-spacing:.5px;
 }
 #header-notice .hn-text{
-  flex:1;font-size:.72rem;color:#ff8888;
-  font-weight:600;padding:0 12px;
+  flex:1;font-size:.7rem;color:#ff8888;
+  font-weight:600;padding:0 10px;
   white-space:nowrap;overflow:hidden;
   text-overflow:ellipsis;transition:opacity .35s;
 }
 #header-notice .hn-text.fade{opacity:0;}
 #header-notice .hn-date{
   flex-shrink:0;font-size:.6rem;
-  color:rgba(255,100,100,.5);padding:0 10px;
+  color:rgba(255,100,100,.5);padding:0 8px;
   white-space:nowrap;
 }
 
 /* ── 5. 사이드 패널 토글 ───────────────────────────── */
+#side{position:relative;}
 #side-toggle{
-  position:absolute;left:0;top:50%;
+  position:absolute;right:-9px;top:50%;
   transform:translateY(-50%);
   z-index:600;
   background:var(--surface);
   border:2px solid var(--border);
-  border-left:none;
-  border-radius:0 8px 8px 0;
+  border-right:none;
+  border-radius:8px 0 0 8px;
   width:18px;height:56px;
   display:flex;align-items:center;justify-content:center;
   cursor:pointer;transition:all .2s;
@@ -379,7 +374,12 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 #side-toggle:hover{background:var(--surface2);color:var(--accent);border-color:var(--accent);}
 #mapw{flex:1;position:relative;}
 #main.side-collapsed #side{display:none;}
-#main.side-collapsed #side-toggle{left:0;border-radius:0 8px 8px 0;}
+#main.side-collapsed #side-toggle{
+  position:fixed;left:0;right:auto;top:50%;
+  transform:translateY(-50%);
+  border-right:none;
+  border-radius:0 8px 8px 0;
+}
 
 /* ── 6. 토스 결제 위젯 모달 ────────────────────────── */
 #toss-modal{
@@ -828,13 +828,13 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div class="logo" onclick="goHome()" style="cursor:pointer;" title="처음으로 가기">Map<span>Dong</span></div>
     <button onclick="goHome()" style="background:linear-gradient(135deg,#ff9f43,#ee5a6f);border:none;border-radius:8px;padding:6px 14px;font-size:0.85rem;font-weight:700;color:#000;cursor:pointer;transition:all 0.2s;margin-left:12px;">🏠 처음으로</button>
     <button id="btn-cs" onclick="openCS()">🛎 고객센터</button>
-  <!-- 헤더 인라인 공지 롤링 — 항상 공간 차지, 공지 있을 때 내용 표시 -->
-  <div id="header-notice" onclick="openCS()" style="flex:1;min-width:0;">
+  <!-- 4. 헤더 인라인 공지 롤링 -->
+  <div id="header-notice" class="hidden" onclick="openCS()">
     <div class="hn-label">📢 공지</div>
     <div class="hn-text" id="hn-text">공지사항이 없습니다</div>
     <div class="hn-date" id="hn-date"></div>
   </div>
-  <div id="header-right" style="display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0;">
+  <div id="header-right" style="display:flex;align-items:center;gap:10px;">
   <div id="stats-bar">
     <div class="sb"><div class="sl">문제</div><div class="sv" id="sQ">-</div></div>
     <div class="sb"><div class="sl">정답</div><div class="sv" style="color:#39ff14" id="sC">0</div></div>
@@ -891,9 +891,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       ☎ 070-7782-3601 &nbsp;|&nbsp;
       <span style="cursor:pointer;color:#3d6a7a;text-decoration:underline;" onclick="openCS()">고객센터</span>
     </footer>
+    <!-- 사이드 패널 접기/펼치기 버튼 — #side 오른쪽 끝에 붙음 -->
+    <div id="side-toggle" onclick="toggleSidePanel()" title="패널 접기/펼치기">◀</div>
   </div>
-  <!-- 5. 사이드 패널 토글 버튼 -->
-  <div id="side-toggle" onclick="toggleSidePanel()" title="패널 접기/펼치기">▶</div>
   <div id="mapw">
     <div id="map"></div>
     
@@ -2353,6 +2353,7 @@ function toggleSidePanel() {
   const toggle = document.getElementById('side-toggle');
   const isCollapsed = main.classList.contains('side-collapsed');
   main.classList.toggle('side-collapsed', !isCollapsed);
+  // 오른쪽 끝 배치: 펼쳐짐=◀(누르면 접힘), 접힘=▶(누르면 펼침)
   toggle.textContent = isCollapsed ? '◀' : '▶';
   toggle.title = isCollapsed ? '패널 접기' : '패널 펼치기';
   // 지도 리사이즈
@@ -2654,31 +2655,25 @@ function getRefundHtml() {
    공지 롤링 시스템
    ══════════════════════════════════════════════ */
 async function loadNotices() {
+  // 최근 7일 이내 공지사항만
   const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString();
-  try {
-    const { data } = await sb
-      .from('cs_posts')
-      .select('id, title, created_at')
-      .eq('is_notice', true)
-      .gte('created_at', weekAgo)
-      .order('created_at', { ascending: false })
-      .limit(10);
-    csNoticeList = data || [];
-  } catch(e) {
-    csNoticeList = [];
-  }
+  const { data } = await sb
+    .from('cs_posts')
+    .select('id, title, created_at')
+    .eq('is_notice', true)
+    .gte('created_at', weekAgo)
+    .order('created_at', { ascending: false })
+    .limit(10);
 
-  // 헤더 공지박스 — 공지 없으면 '공지사항이 없습니다' 표시
+  csNoticeList = data || [];
+  const banner = document.getElementById('header-notice');
+
   if(csNoticeList.length === 0) {
-    const hnText = document.getElementById('hn-text');
-    if(hnText) hnText.textContent = '공지사항이 없습니다';
-    const hnDate = document.getElementById('hn-date');
-    if(hnDate) hnDate.textContent = '';
-    // 로그인 화면 공지바
-    syncLoginNotice(null);
+    banner.classList.add('hidden');
     return;
   }
 
+  banner.classList.remove('hidden');
   csNoticeIdx = 0;
   showNoticeItem(0);
 
@@ -2686,15 +2681,11 @@ async function loadNotices() {
   // 6초마다 롤링 (무한 반복)
   csRollingTimer = setInterval(() => {
     const textEl = document.getElementById('hn-text');
-    if(textEl) textEl.classList.add('fade');
-    const lnText = document.getElementById('ln-text');
-    if(lnText) lnText.style.opacity = '0';
-
+    textEl.classList.add('fade');
     setTimeout(() => {
       csNoticeIdx = (csNoticeIdx + 1) % csNoticeList.length;
       showNoticeItem(csNoticeIdx);
-      if(textEl) textEl.classList.remove('fade');
-      if(lnText) lnText.style.opacity = '1';
+      textEl.classList.remove('fade');
     }, 350);
   }, 6000);
 }
@@ -2702,27 +2693,10 @@ async function loadNotices() {
 function showNoticeItem(idx) {
   const n = csNoticeList[idx];
   if(!n) return;
-  // 헤더 공지박스
-  const hnText = document.getElementById('hn-text');
-  const hnDate = document.getElementById('hn-date');
-  if(hnText) hnText.textContent = n.title;
-  if(hnDate) hnDate.textContent = fmtDate(n.created_at);
-  // 로그인 화면 공지바
-  syncLoginNotice(n);
-}
-
-function syncLoginNotice(n) {
-  const bar    = document.getElementById('login-notice-bar');
-  const lnText = document.getElementById('ln-text');
-  const lnDate = document.getElementById('ln-date');
-  if(!bar) return;
-  if(!n) {
-    bar.classList.add('hidden');
-    return;
-  }
-  bar.classList.remove('hidden');
-  if(lnText) lnText.textContent = n.title;
-  if(lnDate) lnDate.textContent = fmtDate(n.created_at);
+  const textEl = document.getElementById('hn-text');
+  const dateEl = document.getElementById('hn-date');
+  if(textEl) textEl.textContent = n.title;
+  if(dateEl) dateEl.textContent = fmtDate(n.created_at);
 }
 
 /* ── 유틸 함수 ───────────────────────────────────────────── */
@@ -2735,15 +2709,17 @@ function fmtDate(iso) {
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
 }
 
-/* ── 공지 배너 표시 조건 ──────────────────────────────────── */
+/* ── 공지 배너 표시 조건 (페이월/cs 화면에서 숨김) ──────── */
 function updateNoticeBanner() {
-  // 헤더 공지박스는 항상 렌더링 (헤더가 보이는 화면에서 자동 표시됨)
-  // 로그인 화면 공지바만 조건 제어
-  const bar = document.getElementById('login-notice-bar');
-  if(!bar) return;
-  const onLogin = !document.getElementById('screen-login').classList.contains('hidden');
-  if(csNoticeList.length > 0 && onLogin) bar.classList.remove('hidden');
-  else bar.classList.add('hidden');
+  const banner = document.getElementById('header-notice');
+  if(!banner || csNoticeList.length === 0) return;
+  const hideScreens = ['screen-paywall','screen-cs','screen-verify','screen-login'];
+  const shouldHide = hideScreens.some(id => {
+    const el = document.getElementById(id);
+    return el && !el.classList.contains('hidden');
+  });
+  if(shouldHide) banner.classList.add('hidden');
+  else banner.classList.remove('hidden');
 }
 
 
