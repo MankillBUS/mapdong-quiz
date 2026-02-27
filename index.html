@@ -109,7 +109,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 #toast.show{transform:translateX(-50%) translateY(0);}
 #toast.success{border-color:var(--accent3);color:var(--accent3);}
 #toast.error{border-color:var(--accent2);color:var(--accent2);}
-#header{background:linear-gradient(135deg,#0d1929,#111827);border-bottom:2px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:0;flex-shrink:0;z-index:1000;position:relative;}
+#header{background:linear-gradient(135deg,#0d1929,#111827);border-bottom:2px solid var(--border);padding:10px 20px;display:flex;align-items:center;flex-shrink:0;z-index:1000;position:relative;}
 #header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);}
 .logo{font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:var(--accent);text-shadow:0 0 15px var(--accent);letter-spacing:2px;}
 .logo span{color:var(--accent2);}
@@ -326,33 +326,39 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .refund-link-btn:hover{background:rgba(255,215,0,.22);border-color:var(--gold);transform:translateY(-1px);}
 
 /* ── 4. 헤더 공지 롤링 인라인 ─────────────────────── */
+/* ── 헤더 인라인 공지 롤링 ──────────────────────────────── */
 #header-notice{
-  flex:1;min-width:0;max-width:500px;
+  flex:1;min-width:0;
   display:flex;align-items:center;
   background:rgba(255,30,30,.07);
   border:1px solid rgba(255,80,80,.18);
-  border-radius:8px;height:30px;
+  border-radius:8px;height:32px;
   overflow:hidden;cursor:pointer;
   margin:0 12px;
+  transition:border-color .2s, background .2s;
 }
-#header-notice.hidden{display:none!important;}
+#header-notice:hover{
+  background:rgba(255,30,30,.12);
+  border-color:rgba(255,80,80,.35);
+}
 #header-notice .hn-label{
-  flex-shrink:0;background:rgba(200,30,30,.75);
+  flex-shrink:0;
+  background:rgba(200,30,30,.75);
   color:#fff;font-size:.6rem;font-weight:700;
-  padding:0 8px;height:100%;
+  padding:0 10px;height:100%;
   display:flex;align-items:center;
   white-space:nowrap;letter-spacing:.5px;
 }
 #header-notice .hn-text{
-  flex:1;font-size:.7rem;color:#ff8888;
-  font-weight:600;padding:0 10px;
+  flex:1;font-size:.72rem;color:#ff8888;
+  font-weight:600;padding:0 12px;
   white-space:nowrap;overflow:hidden;
   text-overflow:ellipsis;transition:opacity .35s;
 }
 #header-notice .hn-text.fade{opacity:0;}
 #header-notice .hn-date{
   flex-shrink:0;font-size:.6rem;
-  color:rgba(255,100,100,.5);padding:0 8px;
+  color:rgba(255,100,100,.5);padding:0 10px;
   white-space:nowrap;
 }
 
@@ -434,37 +440,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 <!-- ① 로그인 화면 -->
 <div id="screen-login" class="fs-screen">
-
-  <!-- 로그인 화면 전용 공지 롤링 바 (비로그인도 읽기 가능) -->
-  <div id="login-notice-bar" class="hidden"
-    style="position:absolute;top:0;left:0;right:0;height:32px;
-           display:flex;align-items:center;overflow:hidden;
-           background:rgba(200,20,20,.08);
-           border-bottom:1px solid rgba(255,60,60,.18);
-           cursor:pointer;z-index:10;"
-    onclick="openCS()">
-    <div style="flex-shrink:0;background:rgba(200,30,30,.8);color:#fff;
-                font-size:.6rem;font-weight:700;padding:0 12px;
-                height:100%;display:flex;align-items:center;
-                white-space:nowrap;letter-spacing:.5px;">
-      📢 공지
-    </div>
-    <div id="ln-text"
-      style="flex:1;font-size:.7rem;color:#ff9090;font-weight:600;
-             padding:0 14px;white-space:nowrap;overflow:hidden;
-             text-overflow:ellipsis;transition:opacity .35s;">
-      공지사항을 불러오는 중...
-    </div>
-    <div id="ln-date"
-      style="flex-shrink:0;font-size:.6rem;
-             color:rgba(255,120,120,.5);padding:0 10px;white-space:nowrap;">
-    </div>
-    <div style="flex-shrink:0;font-size:.6rem;color:rgba(255,120,120,.4);
-                padding:0 12px;white-space:nowrap;">
-      고객센터 →
-    </div>
-  </div>
-
   <div class="login-card">
     <div class="login-logo">Map<span>Dong</span></div>
     <div class="login-sub">수도권 동(洞) 위치 퀴즈<br>로그인 후 무료 300문제 체험 가능</div>
@@ -853,8 +828,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div class="logo" onclick="goHome()" style="cursor:pointer;" title="처음으로 가기">Map<span>Dong</span></div>
     <button onclick="goHome()" style="background:linear-gradient(135deg,#ff9f43,#ee5a6f);border:none;border-radius:8px;padding:6px 14px;font-size:0.85rem;font-weight:700;color:#000;cursor:pointer;transition:all 0.2s;margin-left:12px;">🏠 처음으로</button>
     <button id="btn-cs" onclick="openCS()">🛎 고객센터</button>
-  <!-- 4. 헤더 인라인 공지 롤링 -->
-  <div id="header-notice" class="hidden" onclick="openCS()">
+  <!-- 헤더 인라인 공지 롤링 — 항상 공간 차지, 공지 있을 때 내용 표시 -->
+  <div id="header-notice" onclick="openCS()" style="flex:1;min-width:0;">
     <div class="hn-label">📢 공지</div>
     <div class="hn-text" id="hn-text">공지사항이 없습니다</div>
     <div class="hn-date" id="hn-date"></div>
@@ -1890,7 +1865,6 @@ sb.auth.onAuthStateChange(async(event, session) => {
       }
     } else {
       showOnly('screen-login');
-      loadNotices(); // 비로그인 시에도 공지 표시
     }
   }
 });
@@ -2515,25 +2489,14 @@ async function renderCSBoard() {
     return;
   }
 
-  const canWrite = !!currentUser;  // 로그인한 회원만 글쓰기 가능
+  const canWrite = !!currentUser;
   const notices  = csPostList.filter(p => p.is_notice);
   const normals  = csPostList.filter(p => !p.is_notice);
 
   body.innerHTML = `
     <div class="cs-board-header">
       <div style="font-size:.76rem;color:var(--text-dim);">전체 <strong style="color:var(--text);">${csPostList.length}</strong>개</div>
-      ${canWrite
-        ? '<button class="cs-write-btn" onclick="csWriteForm()">✏️ 글쓰기</button>'
-        : `<div style="display:flex;align-items:center;gap:8px;">
-             <span style="font-size:.7rem;color:var(--text-dim);">🔒 회원만 글쓰기 가능</span>
-             <button onclick="closeCS()"
-               style="background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);
-                      color:var(--accent);border-radius:6px;padding:4px 10px;
-                      font-size:.68rem;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
-               로그인하기
-             </button>
-           </div>`
-      }
+      ${canWrite ? '<button class="cs-write-btn" onclick="csWriteForm()">✏️ 글쓰기</button>' : '<div style="font-size:.72rem;color:var(--text-dim);">로그인 후 글쓰기 가능</div>'}
     </div>
     <div class="cs-post-list" id="cs-post-list">
       ${csPostList.length === 0 ? '<div style="text-align:center;padding:32px;color:var(--text-dim);font-size:.78rem;">아직 게시물이 없습니다.</div>' :
@@ -2691,7 +2654,6 @@ function getRefundHtml() {
    공지 롤링 시스템
    ══════════════════════════════════════════════ */
 async function loadNotices() {
-  // 최근 7일 이내 공지사항만 — 로그인 여부와 무관하게 호출 가능
   const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString();
   try {
     const { data } = await sb
@@ -2706,19 +2668,16 @@ async function loadNotices() {
     csNoticeList = [];
   }
 
-  // 헤더 공지박스 (퀴즈 화면)
-  const headerBanner = document.getElementById('header-notice');
-  // 로그인 화면 공지바
-  const loginBar = document.getElementById('login-notice-bar');
-
+  // 헤더 공지박스 — 공지 없으면 '공지사항이 없습니다' 표시
   if(csNoticeList.length === 0) {
-    if(headerBanner) headerBanner.classList.add('hidden');
-    if(loginBar)     loginBar.classList.add('hidden');
+    const hnText = document.getElementById('hn-text');
+    if(hnText) hnText.textContent = '공지사항이 없습니다';
+    const hnDate = document.getElementById('hn-date');
+    if(hnDate) hnDate.textContent = '';
+    // 로그인 화면 공지바
+    syncLoginNotice(null);
     return;
   }
-
-  if(headerBanner) headerBanner.classList.remove('hidden');
-  if(loginBar)     loginBar.classList.remove('hidden');
 
   csNoticeIdx = 0;
   showNoticeItem(0);
@@ -2726,17 +2685,15 @@ async function loadNotices() {
   if(csRollingTimer) clearInterval(csRollingTimer);
   // 6초마다 롤링 (무한 반복)
   csRollingTimer = setInterval(() => {
-    // 헤더 fade
-    const hnText = document.getElementById('hn-text');
-    if(hnText) hnText.classList.add('fade');
-    // 로그인바 fade
+    const textEl = document.getElementById('hn-text');
+    if(textEl) textEl.classList.add('fade');
     const lnText = document.getElementById('ln-text');
     if(lnText) lnText.style.opacity = '0';
 
     setTimeout(() => {
       csNoticeIdx = (csNoticeIdx + 1) % csNoticeList.length;
       showNoticeItem(csNoticeIdx);
-      if(hnText) hnText.classList.remove('fade');
+      if(textEl) textEl.classList.remove('fade');
       if(lnText) lnText.style.opacity = '1';
     }, 350);
   }, 6000);
@@ -2751,18 +2708,24 @@ function showNoticeItem(idx) {
   if(hnText) hnText.textContent = n.title;
   if(hnDate) hnDate.textContent = fmtDate(n.created_at);
   // 로그인 화면 공지바
+  syncLoginNotice(n);
+}
+
+function syncLoginNotice(n) {
+  const bar    = document.getElementById('login-notice-bar');
   const lnText = document.getElementById('ln-text');
   const lnDate = document.getElementById('ln-date');
+  if(!bar) return;
+  if(!n) {
+    bar.classList.add('hidden');
+    return;
+  }
+  bar.classList.remove('hidden');
   if(lnText) lnText.textContent = n.title;
   if(lnDate) lnDate.textContent = fmtDate(n.created_at);
 }
 
-/* ── 페이지 첫 로드 즉시 공지 불러오기 ───────────────────── */
-// 로그인 여부와 무관하게 공지사항을 바로 표시
-(async function initNoticesOnLoad() {
-  await loadNotices();
-  updateNoticeBanner();
-})();
+/* ── 유틸 함수 ───────────────────────────────────────────── */
 function escHtml(str) {
   return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -2774,20 +2737,13 @@ function fmtDate(iso) {
 
 /* ── 공지 배너 표시 조건 ──────────────────────────────────── */
 function updateNoticeBanner() {
-  if(csNoticeList.length === 0) return;
-
-  // 헤더 공지박스: 로그인/결제/CS/인증 화면에선 숨김 (헤더 자체가 안 보이므로)
-  const headerBanner = document.getElementById('header-notice');
-  const hideHeader = ['screen-paywall','screen-cs','screen-verify','screen-login'].some(id => {
-    const el = document.getElementById(id);
-    return el && !el.classList.contains('hidden');
-  });
-  if(headerBanner) headerBanner.classList.toggle('hidden', hideHeader);
-
-  // 로그인 화면 공지바: 로그인 화면일 때만 표시
-  const loginBar = document.getElementById('login-notice-bar');
-  const onLoginScreen = !document.getElementById('screen-login').classList.contains('hidden');
-  if(loginBar) loginBar.classList.toggle('hidden', !onLoginScreen);
+  // 헤더 공지박스는 항상 렌더링 (헤더가 보이는 화면에서 자동 표시됨)
+  // 로그인 화면 공지바만 조건 제어
+  const bar = document.getElementById('login-notice-bar');
+  if(!bar) return;
+  const onLogin = !document.getElementById('screen-login').classList.contains('hidden');
+  if(csNoticeList.length > 0 && onLogin) bar.classList.remove('hidden');
+  else bar.classList.add('hidden');
 }
 
 
