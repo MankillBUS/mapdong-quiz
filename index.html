@@ -20,7 +20,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .fs-screen.hidden{display:none!important;}
 
 /* ── 로그인 ── */
-.login-card{background:linear-gradient(135deg,var(--surface),var(--surface2));border:1px solid var(--border);border-radius:20px;padding:40px 44px;max-width:420px;width:100%;text-align:center;box-shadow:0 0 60px rgba(0,212,255,.1);}
+.login-card{background:linear-gradient(135deg,var(--surface),var(--surface2));border:1px solid var(--border);border-radius:20px;padding:40px 44px;max-width:560px;width:100%;text-align:center;box-shadow:0 0 60px rgba(0,212,255,.1);}
 .login-logo{font-family:'Black Han Sans',sans-serif;font-size:2.2rem;color:var(--accent);text-shadow:0 0 20px var(--accent);margin-bottom:4px;}
 .login-logo span{color:var(--accent2);}
 .login-sub{font-size:.8rem;color:var(--text-dim);margin-bottom:28px;line-height:1.6;}
@@ -486,24 +486,65 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <div class="login-switch">계정이 없으신가요? <a onclick="toggleAuthMode()"><span id="switch-link">회원가입</span></a></div>
     </div>
   </div>
-  <!-- 요금제 상품 표시 -->
-  <div style="background:linear-gradient(135deg,#111827,#1a2235);border:1px solid #ffd700;border-radius:12px;padding:14px 24px;text-align:center;max-width:420px;width:100%;">
-    <div style="font-size:.6rem;color:#ffd700;letter-spacing:2px;margin-bottom:4px;">💎 PREMIUM PLAN</div>
-    <div style="font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:#fff;margin-bottom:2px;">MapDong 프리미엄</div>
-    <div style="font-size:.75rem;color:#7a9bb5;margin-bottom:8px;">수도권 500+ 행정동 무제한 퀴즈</div>
-    <div style="display:flex;align-items:center;justify-content:center;gap:5px;margin:4px 0;">
-      <span style="font-size:.72rem;color:#7a9bb5;font-family:'Noto Sans KR',sans-serif;font-weight:400;letter-spacing:1px;line-height:1;">하루</span>
-      <span style="font-size:2rem;color:#ffd700;font-family:'Black Han Sans',sans-serif;line-height:1;">600</span>
-      <span style="font-size:.72rem;color:#7a9bb5;font-family:'Noto Sans KR',sans-serif;font-weight:400;letter-spacing:1px;line-height:1;">원</span>
+  <!-- ✦ 프리미엄 배너 (창 안) -->
+  <div style="
+    background:linear-gradient(135deg,#0d1929,#111827,#0a1520);
+    border:1.5px solid rgba(255,215,0,.5);
+    border-radius:16px;
+    padding:20px 36px;
+    text-align:center;
+    max-width:560px;
+    width:100%;
+    box-shadow:0 0 32px rgba(255,215,0,.1), 0 0 60px rgba(0,0,0,.4);
+    position:relative;
+    overflow:hidden;
+  ">
+    <!-- 배경 글로우 -->
+    <div style="position:absolute;top:-40px;left:50%;transform:translateX(-50%);
+                width:200px;height:80px;
+                background:radial-gradient(ellipse,rgba(255,215,0,.12),transparent);
+                pointer-events:none;"></div>
+
+    <!-- PREMIUM PLAN 라벨 -->
+    <div style="font-size:.68rem;color:#ffd700;letter-spacing:3px;
+                font-weight:700;margin-bottom:8px;opacity:.9;">
+      💎 &nbsp;PREMIUM PLAN
     </div>
 
-    <!-- 사업자 정보 -->
-<div style="text-align:center;font-size:.64rem;color:#4a6a85;line-height:1.8;max-width:420px;width:100%;padding:0 10px;">
-  <span>상호명: 워크트래블허브</span> &nbsp;|&nbsp;
-  <span>사업자등록번호: 690-17-02022</span> &nbsp;|&nbsp;
-  <span>통신판매업: 제2025-서울서초-3783호</span> &nbsp;|&nbsp;
-  <span>대표자: 김강별</span>
-</div>
+    <!-- 메인 타이틀 -->
+    <div style="font-family:'Black Han Sans',sans-serif;font-size:1.7rem;
+                color:#fff;margin-bottom:6px;
+                text-shadow:0 0 20px rgba(255,215,0,.3);">
+      MapDong 프리미엄
+    </div>
+
+    <!-- 설명 -->
+    <div style="font-size:.85rem;color:#8ab4cc;margin-bottom:4px;line-height:1.6;">
+      수도권 500+ 이상 행정동 무제한 퀴즈
+    </div>
+    <div style="font-size:.72rem;color:#5a8090;margin-bottom:0px;line-height:1.5;">
+      추후 <span style="color:#a0c4d8;">지방 · 해외 지역 출시 예정</span> 🌏
+    </div>
+  </div>
+
+  <!-- ✦ 사업자 정보 (창 밖 — 별도 표시) -->
+  <div style="
+    text-align:center;
+    font-size:.72rem;
+    color:#3d5a6e;
+    line-height:2.1;
+    max-width:640px;
+    width:100%;
+    padding:0 16px;
+    letter-spacing:.2px;
+  ">
+    상호명: 워크트래블허브 &nbsp;|&nbsp;
+    사업자등록번호: 690-17-02022 &nbsp;|&nbsp;
+    통신판매업: 제2025-서울서초-3783호<br>
+    대표자: 김강별 &nbsp;|&nbsp;
+    <span style="color:#4a7a8a;cursor:pointer;" onclick="openCS()">
+      고객센터 070-7782-3601
+    </span>
   </div>
 </div>
 
