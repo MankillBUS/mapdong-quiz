@@ -117,7 +117,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .sb{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 12px;text-align:center;min-width:64px;}
 .sl{font-size:.56rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;}
 .sv{font-size:.95rem;font-weight:700;color:var(--accent);}
-#main{display:flex;flex:1;overflow:hidden;}
+#main{display:flex;flex:1;overflow:hidden;position:relative;}
 #side{width:265px;background:var(--surface);border-right:2px solid var(--border);display:flex;flex-direction:column;padding:12px;gap:10px;flex-shrink:0;overflow-y:auto;}
 #qcard{background:linear-gradient(135deg,var(--surface2),#0d1929);border:2px solid var(--accent);border-radius:12px;padding:14px;box-shadow:0 0 20px rgba(0,212,255,.3);}
 .qn{font-size:.6rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:3px;}
@@ -243,7 +243,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .toggle-text-on{color:var(--text-dim);display:none;}
 .quiz-mode-toggle input:checked + .toggle-label .toggle-text-off{display:none;}
 .quiz-mode-toggle input:checked + .toggle-label .toggle-text-on{display:inline;color:#000;}
-#map-controls{position:absolute;top:10px;left:10px;z-index:1000;display:flex;flex-direction:column;gap:8px;}
+#map-controls{position:absolute;top:10px;left:60px;z-index:1000;display:flex;flex-direction:column;gap:8px;}
 .map-ctrl-btn{background:rgba(13,25,41,.95);border:2px solid var(--border);border-radius:8px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;cursor:pointer;transition:all .2s;backdrop-filter:blur(8px);box-shadow:0 4px 12px rgba(0,0,0,.3);}
 .map-ctrl-btn:hover{transform:scale(1.1);border-color:var(--accent);box-shadow:0 6px 20px rgba(0,212,255,.4);}
 .map-ctrl-btn:active{transform:scale(.95);}
@@ -357,27 +357,28 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 }
 
 /* ── 5. 사이드 패널 토글 ───────────────────────────── */
-#side{position:relative;}
+/* #main이 side-toggle의 기준점 */
 #side-toggle{
-  position:absolute;right:-9px;top:50%;
+  position:absolute;left:256px;top:50%;   /* 265px(side 너비) - 9px = 256px */
   transform:translateY(-50%);
-  z-index:600;
+  z-index:700;
   background:var(--surface);
   border:2px solid var(--border);
   border-right:none;
   border-radius:8px 0 0 8px;
   width:18px;height:56px;
   display:flex;align-items:center;justify-content:center;
-  cursor:pointer;transition:all .2s;
+  cursor:pointer;transition:left .25s, background .2s, border-color .2s;
   font-size:.75rem;color:var(--text-dim);
 }
 #side-toggle:hover{background:var(--surface2);color:var(--accent);border-color:var(--accent);}
 #mapw{flex:1;position:relative;}
 #main.side-collapsed #side{display:none;}
+/* 접힌 상태 — 왼쪽 끝으로 이동, 모서리 반전 */
 #main.side-collapsed #side-toggle{
-  position:fixed;left:0;right:auto;top:50%;
-  transform:translateY(-50%);
-  border-right:none;
+  left:0;
+  border-right:2px solid var(--border);
+  border-left:none;
   border-radius:0 8px 8px 0;
 }
 
@@ -815,7 +816,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div class="cs-pg-title">🛎 고객센터</div>
   </div>
   <div class="cs-pg-tabs">
-    <div class="cs-pg-tab active" id="tab-board" onclick="csTab('board')">📋 게시판</div>
+    <div class="cs-pg-tab active" id="tab-board" onclick="csTab('board')">📋 Q&A게시판</div>
     <div class="cs-pg-tab" id="tab-refund" onclick="csTab('refund')">📄 환불 약관</div>
   </div>
   <div class="cs-pg-body" id="cs-body">
@@ -891,9 +892,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       ☎ 070-7782-3601 &nbsp;|&nbsp;
       <span style="cursor:pointer;color:#3d6a7a;text-decoration:underline;" onclick="openCS()">고객센터</span>
     </footer>
-    <!-- 사이드 패널 접기/펼치기 버튼 — #side 오른쪽 끝에 붙음 -->
-    <div id="side-toggle" onclick="toggleSidePanel()" title="패널 접기/펼치기">◀</div>
   </div>
+  <!-- 사이드 패널 토글 버튼 — #main 기준 absolute, #side 밖에 있어야 접혀도 안 사라짐 -->
+  <div id="side-toggle" onclick="toggleSidePanel()" title="패널 접기/펼치기">◀</div>
   <div id="mapw">
     <div id="map"></div>
     
