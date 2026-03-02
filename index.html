@@ -822,22 +822,11 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 <!-- 시작 화면 -->
 <div id="start" class="fs-screen hidden">
-  <div class="st">🗺 수도권<br><span style="color:var(--accent2)">동(洞)</span> 위치 퀴즈</div>
-  <div class="ss">지도에서 문제의 동(洞) 위치를 클릭하세요<br>정답 기준 반경 1.5km · 무한 반복 학습</div>
+  <div class="st">🗺 전국<br><span style="color:var(--accent2)">행정구역</span> 위치 퀴즈</div>
+  <div class="ss">지도에서 문제의 행정단위 위치를 클릭하세요<br>정답 기준 반경 1.5km · 무한 반복 학습</div>
   <div style="text-align:center">
     <div style="color:var(--text-dim);font-size:.72rem;margin-bottom:8px">📍 지역 선택 (복수 가능)</div>
-    <div class="stags" id="stags">
-      <div class="stag sel" data-r="seoul">서울특별시 <span class="stag-cnt" id="scnt-seoul"></span></div>
-      <div class="stag sel" data-r="incheon">인천광역시 <span class="stag-cnt" id="scnt-incheon"></span></div>
-      <div class="stag sel" data-r="suwon">수원시 <span class="stag-cnt" id="scnt-suwon"></span></div>
-      <div class="stag sel" data-r="seongnam">성남시 <span class="stag-cnt" id="scnt-seongnam"></span></div>
-      <div class="stag sel" data-r="gwangju">경기도 광주시 <span class="stag-cnt" id="scnt-gwangju"></span></div>
-      <div class="stag" data-r="goyang">고양시 <span class="stag-cnt" id="scnt-goyang"></span></div>
-      <div class="stag" data-r="yongin">용인시 <span class="stag-cnt" id="scnt-yongin"></span></div>
-      <div class="stag" data-r="bucheon">부천시 <span class="stag-cnt" id="scnt-bucheon"></span></div>
-      <div class="stag" data-r="anyang">안양시 <span class="stag-cnt" id="scnt-anyang"></span></div>
-      <div class="stag" data-r="hwaseong">화성시 <span class="stag-cnt" id="scnt-hwaseong"></span></div>
-    </div>
+    <div class="stags" id="stags"><!-- 도시 메뉴: loadPolygonCache() → buildCityMenu()에서 JSON 기반 동적 생성 (하드코딩 ❌) --></div>
   </div>
   <div style="color:var(--text-dim);font-size:.82rem;margin-bottom:16px">선택 동 합계: <span style="color:var(--accent);font-weight:700" id="scnt">0</span>개</div>
   
@@ -1036,164 +1025,299 @@ let mapTileLayer = null; // 지도 타일 레이어
 let tempL=[];      // 정답(ok) 임시 레이어
 let wrongL=[];     // 오답 정답위치 마커 (수동으로만 제거)
 
-// 시작 화면 태그
-document.querySelectorAll('.stag').forEach(t=>{
-  t.onclick=()=>{t.classList.toggle('sel');updateCnt();
+/* ═══════════════════════════════════════════════════════════════════
+   MapDong 4단계 — 프론트엔드 퀴즈 엔진 v4
+   ───────────────────────────────────────────────────────────────────
+   설계 원칙:
+   1. polygon_cache.json 구조를 100% 신뢰 (3단계 정규화 완료)
+   2. _quiz_meta 기반 모드 자동 분기 (하드코딩 ❌)
+   3. getDongGeo()는 리프 노드(동/읍/면/리)만 반환 — 구 폴리곤(_geometry) 절대 차단
+   4. 도시 메뉴 JSON 기준 자동 생성 (CITY_META 하드코딩 ❌)
+   5. 프론트 검증 로그: level mismatch, 부모 좌표 동일 탐지
+═══════════════════════════════════════════════════════════════════ */
 
-// 정답 범위 조절
-document.getElementById('range-slider').addEventListener('input', function(e){
-  answerRange = parseFloat(e.target.value);
-  document.getElementById('range-value').textContent = answerRange.toFixed(1);
-  document.getElementById('range-slider-map').value = answerRange;
-  document.getElementById('range-value-map').textContent = answerRange.toFixed(1)+'km';
-});
+// ── 프론트 검증 로그 ─────────────────────────────────────────────
+const FE_VALIDATION = {
+  log: [],
+  errors: [],
+  warnings: [],
 
-document.getElementById('range-slider-map').addEventListener('input', function(e){
-  answerRange = parseFloat(e.target.value);
-  document.getElementById('range-value-map').textContent = answerRange.toFixed(1)+'km';
-  document.getElementById('range-slider').value = answerRange;
-  document.getElementById('range-value').textContent = answerRange.toFixed(1);
-});
+  record(level, code, msg, data) {
+    const entry = { ts: Date.now(), level, code, msg, data };
+    this.log.push(entry);
+    if (level === 'ERROR')   this.errors.push(entry);
+    if (level === 'WARN')    this.warnings.push(entry);
+    if (level === 'ERROR')   console.error(`[FE-VALID] ${code}: ${msg}`, data);
+    else if (level === 'WARN') console.warn(`[FE-VALID] ${code}: ${msg}`, data);
+    else                     console.log(`[FE-VALID] ${code}: ${msg}`, data);
+  },
+
+  error(code, msg, data)   { this.record('ERROR', code, msg, data); },
+  warn(code, msg, data)    { this.record('WARN',  code, msg, data); },
+  info(code, msg, data)    { this.record('INFO',  code, msg, data); },
+
+  summary() {
+    return {
+      total: this.log.length,
+      errors: this.errors.length,
+      warnings: this.warnings.length,
+      errorCodes: [...new Set(this.errors.map(e => e.code))],
+      warnCodes:  [...new Set(this.warnings.map(e => e.code))],
+    };
+  },
+
+  report() {
+    const s = this.summary();
+    console.groupCollapsed(`📋 FE 검증 리포트: 오류 ${s.errors}, 경고 ${s.warnings}`);
+    if (s.errors > 0) {
+      console.group('❌ 오류');
+      this.errors.forEach(e => console.error(`[${e.code}] ${e.msg}`, e.data || ''));
+      console.groupEnd();
+    }
+    if (s.warnings > 0) {
+      console.group('⚠️ 경고');
+      this.warnings.forEach(w => console.warn(`[${w.code}] ${w.msg}`, w.data || ''));
+      console.groupEnd();
+    }
+    console.groupEnd();
+    return s;
+  },
 };
-});
-function updateCnt(){
-  const s=document.querySelectorAll('.stag.sel');
-  let n=0; s.forEach(t=>{if(DB[t.dataset.r])n+=DB[t.dataset.r].dongs.length;});
-  document.getElementById('scnt').textContent=n;
-}
-// 페이지 로드 시 캐시 미리 로드
-loadPolygonCache().catch(e => console.error('캐시 로드 실패:', e));
 
-// 각 도시 태그에 동 개수 표시 (캐시 로드 후 자동 업데이트됨)
-(function initStagCounts(){
-  Object.entries(DB).forEach(([key,val])=>{
-    const el=document.getElementById('scnt-'+key);
-    if(el) el.textContent=val.dongs.length+'개';
-  });
-})();
-updateCnt();
+// ── DB (캐시 로드 후 채워짐) ─────────────────────────────────────
+const DB = {};
 
-// 정답 범위 조절
-document.getElementById('range-slider').addEventListener('input', function(e){
-  answerRange = parseFloat(e.target.value);
-  document.getElementById('range-value').textContent = answerRange.toFixed(1);
-  document.getElementById('range-slider-map').value = answerRange;
-  document.getElementById('range-value-map').textContent = answerRange.toFixed(1)+'km';
-});
+// ── v4 핵심: JSON에서 도시 메타 동적 추출 ────────────────────────
+// CITY_META 하드코딩 완전 제거 — buildCityMetaFromCache()가 생성
+let CITY_META_V4 = [];  // [{name, key, do_, center, zoom, color, hasGu, quizLevel, total}]
 
-document.getElementById('range-slider-map').addEventListener('input', function(e){
-  answerRange = parseFloat(e.target.value);
-  document.getElementById('range-value-map').textContent = answerRange.toFixed(1)+'km';
-  document.getElementById('range-slider').value = answerRange;
-  document.getElementById('range-value').textContent = answerRange.toFixed(1);
-});
-
-
-// 구 퀴즈 모드 토글
-document.getElementById('gu-quiz-mode').addEventListener('change', function(e){
-  isGuQuizMode = e.target.checked;
-  const desc = document.getElementById('mode-desc');
-  desc.textContent = isGuQuizMode 
-    ? '구 이름만 보고 동 위치 찾기 (난이도 ↓)' 
-    : '동 이름을 보고 위치 찾기';
-});
-
-window.startQuiz = function(){
-  const s=document.querySelectorAll('.stag.sel');
-  if(!s.length){toast('지역을 선택하세요!','error');return;}
-
-  // 누적 폴리곤 배열 초기화
-  answerLayers = []; wrongLayers = [];
-  tempL = []; wrongL = [];
-  answerLayer = null;
-  
-  // 캐시 로드 먼저 (아직 안 로드됐으면)
-  if(!POLY_CACHE){
-    toast('데이터 로딩 중...', 'info');
-    loadPolygonCache().then(()=>{
-      allDongs=[];
-      s.forEach(t=>{
-        const r=t.dataset.r;
-        if(DB[r]) DB[r].dongs.forEach(d=>allDongs.push({...d,rk:r,rn:DB[r].name}));
-      });
-      document.getElementById('start').classList.add('hidden');
-      initMap(); buildFilter(); reshuffle(); nextQ();
-      document.getElementById('range-control').style.display='block';
-    });
-  } else {
-    allDongs=[];
-    s.forEach(t=>{
-      const r=t.dataset.r;
-      if(DB[r]) DB[r].dongs.forEach(d=>allDongs.push({...d,rk:r,rn:DB[r].name}));
-    });
-    document.getElementById('start').classList.add('hidden');
-    initMap(); buildFilter(); reshuffle(); nextQ();
-    document.getElementById('range-control').style.display='block';
-  }
+// 도시명 → DB키 변환 (한글 → slug)
+function cityNameToKey(name) {
+  const map = {
+    '서울특별시':'seoul','인천광역시':'incheon','수원시':'suwon',
+    '성남시':'seongnam','광주시':'gwangju','고양시':'goyang',
+    '용인시':'yongin','부천시':'bucheon','안양시':'anyang',
+    '화성시':'hwaseong','대전광역시':'daejeon','부산광역시':'busan',
+    '대구광역시':'daegu','광주광역시':'gwangju_metro','경주시':'gyeongju',
+    '파주시':'paju','세종특별자치시':'sejong','김포시':'gimpo',
+    '포항시':'pohang','서귀포시':'seogwipo','춘천시':'chuncheon',
+    '제주시':'jeju','남양주시':'namyangju','군포시':'gunpo',
+    '시흥시':'siheung','천안시':'cheonan','이천시':'icheon',
+    '목포시':'mokpo','강릉시':'gangneung','의정부시':'uijeongbu',
+    '익산시':'iksan','원주시':'wonju','김해시':'gimhae',
+    '구미시':'gumi','아산시':'asan','창원시':'changwon',
+    '하남시':'hanam','울산광역시':'ulsan','청주시':'cheongju',
+    '광명시':'gwangmyeong','구리시':'guri','평택시':'pyeongtaek',
+    '전주시':'jeonju','순천시':'suncheon',
+  };
+  return map[name] || name.replace(/[^\w가-힣]/g,'').toLowerCase();
 }
 
-
-
-
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   v3 폴리곤 캐시  (도 > 시/군 > 구 > 읍/면/동/리)
-   각 단위 노드에 _do / _city / _gu 부모 계층 정보 포함
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-
-// 구 없는 도시 집합 (읍/면/동이 시 직속)
-const NO_GU_CITIES = new Set(['화성시','광주시']);
-
-/**
- * CITY_META — 도시별 메타 정보
- * [표시명, DB키, 소속도(null=독립), 지도중심, 줌레벨, 색상]
- */
-const CITY_META = [
-  ['서울특별시','seoul',    null,    [37.563,127.000],11,'#00d4ff'],
-  ['인천광역시','incheon',  null,    [37.460,126.620],11,'#ff9f43'],
-  ['수원시',   'suwon',   '경기도',[37.267,127.000],12,'#a29bfe'],
-  ['성남시',   'seongnam','경기도',[37.420,127.130],12,'#fd79a8'],
-  ['광주시',   'gwangju', '경기도',[37.429,127.255],12,'#55efc4'],
-  ['고양시',   'goyang',  '경기도',[37.658,126.832],12,'#fdcb6e'],
-  ['용인시',   'yongin',  '경기도',[37.232,127.204],11,'#e17055'],
-  ['부천시',   'bucheon', '경기도',[37.499,126.783],12,'#74b9ff'],
-  ['안양시',   'anyang',  '경기도',[37.393,126.953],12,'#81ecec'],
-  ['화성시',   'hwaseong','경기도',[37.199,126.832],11,'#1abc9c'],
+// 도시별 색상 팔레트
+const CITY_COLORS = [
+  '#00d4ff','#ff9f43','#a29bfe','#fd79a8','#55efc4',
+  '#fdcb6e','#e17055','#74b9ff','#81ecec','#1abc9c',
+  '#ff7675','#6c5ce7','#fab1a0','#00b894','#ffeaa7',
+  '#dfe6e9','#b2bec3','#fd79a8','#e84393','#00cec9',
+  '#6d6f78','#fddb92','#4a69bd','#e55039','#27ae60',
+  '#8e44ad','#f39c12','#16a085','#c0392b','#2980b9',
+  '#1abc9c','#d35400','#7f8c8d','#2c3e50','#e74c3c',
+  '#3498db','#2ecc71','#9b59b6','#f1c40f','#e67e22',
 ];
 
-// ── 캐시 헬퍼 ────────────────────────────────────────────────
-
 /**
- * 도시 노드 반환.
- * v3 구조: 독립 도시는 POLY_CACHE[city],
- *          도 소속 도시는 POLY_CACHE[도][city]
- * 단위 노드의 _do/_city/_gu 필드로도 탐색 가능.
+ * [4단계 핵심] JSON에서 도시 메타 자동 구축
+ * CITY_META 하드코딩 완전 제거
  */
+function buildCityMetaFromCache(polyCache) {
+  if (!polyCache) return;
+  CITY_META_V4 = [];
+  let colorIdx = 0;
+
+  function processCity(cityName, cityNode, doName) {
+    // 동 개수 + 구 여부 파악
+    let total = 0;
+    let hasGu = false;
+    const lats = [], lngs = [];
+
+    for (const [k, v] of Object.entries(cityNode)) {
+      if (k.startsWith('_') || typeof v !== 'object' || !v) continue;
+      if (v._type === '구') {
+        const units = v._all_list || [];
+        if (units.length > 0) {
+          hasGu = true;
+          total += units.length;
+          for (const uName of units) {
+            const ud = v[uName];
+            if (ud?.center) { lats.push(ud.center[0]); lngs.push(ud.center[1]); }
+          }
+        }
+      } else if (v.geometry) {
+        total++;
+        if (v.center) { lats.push(v.center[0]); lngs.push(v.center[1]); }
+      }
+    }
+    if (!hasGu) {
+      total = (cityNode._all_list || []).length;
+      for (const uName of (cityNode._all_list || [])) {
+        const ud = cityNode[uName];
+        if (ud?.center) { lats.push(ud.center[0]); lngs.push(ud.center[1]); }
+      }
+    }
+    if (total === 0) return; // 데이터 없는 도시 제외
+
+    // 중심 좌표 (중앙값)
+    let center = [37.5, 127.0];
+    if (lats.length) {
+      const sorted_lat = [...lats].sort((a,b)=>a-b);
+      const sorted_lng = [...lngs].sort((a,b)=>a-b);
+      const mid = Math.floor(sorted_lat.length / 2);
+      center = [
+        Math.round(sorted_lat[mid] * 1000) / 1000,
+        Math.round(sorted_lng[mid] * 1000) / 1000,
+      ];
+    }
+
+    // 줌 레벨
+    const type_ = cityNode._type || '';
+    const zoom = (type_ === '특별시' || type_ === '광역시') ? 11
+               : (total > 20) ? 11
+               : (total > 10) ? 12 : 13;
+
+    // 퀴즈 메타
+    const qm = cityNode._quiz_meta || {};
+    const quizLevel = qm.quiz_level || (hasGu ? 'gu' : 'dong');
+
+    CITY_META_V4.push({
+      name:       cityName,
+      key:        cityNameToKey(cityName),
+      do_:        doName,
+      center,
+      zoom,
+      color:      CITY_COLORS[colorIdx++ % CITY_COLORS.length],
+      hasGu,
+      quizLevel,  // 'gu' | 'dong' | 'eup' | 'myeon'
+      total,
+    });
+
+    // 프론트 검증: NO_GU 도시에 구 데이터가 있으면 경고
+    if (!hasGu) {
+      const hasGuNode = Object.values(cityNode).some(v => v?._type === '구');
+      if (hasGuNode) {
+        FE_VALIDATION.warn('NO_GU_HAS_GU_NODE',
+          `${cityName}: _quiz_meta.has_gu=false인데 구 노드가 존재함`, { cityName });
+      }
+    }
+  }
+
+  for (const [topKey, topVal] of Object.entries(polyCache)) {
+    if (topKey.startsWith('_') || typeof topVal !== 'object' || !topVal) continue;
+    const t = topVal._type || '';
+    if (t === '도') {
+      for (const [city, cv] of Object.entries(topVal)) {
+        if (!city.startsWith('_') && typeof cv === 'object' && cv) {
+          processCity(city, cv, topKey);
+        }
+      }
+    } else if (['특별시','광역시','시','특별자치시','특별자치도'].includes(t)) {
+      processCity(topKey, topVal, null);
+    }
+  }
+
+  // 동 개수 내림차순 정렬
+  CITY_META_V4.sort((a, b) => b.total - a.total);
+
+  FE_VALIDATION.info('CITY_META_BUILT',
+    `${CITY_META_V4.length}개 도시 메타 동적 생성 (하드코딩 0건)`,
+    { cities: CITY_META_V4.map(c => `${c.name}(${c.total})`) }
+  );
+}
+
+// ── getCityNode (v4: 동일 로직 유지) ────────────────────────────
 function getCityNode(cityName) {
   if (!POLY_CACHE) return null;
-  // 1순위: 최상위 직속
   if (POLY_CACHE[cityName]) return POLY_CACHE[cityName];
-  // 2순위: 도 → 시
-  for (const [topKey, topVal] of Object.entries(POLY_CACHE)) {
-    if (topVal?._type === '도' && topVal[cityName]) return topVal[cityName];
+  for (const [, tv] of Object.entries(POLY_CACHE)) {
+    if (tv?._type === '도' && tv[cityName]) return tv[cityName];
   }
   return null;
 }
 
+// ── [4단계 핵심] getDongGeo — 리프 노드만 반환, 구 폴리곤 차단 ───
 /**
- * 단위(동/읍/면/리) GeoJSON 조회
- * 각 단위 노드에는 _do/_city/_gu 부모 정보가 내장되어 있음
+ * 동/읍/면/리 GeoJSON만 반환.
+ * _geometry (구 폴리곤) 를 절대 반환하지 않음.
+ * 
+ * @param {string} cityName
+ * @param {string|null} gu  — 구 없는 도시는 null 또는 ''
+ * @param {string} dong     — 단위명
+ * @returns {object|null}   — GeoJSON or null
  */
 function getDongGeo(cityName, gu, dong) {
   const cn = getCityNode(cityName);
   if (!cn) return null;
-  if (gu) return cn[gu]?.[dong] || null;
-  return cn[dong] || null;  // 구 없는 도시
+
+  let node;
+  if (gu) {
+    const guNode = cn[gu];
+    if (!guNode) return null;
+    node = guNode[dong];
+  } else {
+    node = cn[dong];
+  }
+
+  if (!node) return null;
+
+  // ── 렌더 차단 검증 ────────────────────────────────────────────
+  // 1) 구 노드(_type==='구')를 동 노드로 오인한 경우 차단
+  if (node._type === '구') {
+    FE_VALIDATION.error('PARENT_NODE_AS_DONG',
+      `${cityName}/${gu}/${dong}: 구 노드가 동으로 요청됨 — 렌더 차단`,
+      { cityName, gu, dong, nodeType: node._type }
+    );
+    return null;
+  }
+
+  // 2) _geometry 키 존재: 구 폴리곤이 동 위치에 잘못 저장됨
+  if (node._geometry) {
+    FE_VALIDATION.error('PARENT_GEOMETRY_IN_DONG',
+      `${cityName}/${gu}/${dong}: _geometry 필드 존재 — 구 폴리곤 혼입 차단`,
+      { cityName, gu, dong }
+    );
+    // _geometry 제거 후 반환 (데이터는 살리되 구 폴리곤만 제거)
+    const { _geometry, ...safeNode } = node;
+    return safeNode;
+  }
+
+  // 3) 부모-자식 좌표 완전 동일 탐지 (N2에서 걸렸어야 하나 2차 방어)
+  if (gu && node.geometry) {
+    const guNode = cn[gu];
+    if (guNode?._geometry?.geometry) {
+      const dongCoords = JSON.stringify(node.geometry.coordinates);
+      const guCoords   = JSON.stringify(guNode._geometry.geometry.coordinates);
+      if (dongCoords === guCoords) {
+        FE_VALIDATION.error('COORD_IDENTITY_DONG_EQ_GU',
+          `${cityName}/${gu}/${dong}: 동 좌표 === 구 좌표 — 렌더 차단 (N2 누락)`,
+          { cityName, gu, dong }
+        );
+        return null;
+      }
+    }
+  }
+
+  // 4) level mismatch: 동 퀴즈인데 노드 타입이 구
+  const validLeafTypes = new Set(['동','읍','면','리']);
+  if (node._type && !validLeafTypes.has(node._type)) {
+    FE_VALIDATION.warn('LEVEL_MISMATCH',
+      `${cityName}/${gu}/${dong}: _type='${node._type}'는 리프 단위가 아님`,
+      { cityName, gu, dong, type: node._type }
+    );
+  }
+
+  return node;
 }
 
-/**
- * 구 GeoJSON 조회 (_geometry 필드)
- * 구 노드의 _do/_city 부모 정보가 내장되어 있음
- */
+// ── getGuGeo — 구 폴리곤 전용 (동 퀴즈에서 호출 금지) ───────────
 function getGuGeo(cityName, gu) {
   const cn = getCityNode(cityName);
   if (!cn || !gu) return null;
@@ -1203,12 +1327,10 @@ function getGuGeo(cityName, gu) {
 /** GeoJSON 또는 단위 노드의 중심 좌표 반환 */
 function getCenter(geo) {
   if (!geo) return null;
-  // v3 단위 노드: center 필드 우선
   if (geo.center) return [geo.center[0], geo.center[1]];
-  // 구 노드: _center 필드
   if (geo._center) return [geo._center[0], geo._center[1]];
   try {
-    const type  = geo.geometry.type;
+    const type   = geo.geometry.type;
     const coords = type === 'Polygon'
       ? geo.geometry.coordinates[0]
       : geo.geometry.coordinates[0][0];
@@ -1220,224 +1342,335 @@ function getCenter(geo) {
   } catch(e) { return null; }
 }
 
-// ── 캐시 로드 ────────────────────────────────────────────────
-
-async function loadPolygonCache() {
-  try {
-    // v3 → v2 → flat 순서로 시도
-    let res = await fetch('polygon_cache.json');
-    if (!res.ok) res = await fetch('polygon_cache_v2.json');
-    if (!res.ok) res = await fetch('polygon_cache.json');
-    if (!res.ok) throw new Error('캐시 파일 없음');
-    const raw = await res.json();
-
-    // 버전 감지: | 없으면 계층 구조
-    const firstKey = Object.keys(raw)[0] || '';
-    POLY_CACHE = firstKey.includes('|') ? convertFlatToV3(raw) : raw;
-
-    buildDBFromCache();
-    updateStagCounts();
-    updateCnt();
-
-    // 범위 슬라이더 이벤트 등록
-    document.getElementById('range-slider').addEventListener('input', e => {
-      answerRange = parseFloat(e.target.value);
-      document.getElementById('range-value').textContent = answerRange.toFixed(1);
-      document.getElementById('range-slider-map').value = answerRange;
-      document.getElementById('range-value-map').textContent = answerRange.toFixed(1)+'km';
-    });
-    document.getElementById('range-slider-map').addEventListener('input', e => {
-      answerRange = parseFloat(e.target.value);
-      document.getElementById('range-value-map').textContent = answerRange.toFixed(1)+'km';
-      document.getElementById('range-slider').value = answerRange;
-      document.getElementById('range-value').textContent = answerRange.toFixed(1);
-    });
-
-    let total = 0;
-    CITY_META.forEach(([city]) => {
-      const cn = getCityNode(city);
-      if (!cn) return;
-      if (NO_GU_CITIES.has(city)) total += cn._unit_count || 0;
-      else (cn._gu_list||[]).forEach(gu => { total += cn[gu]?._unit_count || 0; });
-    });
-    console.log(`✅ 폴리곤 캐시 로드 (v3): ${total}개 단위`);
-
-  } catch(e) {
-    console.error('⚠️ 폴리곤 캐시 로드 실패:', e);
-    POLY_CACHE = {};
-    toast('폴리곤 데이터 로드 실패', 'error');
-  }
-}
-
-// ── flat → v3 변환 (하위 호환) ───────────────────────────────
-
-function convertFlatToV3(flat) {
-  const CITY_DO = {
-    '고양시':'경기도','광주시':'경기도','수원시':'경기도','성남시':'경기도',
-    '용인시':'경기도','부천시':'경기도','안양시':'경기도','화성시':'경기도',
-  };
-  const NORM = {'경기도 광주시':'광주시'};
-  const result = {};
-
-  const ensureCity = city => {
-    const do_ = CITY_DO[city];
-    if (do_) {
-      result[do_] = result[do_] || {_type:'도', _city_list:[]};
-      if (!result[do_][city])
-        result[do_][city] = {_type:'시', _do:do_};
-      if (!result[do_]._city_list.includes(city))
-        result[do_]._city_list = [...result[do_]._city_list, city].sort();
-      return result[do_][city];
-    }
-    result[city] = result[city] || {
-      _type: city.endsWith('특별시') ? '특별시' : '광역시',
-      _do: null,
-    };
-    return result[city];
-  };
-
-  const ut = n => n.endsWith('읍')?'읍':n.endsWith('면')?'면':n.endsWith('리')?'리':'동';
-
-  Object.entries(flat).forEach(([k, v]) => {
-    if (!v) return;
-    const parts = k.split('|');
-    if (k.startsWith('GU|') && parts.length===3) {
-      const city = NORM[parts[1]] || parts[1];
-      const gu   = parts[2];
-      const do_  = CITY_DO[city] || null;
-      const cn   = ensureCity(city);
-      cn[gu] = cn[gu] || {_type:'구', _do:do_, _city:city};
-      cn[gu]._geometry = v;
-      const c = getCenter(v); if (c) cn[gu]._center = c;
-    } else if (parts.length===3) {
-      const city = NORM[parts[0]] || parts[0];
-      const gu   = parts[1], dong = parts[2];
-      const do_  = CITY_DO[city] || null;
-      const entry = {...v, _type:ut(dong), _do:do_, _city:city, _gu: NO_GU_CITIES.has(city)?null:gu};
-      if (!entry.center) { const c=getCenter(v); if(c) entry.center=c; }
-      const cn = ensureCity(city);
-      if (NO_GU_CITIES.has(city)) { cn[dong] = entry; }
-      else { cn[gu] = cn[gu]||{_type:'구',_do:do_,_city:city}; cn[gu][dong] = entry; }
-    }
-  });
-
-  // _*_list 재계산
-  const isUnit = (k,v) => !k.startsWith('_') && v?._type && ['동','읍','면','리'].includes(v._type);
-  const rebuildUnits = node => {
-    const e=[],m=[],d=[],r=[];
-    Object.entries(node).forEach(([k,v]) => {
-      if (!isUnit(k,v)) return;
-      if (v._type==='읍') e.push(k);
-      else if (v._type==='면') m.push(k);
-      else if (v._type==='리') r.push(k);
-      else d.push(k);
-    });
-    node._eup_list=e.sort(); node._myeon_list=m.sort();
-    node._dong_list=d.sort(); node._ri_list=r.sort();
-    node._all_list=[...e,...m,...d,...r]; node._unit_count=node._all_list.length;
-  };
-  Object.entries(result).forEach(([topKey, tv]) => {
-    if (tv._type==='도') {
-      (tv._city_list||[]).forEach(c => {
-        const cn=tv[c];
-        if (NO_GU_CITIES.has(c)) rebuildUnits(cn);
-        else {
-          cn._gu_list=Object.keys(cn).filter(k=>!k.startsWith('_')&&cn[k]?._type==='구').sort();
-          cn._gu_list.forEach(gu => rebuildUnits(cn[gu]));
-        }
-      });
-    } else {
-      if (NO_GU_CITIES.has(topKey)) rebuildUnits(tv);
-      else {
-        tv._gu_list=Object.keys(tv).filter(k=>!k.startsWith('_')&&tv[k]?._type==='구').sort();
-        tv._gu_list.forEach(gu => rebuildUnits(tv[gu]));
-      }
-    }
-  });
-  return result;
-}
-
-// ── DB 빌드 ──────────────────────────────────────────────────
+// ── [4단계 핵심] buildDBFromCache — polygon_cache.json 100% 신뢰 ──
 /**
- * buildDBFromCache()
- * POLY_CACHE v3 → DB[key].dongs 배열 생성
- *
- * 각 dong 항목:
- *   d     : 단위명 (동/읍/면/리)
- *   gu    : 구명 (구 없는 도시는 '')
- *   lat   : 중심 위도
- *   lng   : 중심 경도
- *   rn    : 시 이름  (_city 활용)
- *   do_   : 도 이름  (_do 활용, null 가능)
- *   utype : 단위 종류 (_type: 동/읍/면/리)
- *   rk    : DB 키 (startQuiz에서 필터용)
- *
- * 이 필드들로 퀴즈 문제 출제 시
- *   구 문제 ON : "시 · 동名" 표시 → 어느 구인지 맞춤
- *   구 문제 OFF: "시 · 구名" 표시 → 어느 동인지 맞춤
+ * POLY_CACHE v3(polygon_cache.json) → DB[key].dongs 배열 생성
+ * 
+ * 변경점:
+ * - CITY_META 하드코딩 제거 → CITY_META_V4 (JSON 기반) 사용
+ * - NO_GU_CITIES 하드코딩 제거 → _quiz_meta.has_gu 사용
+ * - getDongGeo 대신 직접 접근으로 부모 노드 완전 배제
  */
 function buildDBFromCache() {
   if (!POLY_CACHE) return;
 
-  CITY_META.forEach(([cityName, key, do_, center, zoom, color]) => {
-    const cn = getCityNode(cityName);
-    if (!cn) return;
-    const dongs = [];
+  buildCityMetaFromCache(POLY_CACHE);
 
-    if (NO_GU_CITIES.has(cityName)) {
-      // 구 없는 도시: _all_list에서 직접 읍/면/동 가져옴
-      (cn._all_list || []).forEach(name => {
-        const geo = cn[name];
-        if (!geo) return;
-        const ll = geo.center || getCenter(geo);
-        if (!ll) return;
-        dongs.push({
-          d:     name,
-          gu:    '',           // 구 없음
-          lat:   ll[0],
-          lng:   ll[1],
-          rn:    geo._city  || cityName,   // _city 부모 정보 활용
-          do_:   geo._do,                  // _do 부모 정보 활용
-          utype: geo._type  || '동',
-          rk:    key,
-        });
-      });
-    } else {
-      (cn._gu_list || []).forEach(gu => {
-        const guData = cn[gu];
-        if (!guData) return;
-        (guData._all_list || []).forEach(name => {
-          const geo = guData[name];
-          if (!geo) return;
-          const ll = geo.center || getCenter(geo);
-          if (!ll) return;
-          dongs.push({
-            d:     name,
-            gu:    geo._gu   || gu,        // _gu 부모 정보 활용
-            lat:   ll[0],
-            lng:   ll[1],
-            rn:    geo._city || cityName,  // _city 부모 정보 활용
-            do_:   geo._do,               // _do 부모 정보 활용
-            utype: geo._type || '동',
-            rk:    key,
-          });
-        });
-      });
+  for (const meta of CITY_META_V4) {
+    const { name: cityName, key, do_: doName, center, zoom, color, hasGu, quizLevel } = meta;
+    const cn = getCityNode(cityName);
+    if (!cn) {
+      FE_VALIDATION.warn('CITY_NODE_NOT_FOUND', `${cityName}: 캐시에서 노드 없음`, { cityName });
+      continue;
     }
 
-    DB[key] = {name:cityName, do:do_, center, zoom, color, dongs};
-  });
+    const dongs = [];
+
+    if (hasGu) {
+      // 구 있는 도시: cn._gu_list → 각 구 → _all_list → 단위
+      const guList = cn._gu_list || Object.keys(cn).filter(k => !k.startsWith('_') && cn[k]?._type === '구');
+
+      for (const gu of guList) {
+        const guData = cn[gu];
+        if (!guData) continue;
+
+        const unitList = guData._all_list || [];
+        for (const uName of unitList) {
+          const node = guData[uName];
+          if (!node || typeof node !== 'object') continue;
+
+          // ── 부모 노드 완전 배제 ──────────────────────────────
+          // _type이 '구'이면 절대 출제 대상 아님
+          if (node._type === '구') {
+            FE_VALIDATION.error('PARENT_IN_UNIT_LIST',
+              `${cityName}/${gu}: _all_list에 구 노드 '${uName}' 포함 — 제외`,
+              { cityName, gu, uName }
+            );
+            continue;
+          }
+          // geometry 없는 단위 제외
+          if (!node.geometry) {
+            FE_VALIDATION.warn('NO_GEOMETRY',
+              `${cityName}/${gu}/${uName}: geometry 없음 — 제외`, { cityName, gu, uName }
+            );
+            continue;
+          }
+
+          const ll = node.center || getCenter(node);
+          if (!ll) {
+            FE_VALIDATION.warn('NO_CENTER',
+              `${cityName}/${gu}/${uName}: center 없음 — 제외`, { cityName, gu, uName }
+            );
+            continue;
+          }
+
+          // _gu 필드 검증 (3단계에서 설정된 값과 일치 확인)
+          if (node._gu && node._gu !== gu) {
+            FE_VALIDATION.warn('GU_MISMATCH',
+              `${cityName}/${uName}: node._gu='${node._gu}' != 경로상 gu='${gu}'`,
+              { cityName, gu, uName, nodeGu: node._gu }
+            );
+          }
+
+          dongs.push({
+            d:     uName,
+            gu:    node._gu || gu,
+            lat:   ll[0],
+            lng:   ll[1],
+            rn:    node._city || cityName,
+            do_:   node._do || doName,
+            utype: node._type || '동',
+            rk:    key,
+            // quiz_meta: 각 단위의 _quiz_meta (없으면 구 메타 상속)
+            qm:    node._quiz_meta || guData._quiz_meta || cn._quiz_meta || {},
+          });
+        }
+      }
+    } else {
+      // 구 없는 도시: _all_list 직접
+      const unitList = cn._all_list || [];
+      for (const uName of unitList) {
+        const node = cn[uName];
+        if (!node || typeof node !== 'object') continue;
+
+        // 구 노드 배제 (구 없는 도시인데 구가 섞인 경우)
+        if (node._type === '구') {
+          FE_VALIDATION.error('PARENT_IN_NO_GU_CITY',
+            `${cityName}: 구 없는 도시인데 구 노드 '${uName}' 발견 — 제외`,
+            { cityName, uName }
+          );
+          continue;
+        }
+        if (!node.geometry) {
+          FE_VALIDATION.warn('NO_GEOMETRY', `${cityName}/${uName}: geometry 없음 — 제외`, {});
+          continue;
+        }
+
+        const ll = node.center || getCenter(node);
+        if (!ll) continue;
+
+        dongs.push({
+          d:     uName,
+          gu:    '',   // 구 없음
+          lat:   ll[0],
+          lng:   ll[1],
+          rn:    node._city || cityName,
+          do_:   node._do || doName,
+          utype: node._type || '동',
+          rk:    key,
+          qm:    node._quiz_meta || cn._quiz_meta || {},
+        });
+      }
+    }
+
+    DB[key] = { name: cityName, do: doName, center, zoom, color, hasGu, quizLevel, dongs };
+
+    // 검증: 동 개수 0
+    if (dongs.length === 0) {
+      FE_VALIDATION.warn('EMPTY_CITY', `${cityName}: 출제 가능 단위 0개`, { cityName, key });
+    }
+  }
 
   const total = Object.values(DB).reduce((s,c)=>s+c.dongs.length, 0);
-  console.log(`✅ DB 생성: ${total}개 단위 (부모 계층 포함)`);
+  FE_VALIDATION.info('DB_BUILT', `DB 생성 완료: ${Object.keys(DB).length}개 도시, ${total}개 단위`);
+  console.log(`✅ [v4] DB 생성: ${total}개 단위 | 부모 폴리곤 차단 ✓`);
 }
 
-function updateStagCounts() {
-  Object.entries(DB).forEach(([key,val]) => {
-    const el = document.getElementById('scnt-'+key);
-    if (el) el.textContent = val.dongs.length+'개';
-  });
+// ── [4단계 핵심] 도시 메뉴 자동 생성 ───────────────────────────
+/**
+ * JSON 기반으로 #stags 컨테이너를 동적 생성
+ * 하드코딩 완전 제거
+ */
+function buildCityMenu() {
+  const container = document.getElementById('stags');
+  if (!container) return;
+  container.innerHTML = '';
+
+  // 기본 선택: 동 개수 상위 5개
+  const defaultSelected = new Set(
+    CITY_META_V4.slice(0, 5).map(c => c.key)
+  );
+
+  for (const meta of CITY_META_V4) {
+    const div = document.createElement('div');
+    div.className = 'stag' + (defaultSelected.has(meta.key) ? ' sel' : '');
+    div.dataset.r = meta.key;
+    div.style.borderColor = meta.color;
+
+    // 동 없음→선택 불가 처리
+    if (meta.total === 0) {
+      div.classList.add('disabled');
+      div.style.opacity = '0.3';
+      div.style.cursor  = 'not-allowed';
+    }
+
+    // 표시명: 도 소속이면 도명 축약 포함
+    const displayName = meta.do_
+      ? `${meta.name}`  // 도시명만 (도명은 툴팁으로)
+      : meta.name;
+
+    div.title = meta.do_ ? `${meta.do_} 소속 · ${meta.total}개` : `${meta.total}개`;
+
+    div.innerHTML = `${displayName} <span class="stag-cnt">${meta.total}개</span>`;
+
+    if (meta.total > 0) {
+      div.onclick = () => {
+        div.classList.toggle('sel');
+        // 선택 시 도시 색상 적용
+        if (div.classList.contains('sel')) {
+          div.style.borderColor = meta.color;
+          div.style.color       = meta.color;
+        } else {
+          div.style.borderColor = '';
+          div.style.color       = '';
+        }
+        updateCnt();
+      };
+    }
+
+    container.appendChild(div);
+  }
+
+  updateCnt();
+  FE_VALIDATION.info('CITY_MENU_BUILT', `도시 메뉴 ${CITY_META_V4.length}개 동적 생성`);
 }
+
+// ── updateStagCounts (v4: DB 기반) ──────────────────────────────
+function updateStagCounts() {
+  for (const [key, val] of Object.entries(DB)) {
+    const el = document.querySelector(`.stag[data-r="${key}"] .stag-cnt`);
+    if (el) el.textContent = val.dongs.length + '개';
+  }
+}
+
+// ── updateCnt ────────────────────────────────────────────────────
+function updateCnt() {
+  const selected = document.querySelectorAll('.stag.sel');
+  let n = 0;
+  selected.forEach(t => { if (DB[t.dataset.r]) n += DB[t.dataset.r].dongs.length; });
+  const el = document.getElementById('scnt');
+  if (el) el.textContent = n;
+}
+
+// ── 퀴즈 모드 자동 결정 ─────────────────────────────────────────
+/**
+ * 선택된 도시들의 _quiz_meta 기반으로 퀴즈 모드를 결정
+ * 
+ * 모드 분기표:
+ * - 선택 도시 중 has_gu=true가 있으면: 구 퀴즈 가능 → 토글로 선택
+ * - 모두 has_gu=false: 구 퀴즈 토글 비활성
+ * 
+ * quiz_level별 출제 대상:
+ * - 'gu'    → 구 퀴즈 모드일 때 구만, 동 퀴즈 모드일 때 동
+ * - 'dong'  → 동 퀴즈만
+ * - 'eup'   → 읍 단위 퀴즈
+ * - 'myeon' → 면 단위 퀴즈
+ */
+function getQuizModeForCity(cityKey) {
+  const cityDB = DB[cityKey];
+  if (!cityDB) return 'dong';
+  return cityDB.quizLevel || 'dong';
+}
+
+// ── [4단계 핵심] loadPolygonCache — polygon_cache.json 고정 ───────
+async function loadPolygonCache() {
+  try {
+    // polygon_cache.json 우선 로드 (3단계 정규화 완료본)
+    let res = await fetch('polygon_cache.json');
+    if (!res.ok) res = await fetch('polygon_cache.json');  // fallback
+    if (!res.ok) throw new Error('캐시 파일 없음');
+
+    POLY_CACHE = await res.json();
+
+    buildDBFromCache();
+    buildCityMenu();     // 하드코딩 제거 → 동적 메뉴 생성
+    updateStagCounts();
+
+    // 범위 슬라이더 이벤트
+    const sliders = ['range-slider','range-slider-map'];
+    sliders.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', e => {
+        answerRange = parseFloat(e.target.value);
+        document.getElementById('range-value').textContent = answerRange.toFixed(1);
+        const mapEl = document.getElementById('range-value-map');
+        if (mapEl) mapEl.textContent = answerRange.toFixed(1)+'km';
+        const other = id === 'range-slider' ? 'range-slider-map' : 'range-slider';
+        const otherEl = document.getElementById(other);
+        if (otherEl) otherEl.value = answerRange;
+      });
+    });
+
+    const total = Object.values(DB).reduce((s,c)=>s+c.dongs.length,0);
+    console.log(`✅ [v4] 폴리곤 캐시 로드: ${total}개 단위`);
+    FE_VALIDATION.info('CACHE_LOADED', `최종 캐시 로드 완료: ${total}개 단위`);
+
+    // 검증 리포트 출력
+    setTimeout(() => FE_VALIDATION.report(), 500);
+
+  } catch(e) {
+    console.error('⚠️ 폴리곤 캐시 로드 실패:', e);
+    POLY_CACHE = {};
+    FE_VALIDATION.error('CACHE_LOAD_FAILED', `캐시 로드 실패: ${e.message}`, { error: e.message });
+    toast('폴리곤 데이터 로드 실패', 'error');
+  }
+}
+
+
+
+// ─── 초기화 (v4) ──────────────────────────────────────────────
+// 페이지 로드 시 캐시 미리 로드 (polygon_cache.json 우선)
+loadPolygonCache().catch(e => console.error('캐시 로드 실패:', e));
+
+// 구 퀴즈 모드 토글
+document.getElementById('gu-quiz-mode').addEventListener('change', function(e){
+  isGuQuizMode = e.target.checked;
+  const desc = document.getElementById('mode-desc');
+  desc.textContent = isGuQuizMode
+    ? '구(區) 범위를 클릭해서 정답 맞추기'
+    : '동 이름을 보고 위치 찾기';
+});
+
+window.startQuiz = function(){
+  const s = document.querySelectorAll('.stag.sel');
+  if(!s.length){ toast('지역을 선택하세요!','error'); return; }
+
+  // 누적 폴리곤 배열 초기화
+  answerLayers=[]; wrongLayers=[]; tempL=[]; wrongL=[]; answerLayer=null;
+
+  const doStart = () => {
+    allDongs = [];
+    s.forEach(t => {
+      const r = t.dataset.r;
+      if(DB[r]) DB[r].dongs.forEach(d => allDongs.push({...d, rk:r, rn:DB[r].name}));
+    });
+
+    // [4단계] 구 퀴즈 가능 여부: 선택 도시 중 hasGu=true인 도시가 있어야 함
+    const anyHasGu = [...s].some(t => DB[t.dataset.r]?.hasGu);
+    const guToggle = document.getElementById('gu-quiz-mode');
+    if(guToggle && !anyHasGu){
+      guToggle.checked = false;
+      isGuQuizMode = false;
+      FE_VALIDATION.info('GU_MODE_DISABLED', '선택 도시에 구 없음 → 구 퀴즈 모드 자동 비활성');
+    }
+
+    if(!allDongs.length){
+      toast('선택한 지역에 출제 가능한 단위가 없습니다.','error');
+      return;
+    }
+    document.getElementById('start').classList.add('hidden');
+    initMap(); buildFilter(); reshuffle(); nextQ();
+    document.getElementById('range-control').style.display = 'block';
+  };
+
+  if(!POLY_CACHE){
+    toast('데이터 로딩 중...','info');
+    loadPolygonCache().then(doStart);
+  } else {
+    doStart();
+  }
+};
 
 // 레거시 호환 (v1 flat key 생성용)
 function getPolygonKey(rn, gu, d){ return `${rn}|${gu}|${d}`; }
