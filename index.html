@@ -168,8 +168,94 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .st{font-family:'Black Han Sans',sans-serif;font-size:2.5rem;color:var(--accent);text-shadow:0 0 30px var(--accent);text-align:center;}
 .ss{color:var(--text-dim);font-size:.88rem;text-align:center;line-height:1.8;}
 .stags{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
-.stag{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:.78rem;cursor:pointer;transition:all .2s;color:var(--text-dim);font-family:'Noto Sans KR',sans-serif;}
-.stag:hover,.stag.sel{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.1);}
+.stag{
+  background:var(--surface2);
+  border:2px solid var(--border);
+  border-radius:20px;
+  padding:6px 14px;
+  font-size:.78rem;
+  cursor:pointer;
+  transition:all .25s cubic-bezier(.4,0,.2,1);
+  color:var(--text-dim);
+  font-family:'Noto Sans KR',sans-serif;
+  position:relative;
+  user-select:none;
+}
+.stag:hover{
+  border-color:var(--accent);
+  color:var(--accent);
+  background:rgba(0,212,255,.08);
+  transform:translateY(-1px);
+}
+/* 선택된 상태 - 강력한 시각적 차별 */
+.stag.sel{
+  border-width:3px;
+  border-style:solid;
+  color:#000 !important;
+  background:linear-gradient(135deg, #e0f7ff, #b3f0ff) !important;
+  font-weight:800;
+  transform:translateY(-3px) scale(1.08);
+  box-shadow:
+    0 0 0 2px rgba(0,212,255,.6),
+    0 4px 16px rgba(0,212,255,.5),
+    inset 0 1px 0 rgba(255,255,255,.4);
+  text-shadow: 0 1px 2px rgba(0,0,0,.2);
+}
+.stag.sel::after{
+  content:'✓';
+  position:absolute;
+  top:-8px;
+  right:-6px;
+  background:#00d4ff;
+  color:#000;
+  border-radius:50%;
+  width:16px;
+  height:16px;
+  font-size:.6rem;
+  font-weight:900;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  line-height:1;
+  box-shadow:0 2px 6px rgba(0,212,255,.5);
+}
+/* 전체선택 버튼 */
+.stag-all-btn{
+  background:var(--surface2);
+  border:2px solid rgba(0,212,255,.4);
+  border-radius:20px;
+  padding:6px 14px;
+  font-size:.75rem;
+  cursor:pointer;
+  transition:all .2s;
+  color:rgba(0,212,255,.8);
+  font-family:'Noto Sans KR',sans-serif;
+  font-weight:700;
+}
+.stag-all-btn:hover{
+  background:rgba(0,212,255,.1);
+  border-color:var(--accent);
+  color:var(--accent);
+  transform:translateY(-1px);
+}
+.stag-none-btn{
+  background:var(--surface2);
+  border:2px solid rgba(255,60,110,.4);
+  border-radius:20px;
+  padding:6px 14px;
+  font-size:.75rem;
+  cursor:pointer;
+  transition:all .2s;
+  color:rgba(255,100,130,.8);
+  font-family:'Noto Sans KR',sans-serif;
+  font-weight:700;
+}
+.stag-none-btn:hover{
+  background:rgba(255,60,110,.1);
+  border-color:#ff3c6e;
+  color:#ff3c6e;
+  transform:translateY(-1px);
+}
 .sbtn{background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;border:none;border-radius:12px;padding:14px 44px;font-size:1.1rem;font-weight:900;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;letter-spacing:2px;}
 .sbtn:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(0,212,255,.5);}
 .leaflet-container{background:#0a1628!important;}
@@ -827,6 +913,10 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div style="text-align:center">
     <div style="color:var(--text-dim);font-size:.72rem;margin-bottom:8px">📍 지역 선택 (복수 가능)</div>
     <div class="stags" id="stags"><!-- 도시 메뉴: loadPolygonCache() → buildCityMenu()에서 JSON 기반 동적 생성 (하드코딩 ❌) --></div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;">
+      <button class="stag-all-btn" onclick="selectAllCities()">✅ 전체 선택</button>
+      <button class="stag-none-btn" onclick="deselectAllCities()">✕ 전체 해제</button>
+    </div>
   </div>
   <div style="color:var(--text-dim);font-size:.82rem;margin-bottom:16px">선택 동 합계: <span style="color:var(--accent);font-weight:700" id="scnt">0</span>개</div>
   
@@ -1490,7 +1580,8 @@ function buildCityMenu() {
 
   for (const meta of CITY_META_V4) {
     const div = document.createElement('div');
-    div.className = 'stag' + (defaultSelected.has(meta.key) ? ' sel' : '');
+    const isSel = defaultSelected.has(meta.key);
+    div.className = 'stag' + (isSel ? ' sel' : '');
     div.dataset.r = meta.key;
     div.style.borderColor = meta.color;
 
@@ -1513,13 +1604,14 @@ function buildCityMenu() {
     if (meta.total > 0) {
       div.onclick = () => {
         div.classList.toggle('sel');
-        // 선택 시 도시 색상 적용
-        if (div.classList.contains('sel')) {
-          div.style.borderColor = meta.color;
-          div.style.color       = meta.color;
-        } else {
+        // 선택 해제 시만 도시 색상 복원 (선택 시 CSS가 스타일 덮어씀)
+        if (!div.classList.contains('sel')) {
           div.style.borderColor = '';
           div.style.color       = '';
+          div.style.background  = '';
+        } else {
+          // 선택 시 테두리 색을 도시 고유색으로 (CSS 변수에 없는 색이므로 inline으로)
+          div.style.borderColor = meta.color;
         }
         updateCnt();
       };
@@ -1633,6 +1725,9 @@ window.startQuiz = function(){
   const s = document.querySelectorAll('.stag.sel');
   if(!s.length){ toast('지역을 선택하세요!','error'); return; }
 
+  // 퀴즈 시작 전 선택 상태 저장
+  saveQuizSelection();
+
   // 누적 폴리곤 배열 초기화
   answerLayers=[]; wrongLayers=[]; tempL=[]; wrongL=[]; answerLayer=null;
 
@@ -1690,9 +1785,107 @@ let allAnswerLayers = [];
 
 
 
+// 퀴즈 시작 전 선택 상태 저장용
+let _savedCitySelection = null;  // [{key, color}, ...]
+let _savedGuMode = false;
+let _savedAnswerRange = 1.5;
+
+window.selectAllCities = function() {
+  document.querySelectorAll('.stag:not(.disabled)').forEach(div => {
+    if (!div.classList.contains('sel')) {
+      div.classList.add('sel');
+    }
+  });
+  updateCnt();
+};
+
+window.deselectAllCities = function() {
+  document.querySelectorAll('.stag.sel').forEach(div => {
+    div.classList.remove('sel');
+    div.style.borderColor = '';
+    div.style.color = '';
+    div.style.background = '';
+  });
+  updateCnt();
+};
+
+// 현재 선택 상태 저장
+function saveQuizSelection() {
+  _savedCitySelection = [];
+  document.querySelectorAll('.stag.sel').forEach(div => {
+    _savedCitySelection.push({ key: div.dataset.r, color: div.style.borderColor });
+  });
+  _savedGuMode = document.getElementById('gu-quiz-mode')?.checked || false;
+  _savedAnswerRange = answerRange || 1.5;
+}
+
+// 저장된 선택 상태 복원
+function restoreQuizSelection() {
+  if (!_savedCitySelection) return;
+  // 모든 선택 해제
+  document.querySelectorAll('.stag.sel').forEach(div => {
+    div.classList.remove('sel');
+    div.style.borderColor = '';
+    div.style.color = '';
+    div.style.background = '';
+  });
+  // 저장된 것만 복원
+  _savedCitySelection.forEach(({ key, color }) => {
+    const div = document.querySelector(`.stag[data-r="${key}"]`);
+    if (div && !div.classList.contains('disabled')) {
+      div.classList.add('sel');
+      if (color) div.style.borderColor = color;
+    }
+  });
+  // 구 퀴즈 모드 복원
+  const toggle = document.getElementById('gu-quiz-mode');
+  if (toggle) {
+    toggle.checked = _savedGuMode;
+    isGuQuizMode = _savedGuMode;
+    const desc = document.getElementById('mode-desc');
+    if (desc) desc.textContent = _savedGuMode ? '구(區) 범위를 클릭해서 정답 맞추기' : '동 이름을 보고 위치 찾기';
+  }
+  // 범위 복원
+  const slider = document.getElementById('range-slider');
+  if (slider) {
+    slider.value = _savedAnswerRange;
+    const rangeVal = document.getElementById('range-value');
+    if (rangeVal) rangeVal.textContent = _savedAnswerRange.toFixed(1);
+  }
+  updateCnt();
+}
+
 window.goHome = function(){
   if(confirm('퀴즈를 종료하고 처음으로 돌아가시겠습니까?')){
-    location.reload();
+    // 퀴즈 완전 중단: 레이어/큐 초기화
+    canAns = false;
+    cur = null;
+    queue = [];
+    allDongs = [];
+    // 레이어 정리
+    if(map){
+      try {
+        if(answerLayer){ map.removeLayer(answerLayer); answerLayer=null; }
+        wrongL.forEach(l=>{ try{map.removeLayer(l);}catch(e){} }); wrongL=[];
+        answerLayers.forEach(l=>{ try{map.removeLayer(l);}catch(e){} }); answerLayers=[];
+        wrongLayers.forEach(l=>{ try{map.removeLayer(l);}catch(e){} }); wrongLayers=[];
+        tempL.forEach(l=>{ try{map.removeLayer(l);}catch(e){} }); tempL=[];
+        map.remove(); map=null;
+      } catch(e){}
+    }
+    // 모달/바 숨기기
+    const moverlay = document.getElementById('moverlay');
+    if(moverlay){ moverlay.classList.remove('show','no-mode'); }
+    const ansBar = document.getElementById('ans-bar');
+    if(ansBar){ ansBar.classList.remove('show'); }
+
+    // start 화면 표시 (fs-screen fixed overlay가 모든 것을 덮음)
+    showOnly('start');
+
+    // 저장된 선택 복원
+    if (_savedCitySelection) {
+      restoreQuizSelection();
+    }
   }
 }
 
