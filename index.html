@@ -822,8 +822,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 <!-- 시작 화면 -->
 <div id="start" class="fs-screen hidden">
-  <div class="st">🗺 전국<br><span style="color:var(--accent2)">행정구역</span> 위치 퀴즈</div>
-  <div class="ss">지도에서 문제의 행정단위 위치를 클릭하세요<br>정답 기준 반경 1.5km · 무한 반복 학습</div>
+  <div class="st">🗺 수도권<br><span style="color:var(--accent2)">동(洞)</span> 위치 퀴즈</div>
+  <div class="ss">지도에서 문제의 동(洞) 위치를 클릭하세요<br>정답 기준 반경 1.5km · 무한 반복 학습</div>
   <div style="text-align:center">
     <div style="color:var(--text-dim);font-size:.72rem;margin-bottom:8px">📍 지역 선택 (복수 가능)</div>
     <div class="stags" id="stags"><!-- 도시 메뉴: loadPolygonCache() → buildCityMenu()에서 JSON 기반 동적 생성 (하드코딩 ❌) --></div>
@@ -1486,60 +1486,52 @@ function buildCityMenu() {
   if (!container) return;
   container.innerHTML = '';
 
-  // 기본 선택: 동 개수 상위 5개
-  const defaultSelected = new Set(
-    CITY_META_V4.slice(0, 5).map(c => c.key)
-  );
+  // ── 수도권 10개 도시 고정 목록 (이전 버전 CITY_META 기반) ─────────────
+  // JSON에서 자동 추출하되, 표시할 도시 범위는 수도권으로 한정
+  const METRO_KEYS = ['seoul','incheon','suwon','seongnam','gwangju',
+                      'goyang','yongin','bucheon','anyang','hwaseong'];
+  // 기본 선택: 서울, 인천, 수원, 성남, 광주(경기) — 이전 버전과 동일
+  const DEFAULT_SEL = new Set(['seoul','incheon','suwon','seongnam','gwangju']);
 
-  for (const meta of CITY_META_V4) {
+  // CITY_META_V4에서 수도권 도시만 필터 (순서 유지)
+  const metroMetas = METRO_KEYS
+    .map(key => CITY_META_V4.find(m => m.key === key))
+    .filter(Boolean);
+
+  for (const meta of metroMetas) {
     const div = document.createElement('div');
-    div.className = 'stag' + (defaultSelected.has(meta.key) ? ' sel' : '');
+    const isSel = DEFAULT_SEL.has(meta.key);
+    div.className = 'stag' + (isSel ? ' sel' : '');
     div.dataset.r = meta.key;
-    div.style.borderColor = meta.color;
 
-    // 동 없음→선택 불가 처리
+    // 동 없음→반투명 (선택은 가능하되 데이터 없음 표시)
     if (meta.total === 0) {
-      div.classList.add('disabled');
-      div.style.opacity = '0.3';
-      div.style.cursor  = 'not-allowed';
+      div.style.opacity = '0.45';
     }
 
-    // 표시명: 도 소속이면 도명 축약 포함
-    const displayName = meta.do_
-      ? `${meta.name}`  // 도시명만 (도명은 툴팁으로)
-      : meta.name;
+    div.innerHTML = `${meta.name} <span class="stag-cnt" id="scnt-${meta.key}"></span>`;
 
-    div.title = meta.do_ ? `${meta.do_} 소속 · ${meta.total}개` : `${meta.total}개`;
-
-    div.innerHTML = `${displayName} <span class="stag-cnt">${meta.total}개</span>`;
-
-    if (meta.total > 0) {
-      div.onclick = () => {
-        div.classList.toggle('sel');
-        // 선택 시 도시 색상 적용
-        if (div.classList.contains('sel')) {
-          div.style.borderColor = meta.color;
-          div.style.color       = meta.color;
-        } else {
-          div.style.borderColor = '';
-          div.style.color       = '';
-        }
-        updateCnt();
-      };
-    }
+    div.onclick = () => {
+      div.classList.toggle('sel');
+      updateCnt();
+    };
 
     container.appendChild(div);
   }
 
   updateCnt();
-  FE_VALIDATION.info('CITY_MENU_BUILT', `도시 메뉴 ${CITY_META_V4.length}개 동적 생성`);
+  FE_VALIDATION.info('CITY_MENU_BUILT', `수도권 ${metroMetas.length}개 도시 메뉴 생성`);
 }
 
-// ── updateStagCounts (v4: DB 기반) ──────────────────────────────
+// ── updateStagCounts (v4: DB 기반, scnt-{key} id 우선) ──────────
 function updateStagCounts() {
   for (const [key, val] of Object.entries(DB)) {
-    const el = document.querySelector(`.stag[data-r="${key}"] .stag-cnt`);
-    if (el) el.textContent = val.dongs.length + '개';
+    // id 방식 우선 (buildCityMenu가 scnt-{key} id 설정)
+    const byId = document.getElementById('scnt-' + key);
+    if (byId) { byId.textContent = val.dongs.length + '개'; continue; }
+    // fallback: querySelector
+    const byQ = document.querySelector(`.stag[data-r="${key}"] .stag-cnt`);
+    if (byQ) byQ.textContent = val.dongs.length + '개';
   }
 }
 
