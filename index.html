@@ -2500,7 +2500,9 @@ function addR(ok,q,skip){
 ════════════════════════════════════════════ */
 const SUPABASE_URL  = 'https://emgsueepzioudqnitkyn.supabase.co';
 const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemlvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkwNzQsImV4cCI6MjA4NjU2NTA3NH0.epR1k3MVh0MfZejFh9VflCNOS8Uz8EuCZlez5OBMz3s'
-const TOSS_CLIENT_KEY = 'test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm'; // 토스 심사용 테스트 키 — 실 서비스 전 대시보드 키로 교체
+const TOSS_CLIENT_KEY         = 'test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm'; // 단건결제 키 (daily)
+const TOSS_BILLING_CLIENT_KEY = 'test_ck_6bJXmgo28eNQQzNd4o1y3LAnGKWx';   // 구독 자동결제 빌링 키
+const SUBSCRIPTION_PLANS      = ['monthly', 'quarterly', 'halfyear', 'yearly'];
 const EDGE = `${SUPABASE_URL}/functions/v1`;
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -3048,8 +3050,13 @@ async function startPayment(planKey) {
   document.getElementById('agreement-container').innerHTML = '';
 
   try {
-    const customerKey  = window.btoa(currentUser.id).slice(0, 20);
-    const tossPayments = TossPayments(TOSS_CLIENT_KEY);
+    const customerKey = window.btoa(currentUser.id).slice(0, 20);
+
+    // 구독 플랜이면 빌링 전용 클라이언트 키 사용, 단건이면 기존 키 사용
+    const clientKey    = SUBSCRIPTION_PLANS.includes(planKey)
+      ? TOSS_BILLING_CLIENT_KEY
+      : TOSS_CLIENT_KEY;
+    const tossPayments = TossPayments(clientKey);
     _tossWidgets       = tossPayments.widgets({ customerKey });
 
     // 결제 금액 설정
@@ -3098,17 +3105,30 @@ async function confirmTossPayment() {
     || currentUser.email?.split('@')[0]
     || '사용자';
 
+  const isSubscription = SUBSCRIPTION_PLANS.includes(_tossPlanKey);
+
   try {
-    await _tossWidgets.requestPayment({
-      orderId:             _tossOrderId,
-      orderName:           document.getElementById('toss-order-name').textContent,
-      customerName:        name,
-      customerEmail:       currentUser.email,
-      customerMobilePhone: userProfile?.phone?.replace(/-/g,'') || '01000000000',
-      successUrl: window.location.origin + '?payment=success&orderId=' + _tossOrderId
-                  + '&plan=' + _tossPlanKey + '&days=' + selectedDays,
-      failUrl:    window.location.origin + '?payment=fail',
-    });
+    if (isSubscription) {
+      // ── 구독 자동결제: requestBillingAuth (빌링키 등록) ────────
+      await _tossWidgets.requestBillingAuth({
+        customerKey:   window.btoa(currentUser.id).slice(0, 20),
+        successUrl: window.location.origin + '?billing=success&orderId=' + _tossOrderId
+                    + '&plan=' + _tossPlanKey + '&amount=' + _tossAmount,
+        failUrl:    window.location.origin + '?billing=fail',
+      });
+    } else {
+      // ── 단건결제: 기존 requestPayment ──────────────────────────
+      await _tossWidgets.requestPayment({
+        orderId:             _tossOrderId,
+        orderName:           document.getElementById('toss-order-name').textContent,
+        customerName:        name,
+        customerEmail:       currentUser.email,
+        customerMobilePhone: userProfile?.phone?.replace(/-/g,'') || '01000000000',
+        successUrl: window.location.origin + '?payment=success&orderId=' + _tossOrderId
+                    + '&plan=' + _tossPlanKey + '&days=' + selectedDays,
+        failUrl:    window.location.origin + '?payment=fail',
+      });
+    }
   } catch(err) {
     payBtn.disabled    = false;
     payBtn.textContent = '💳 결제하기 (' + _tossAmount.toLocaleString() + '원)';
@@ -3139,23 +3159,52 @@ function toggleSidePanel() {
 
 async function handlePaymentCallback(){
   const params = new URLSearchParams(window.location.search);
-  if(params.get('payment') !== 'success') return;
-  const paymentKey = params.get('paymentKey');
-  const orderId    = params.get('orderId');
-  const amount     = params.get('amount');
-  window.history.replaceState({}, '', window.location.pathname);
-  if(!paymentKey || !orderId) return;
-  try {
-    const { data: { session } } = await sb.auth.getSession();
-    const res  = await fetch(`${EDGE}/toss-payment`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paymentKey, orderId, amount: Number(amount) })
-    });
-    const data = await res.json();
-    if(res.ok){ toast('🎉 ' + (data.message||'프리미엄 활성화 완료!'), 'success'); await loadProfile(); routeUser(); }
-    else toast('결제 확인 실패: ' + data.error, 'error');
-  } catch(e){ toast('결제 처리 중 오류가 발생했습니다', 'error'); }
+
+  // ── 단건결제 콜백 ──────────────────────────────────────────
+  if(params.get('payment') === 'success') {
+    const paymentKey = params.get('paymentKey');
+    const orderId    = params.get('orderId');
+    const amount     = params.get('amount');
+    const plan       = params.get('plan') || 'daily';
+    const days       = params.get('days');
+    window.history.replaceState({}, '', window.location.pathname);
+    if(!paymentKey || !orderId) return;
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const res  = await fetch(`${EDGE}/toss-payment`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentKey, orderId, amount: Number(amount), plan, days: Number(days) })
+      });
+      const data = await res.json();
+      if(res.ok){ toast('🎉 ' + (data.message||'프리미엄 활성화 완료!'), 'success'); await loadProfile(); routeUser(); }
+      else toast('결제 확인 실패: ' + data.error, 'error');
+    } catch(e){ toast('결제 처리 중 오류가 발생했습니다', 'error'); }
+    return;
+  }
+
+  // ── 구독 자동결제 빌링 콜백 ────────────────────────────────
+  if(params.get('billing') === 'success') {
+    const authKey     = params.get('authKey');
+    const customerKey = params.get('customerKey');
+    const orderId     = params.get('orderId');
+    const plan        = params.get('plan') || 'monthly';
+    const amount      = params.get('amount');
+    window.history.replaceState({}, '', window.location.pathname);
+    if(!authKey || !customerKey || !orderId) return;
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const res  = await fetch(`${EDGE}/toss-payment`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authKey, customerKey, orderId, amount: Number(amount), plan })
+      });
+      const data = await res.json();
+      if(res.ok){ toast('🎉 ' + (data.message||'구독이 시작되었습니다!'), 'success'); await loadProfile(); routeUser(); }
+      else toast('구독 처리 실패: ' + (data.error||data.message), 'error');
+    } catch(e){ toast('구독 처리 중 오류가 발생했습니다', 'error'); }
+    return;
+  }
 }
 
 
