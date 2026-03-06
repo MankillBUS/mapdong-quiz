@@ -164,7 +164,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 #ans-bar .ab-dong{font-family:'Black Han Sans',sans-serif;font-size:1rem;color:var(--text);white-space:nowrap;}
 #ans-bar .ab-close{background:#ff3c6e;color:#000;border:none;border-radius:8px;padding:5px 12px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;transition:all .2s;}
 #ans-bar .ab-close:hover{background:#ff6b8a;transform:scale(1.05);}
-#start{position:fixed;inset:0;background:var(--bg);z-index:9998;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;padding:20px;}
+#start{position:fixed;inset:0;background:var(--bg);z-index:9998;display:flex;align-items:center;justify-content:flex-start;flex-direction:column;gap:18px;padding:28px 20px 20px;overflow-y:auto;}
 .st{font-family:'Black Han Sans',sans-serif;font-size:2.5rem;color:var(--accent);text-shadow:0 0 30px var(--accent);text-align:center;}
 .ss{color:var(--text-dim);font-size:.88rem;text-align:center;line-height:1.8;}
 .stags{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
@@ -261,6 +261,81 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .leaflet-container{background:#0a1628!important;}
 ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 .stag-cnt{font-size:.7em;opacity:.65;font-weight:400;margin-left:2px;}
+
+/* ── 지역 그룹 UI ─────────────────────────────────────────────── */
+#stags-groups{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  width:100%;
+  max-width:640px;
+  max-height:55vh;
+  overflow-y:auto;
+  padding:4px 4px 8px;
+  scrollbar-width:thin;
+  scrollbar-color:var(--border) transparent;
+}
+#stags-groups::-webkit-scrollbar{width:4px;}
+#stags-groups::-webkit-scrollbar-track{background:transparent;}
+#stags-groups::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+.city-group-box{
+  background:linear-gradient(135deg, rgba(17,24,39,.85), rgba(26,34,53,.85));
+  border:1.5px solid var(--border);
+  border-radius:14px;
+  padding:12px 14px 14px;
+  position:relative;
+  transition:border-color .2s;
+}
+.city-group-box:hover{
+  border-color:rgba(0,212,255,.35);
+}
+.city-group-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:10px;
+}
+.city-group-title{
+  font-size:.68rem;
+  font-weight:700;
+  color:var(--text-dim);
+  text-transform:uppercase;
+  letter-spacing:1.5px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.city-group-title::before{
+  content:'';
+  display:inline-block;
+  width:6px;height:6px;
+  border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 6px var(--accent);
+  flex-shrink:0;
+}
+.city-group-selall{
+  font-size:.6rem;
+  color:var(--text-dim);
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:8px;
+  padding:3px 9px;
+  cursor:pointer;
+  transition:all .18s;
+  font-family:'Noto Sans KR',sans-serif;
+}
+.city-group-selall:hover{
+  color:var(--accent);
+  border-color:var(--accent);
+  background:rgba(0,212,255,.08);
+}
+.city-group-tags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+}
 
 /* ── 개인정보 약관 모달 ── */
 #privacy-modal{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(10px);z-index:90000;display:none;align-items:center;justify-content:center;padding:16px;}
@@ -910,10 +985,13 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 <div id="start" class="fs-screen hidden">
   <div class="st">🗺 전국<br><span style="color:var(--accent2)">행정구역</span> 위치 퀴즈</div>
   <div class="ss">지도에서 문제의 행정단위 위치를 클릭하세요<br>정답 기준 반경 1.5km · 무한 반복 학습</div>
-  <div style="text-align:center">
-    <div style="color:var(--text-dim);font-size:.72rem;margin-bottom:8px">📍 지역 선택 (복수 가능)</div>
-    <div class="stags" id="stags"><!-- 도시 메뉴: loadPolygonCache() → buildCityMenu()에서 JSON 기반 동적 생성 (하드코딩 ❌) --></div>
-    <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;">
+  <div style="text-align:center;width:100%;max-width:640px;">
+    <div style="color:var(--text-dim);font-size:.72rem;margin-bottom:10px;">📍 지역 선택 (복수 가능)</div>
+    <!-- 그룹형 도시 선택 컨테이너 -->
+    <div id="stags-groups"></div>
+    <!-- 기존 stags는 그룹 미분류 도시 fallback 또는 내부 참조용으로 유지 -->
+    <div class="stags" id="stags" style="display:none;"></div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
       <button class="stag-all-btn" onclick="selectAllCities()">✅ 전체 선택</button>
       <button class="stag-none-btn" onclick="deselectAllCities()">✕ 전체 해제</button>
     </div>
@@ -1581,67 +1659,195 @@ function buildDBFromCache() {
   console.log(`✅ [v4] DB 생성: ${total}개 단위 | 부모 폴리곤 차단 ✓`);
 }
 
+// ── [1단계] 지역 그룹 설정 — 배열 수정만으로 그룹 변경 가능 ──────
+// 배열에 없는 도시는 자동으로 '기타 지역' 그룹으로 이동
+const CITY_GROUPS = {
+  "🏙 수도권": [
+    "서울특별시",
+    "김포시",
+    "남양주시",
+    "군포시",
+    "시흥시",
+    "의정부시",
+    "하남시",
+    "고양시",
+    "성남시",
+    "용인시",
+    "안양시",
+    "화성시",
+    "광명시",
+    "구리시",
+    "평택시",
+  ],
+  "🌿 경기도": [
+    "광주시",
+    "부천시",
+    "수원시",
+    "파주시",
+    "이천시",
+  ],
+  "🌊 인천광역시": [
+    "인천광역시",
+  ],
+  "🌏 전국 광역시·도": [
+    "대전광역시",
+    "부산광역시",
+    "대구광역시",
+    "광주광역시",
+    "울산광역시",
+    "세종특별자치시",
+    "청주시",
+    "전주시",
+    "천안시",
+    "창원시",
+    "포항시",
+    "경주시",
+    "순천시",
+    "목포시",
+    "김해시",
+    "구미시",
+    "아산시",
+    "춘천시",
+    "강릉시",
+    "원주시",
+    "익산시",
+    "제주시",
+    "서귀포시",
+  ],
+};
+
 // ── [4단계 핵심] 도시 메뉴 자동 생성 ───────────────────────────
 /**
- * JSON 기반으로 #stags 컨테이너를 동적 생성
- * 하드코딩 완전 제거
+ * [1단계] JSON 기반으로 #stags-groups 컨테이너를 그룹형으로 동적 생성
+ * CITY_GROUPS 배열 기준으로 그룹화, 미포함 도시는 '기타 지역' 그룹으로 자동 이동
  */
 function buildCityMenu() {
-  const container = document.getElementById('stags');
-  if (!container) return;
-  container.innerHTML = '';
+  const groupsContainer = document.getElementById('stags-groups');
+  const flatContainer   = document.getElementById('stags'); // 내부 참조용 유지
+  if (!groupsContainer) return;
+  groupsContainer.innerHTML = '';
+  if (flatContainer) flatContainer.innerHTML = '';
 
   // 기본 선택: 동 개수 상위 5개
   const defaultSelected = new Set(
     CITY_META_V4.slice(0, 5).map(c => c.key)
   );
 
-  for (const meta of CITY_META_V4) {
+  // meta를 이름 기준으로 빠르게 찾기 위한 맵
+  const metaByName = new Map(CITY_META_V4.map(m => [m.name, m]));
+  const assignedNames = new Set();
+
+  // CITY_GROUPS에 정의된 순서로 그룹 빌드
+  const groupEntries = Object.entries(CITY_GROUPS);
+
+  // 기타: CITY_GROUPS에 없는 도시 수집
+  const etcMetas = CITY_META_V4.filter(m => {
+    return !groupEntries.some(([, names]) => names.includes(m.name));
+  });
+
+  // 그룹 목록 (기타가 있으면 추가)
+  const allGroups = [...groupEntries];
+  if (etcMetas.length > 0) {
+    allGroups.push(['🗺 기타 지역', etcMetas.map(m => m.name)]);
+  }
+
+  function makeTagEl(meta) {
+    assignedNames.add(meta.name);
+
     const div = document.createElement('div');
     const isSel = defaultSelected.has(meta.key);
     div.className = 'stag' + (isSel ? ' sel' : '');
     div.dataset.r = meta.key;
-    // 선택 상태일 때만 인라인 색상 적용 (비선택은 CSS에 맡김)
     if (isSel) div.style.borderColor = meta.color;
-    div.dataset.color = meta.color; // 색상 보존용
+    div.dataset.color = meta.color;
 
-    // 동 없음→선택 불가 처리
     if (meta.total === 0) {
       div.classList.add('disabled');
       div.style.opacity = '0.3';
       div.style.cursor  = 'not-allowed';
     }
 
-    // 표시명: 도 소속이면 도명 축약 포함
-    const displayName = meta.do_
-      ? `${meta.name}`  // 도시명만 (도명은 툴팁으로)
-      : meta.name;
-
     div.title = meta.do_ ? `${meta.do_} 소속 · ${meta.total}개` : `${meta.total}개`;
-
-    div.innerHTML = `${displayName} <span class="stag-cnt">${meta.total}개</span>`;
+    div.innerHTML = `${meta.name} <span class="stag-cnt">${meta.total}개</span>`;
 
     if (meta.total > 0) {
       div.onclick = () => {
         div.classList.toggle('sel');
         if (!div.classList.contains('sel')) {
-          // 해제 시: 인라인 스타일 완전 제거 → CSS 기본값으로 복귀
           div.style.borderColor = '';
           div.style.color       = '';
           div.style.background  = '';
         } else {
-          // 선택 시: 도시 고유색 적용
           div.style.borderColor = div.dataset.color;
         }
         updateCnt();
       };
     }
 
-    container.appendChild(div);
+    return div;
+  }
+
+  for (const [groupLabel, cityNames] of allGroups) {
+    // 이 그룹에 실제로 데이터 있는 도시만 필터
+    const groupMetas = cityNames
+      .map(name => metaByName.get(name))
+      .filter(m => !!m);
+
+    if (groupMetas.length === 0) continue;
+
+    // 그룹 박스 생성
+    const box = document.createElement('div');
+    box.className = 'city-group-box';
+
+    // 헤더
+    const header = document.createElement('div');
+    header.className = 'city-group-header';
+
+    const title = document.createElement('div');
+    title.className = 'city-group-title';
+    title.textContent = groupLabel;
+
+    const selAllBtn = document.createElement('button');
+    selAllBtn.className = 'city-group-selall';
+    selAllBtn.textContent = '전체 선택';
+    selAllBtn.onclick = (e) => {
+      e.stopPropagation();
+      const tags = tagsWrap.querySelectorAll('.stag:not(.disabled)');
+      const allSel = [...tags].every(t => t.classList.contains('sel'));
+      tags.forEach(t => {
+        if (allSel) {
+          t.classList.remove('sel');
+          t.style.borderColor = '';
+          t.style.color = '';
+          t.style.background = '';
+        } else {
+          t.classList.add('sel');
+          t.style.borderColor = t.dataset.color;
+        }
+      });
+      selAllBtn.textContent = allSel ? '전체 선택' : '전체 해제';
+      updateCnt();
+    };
+
+    header.appendChild(title);
+    header.appendChild(selAllBtn);
+
+    // 태그 래퍼
+    const tagsWrap = document.createElement('div');
+    tagsWrap.className = 'city-group-tags';
+
+    for (const meta of groupMetas) {
+      const tag = makeTagEl(meta);
+      tagsWrap.appendChild(tag);
+    }
+
+    box.appendChild(header);
+    box.appendChild(tagsWrap);
+    groupsContainer.appendChild(box);
   }
 
   updateCnt();
-  FE_VALIDATION.info('CITY_MENU_BUILT', `도시 메뉴 ${CITY_META_V4.length}개 동적 생성`);
+  FE_VALIDATION.info('CITY_MENU_BUILT', `도시 메뉴 그룹형 ${CITY_META_V4.length}개 동적 생성`);
 }
 
 // ── updateStagCounts (v4: DB 기반) ──────────────────────────────
