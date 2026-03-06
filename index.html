@@ -118,7 +118,82 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .sl{font-size:.56rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;}
 .sv{font-size:.95rem;font-weight:700;color:var(--accent);}
 #main{display:flex;flex:1;overflow:hidden;position:relative;}
-#side{width:265px;background:var(--surface);border-right:2px solid var(--border);display:flex;flex-direction:column;padding:12px;gap:10px;flex-shrink:0;overflow-y:auto;}
+
+/* ── 좌측 패널 스크롤 개선 ─────────────────────────────────────── */
+#side{
+  width:265px;
+  background:var(--surface);
+  border-right:2px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  flex-shrink:0;
+  overflow:hidden;  /* 내부 스크롤로 제어, 외부 overflow 차단 */
+  height:100%;
+}
+
+/* 상단 고정 영역 (문제 카드) */
+#side-fixed-top{
+  flex-shrink:0;
+  padding:12px 12px 0;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+/* 스크롤 가능 중간 영역 (활성 지역 + 체험판 + 진행률 + 최근 결과) */
+#side-scroll{
+  flex:1;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding:10px 12px 0;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  min-height:0; /* flex 자식이 shrink되도록 필수 */
+  scrollbar-width:thin;
+  scrollbar-color:var(--border) transparent;
+}
+#side-scroll::-webkit-scrollbar{width:3px;}
+#side-scroll::-webkit-scrollbar-track{background:transparent;}
+#side-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+/* 활성 지역 패널: 태그가 많아져도 스크롤 */
+#panel-active-region{
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:10px;
+  flex-shrink:0;
+}
+#panel-active-region .rbw{
+  max-height:96px;
+  overflow-y:auto;
+  scrollbar-width:thin;
+  scrollbar-color:var(--border) transparent;
+}
+#panel-active-region .rbw::-webkit-scrollbar{width:3px;}
+#panel-active-region .rbw::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+/* 최근 결과: 남은 공간을 유연하게 채우며 스크롤 */
+#recent{
+  flex:1;
+  overflow-y:auto;
+  min-height:80px;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:10px;
+  scrollbar-width:thin;
+  scrollbar-color:var(--border) transparent;
+}
+#recent::-webkit-scrollbar{width:3px;}
+#recent::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+/* 하단 고정 footer */
+#side-fixed-bottom{
+  flex-shrink:0;
+  padding:0 12px 12px;
+}
 #qcard{background:linear-gradient(135deg,var(--surface2),#0d1929);border:2px solid var(--accent);border-radius:12px;padding:14px;box-shadow:0 0 20px rgba(0,212,255,.3);}
 .qn{font-size:.6rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:3px;}
 .qr{font-size:.72rem;color:var(--accent2);font-weight:600;margin-bottom:3px;}
@@ -128,10 +203,10 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .pt{font-size:.6rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;}
 .rbw{display:flex;flex-wrap:wrap;gap:5px;}
 .rb{background:var(--surface);border:1px solid var(--border);color:var(--text-dim);padding:3px 8px;border-radius:20px;font-size:.64rem;cursor:pointer;transition:all .2s;font-family:'Noto Sans KR',sans-serif;}
-.rb.on{font-weight:700;}
+.rb.on{font-weight:700;border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.08);}
+.rb.off{opacity:.45;text-decoration:line-through;}
 .pbg{background:var(--bg);border-radius:10px;height:7px;overflow:hidden;margin-top:6px;}
 .pf{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent3));border-radius:10px;transition:width .5s;box-shadow:0 0 8px var(--accent);}
-#recent{flex:1;overflow-y:auto;}
 .ri{display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:.67rem;}
 .rd{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
 .rd.ok{background:#39ff14;box-shadow:0 0 5px #39ff14;}
@@ -468,8 +543,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .cs-btn-cancel{flex:1;background:transparent;border:2px solid var(--border);color:var(--text-dim);border-radius:10px;padding:11px;font-size:.82rem;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
 .cs-btn-submit{flex:2;background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;border:none;border-radius:10px;padding:11px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:'Black Han Sans',sans-serif;}
 
-/* 사이트 푸터 (#side 맨 아래, 스크롤로 확인) ─────── */
-#site-footer{background:transparent;border-top:1px solid var(--border);padding:12px 10px;text-align:center;font-size:.58rem;color:#2e4a62;line-height:1.9;margin-top:auto;}
+/* 사이트 푸터 (#side-scroll 맨 아래, 스크롤로 확인) ─────── */
+#site-footer{background:transparent;border-top:1px solid var(--border);padding:12px 10px;text-align:center;font-size:.58rem;color:#2e4a62;line-height:1.9;margin-top:6px;}
 #site-footer strong{color:#3d6070;}
 
 /* ── 1. 환불규정 버튼 (새 디자인) ───────────────────── */
@@ -1090,36 +1165,61 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 <!-- 메인 -->
 <div id="main">
   <div id="side">
-    <div id="qcard">
-      <div class="qn" id="qN">준비 중...</div>
-      <div class="qr" id="qR"></div>
-      <div class="qd" id="qD">-</div>
-      <div class="qh" id="qH"></div>
-    </div>
-    <div class="panel"><div class="pt">🗾 활성 지역</div><div class="rbw" id="rbw"></div></div>
-    <div id="trial-bar">
-      <div class="trial-header">
-        <span class="trial-label">🎁 무료 체험</span>
-        <span class="trial-count"><strong id="trial-used">0</strong> / 300</span>
+
+    <!-- ① 상단 고정: 문제 카드 -->
+    <div id="side-fixed-top">
+      <div id="qcard">
+        <div class="qn" id="qN">준비 중...</div>
+        <div class="qr" id="qR"></div>
+        <div class="qd" id="qD">-</div>
+        <div class="qh" id="qH"></div>
       </div>
-      <div class="trial-bg"><div class="trial-fill" id="trial-fill" style="width:0%"></div></div>
     </div>
-    <div class="panel">
-      <div class="pt">📊 진행률</div>
-      <div style="font-size:.7rem;color:var(--text-dim);margin-top:3px"><span id="pT">0/0</span></div>
-      <div class="pbg"><div class="pf" id="pF" style="width:0%"></div></div>
-    </div>
-    <div class="panel" id="recent"><div class="pt">📋 최근 결과</div><div id="rl" style="margin-top:6px"></div></div>
-    <!-- 사이트 정보 (스크롤 내리면 확인) -->
-    <footer id="site-footer">
-      <strong>워크트래블허브</strong><br>
-      대표자: 김강별 &nbsp;|&nbsp; 사업자: 690-17-02022<br>
-      통신판매업: 제2025-서울서초-3783호<br>
-      서울 서초구 서초동 1362-23 더포인트 3층<br>
-      ☎ 070-7782-3601 &nbsp;|&nbsp;
-      <span style="cursor:pointer;color:#3d6a7a;text-decoration:underline;" onclick="openCS()">고객센터</span>
-    </footer>
-  </div>
+
+    <!-- ② 스크롤 영역: 활성 지역 · 체험판 · 진행률 · 최근 결과 -->
+    <div id="side-scroll">
+
+      <!-- 활성 지역 -->
+      <div id="panel-active-region" class="panel">
+        <div class="pt">🗾 활성 지역</div>
+        <div class="rbw" id="rbw"></div>
+      </div>
+
+      <!-- 무료 체험 진행바 -->
+      <div id="trial-bar">
+        <div class="trial-header">
+          <span class="trial-label">🎁 무료 체험</span>
+          <span class="trial-count"><strong id="trial-used">0</strong> / 300</span>
+        </div>
+        <div class="trial-bg"><div class="trial-fill" id="trial-fill" style="width:0%"></div></div>
+      </div>
+
+      <!-- 진행률 -->
+      <div class="panel">
+        <div class="pt">📊 진행률</div>
+        <div style="font-size:.7rem;color:var(--text-dim);margin-top:3px"><span id="pT">0/0</span></div>
+        <div class="pbg"><div class="pf" id="pF" style="width:0%"></div></div>
+      </div>
+
+      <!-- 최근 결과 -->
+      <div class="panel" id="recent">
+        <div class="pt">📋 최근 결과</div>
+        <div id="rl" style="margin-top:6px"></div>
+      </div>
+
+      <!-- 사이트 정보 -->
+      <footer id="site-footer">
+        <strong>워크트래블허브</strong><br>
+        대표자: 김강별 &nbsp;|&nbsp; 사업자: 690-17-02022<br>
+        통신판매업: 제2025-서울서초-3783호<br>
+        서울 서초구 서초동 1362-23 더포인트 3층<br>
+        ☎ 070-7782-3601 &nbsp;|&nbsp;
+        <span style="cursor:pointer;color:#3d6a7a;text-decoration:underline;" onclick="openCS()">고객센터</span>
+      </footer>
+
+    </div><!-- /#side-scroll -->
+
+  </div><!-- /#side -->
   <!-- 사이드 패널 토글 버튼 — #main 기준 absolute, #side 밖에 있어야 접혀도 안 사라짐 -->
   <div id="side-toggle" onclick="toggleSidePanel()" title="패널 접기/펼치기">◀</div>
   <div id="mapw">
