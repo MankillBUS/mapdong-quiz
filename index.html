@@ -232,21 +232,21 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 /* ══════════════════════════════════════════════════════════════
    [10단계] 모바일 반응형 최적화
-   기준: 768px 이하 모바일 / 480px 이하 소형
+   기준: 1080px 이하 모바일 / 480px 이하 소형
    ══════════════════════════════════════════════════════════════ */
 
 /* 모바일: 헤더 압축 */
-@media (max-width:768px){
+@media (max-width:1080px){
   #header{padding:6px 10px;gap:6px;flex-wrap:wrap;}
   .logo{font-size:1.1rem;letter-spacing:1px;}
   #stats-bar{gap:5px;}
   .sb{padding:3px 7px;min-width:44px;}
   .sl{font-size:.48rem;}
   .sv{font-size:.8rem;}
-  #header-notice{display:none;}          /* 모바일엔 공지바 숨김 (공간 확보) */
+  #header-notice{display:none;}
   #btn-cs{padding:4px 9px;font-size:.72rem;}
 
-  /* 좌측 패널 기본 접힘 */
+  /* 좌측 패널 기본 접힘 — side-auto-collapsed 클래스로만 제어 */
   #main.side-auto-collapsed #side{display:none;}
   #main.side-auto-collapsed #side-toggle{
     left:0;
@@ -290,6 +290,42 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   .stag:hover{transform:none;background:var(--surface2);border-color:var(--border);color:var(--text-dim);}
   .stag.sel:hover{transform:translateY(-3px) scale(1.08);}
   .mb:hover{border-color:var(--border);color:var(--text);}
+}
+
+/* ── 모바일 문제카드 오버레이 (사이드바 접힌 상태에서만 표시) ── */
+#mobile-qcard-overlay{
+  display:none;
+  position:absolute;
+  top:14px;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:800;
+  background:rgba(10,14,26,.82);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  border:1px solid rgba(0,212,255,.35);
+  border-radius:14px;
+  padding:10px 18px;
+  max-width:min(380px, 88vw);
+  width:max-content;
+  text-align:center;
+  box-shadow:0 4px 24px rgba(0,0,0,.5), 0 0 0 1px rgba(0,212,255,.1);
+  pointer-events:none;
+  transition:opacity .25s;
+}
+#mobile-qcard-overlay.visible{ display:block; }
+#mobile-qcard-overlay .mq-region{
+  font-size:.62rem;color:var(--accent2);font-weight:600;
+  letter-spacing:.5px;margin-bottom:3px;
+}
+#mobile-qcard-overlay .mq-dong{
+  font-family:'Gowun Dodum',sans-serif;
+  font-size:1.25rem;color:var(--text);
+  font-weight:700;line-height:1.25;
+  word-break:keep-all;
+}
+#mobile-qcard-overlay .mq-hint{
+  font-size:.6rem;color:var(--text-dim);margin-top:4px;
 }
 #mo{position:absolute;top:12px;right:12px;z-index:900;display:flex;flex-direction:column;gap:7px;}
 .mb{background:rgba(17,24,39,.9);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:.7rem;font-family:'Noto Sans KR',sans-serif;transition:all .2s;backdrop-filter:blur(8px);}
@@ -1325,6 +1361,13 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div id="side-toggle" onclick="toggleSidePanel()" title="패널 접기/펼치기">◀</div>
   <div id="mapw">
     <div id="map"></div>
+
+    <!-- [수정5] 모바일 문제카드 오버레이 — 사이드바 접힌 상태에서만 표시 -->
+    <div id="mobile-qcard-overlay">
+      <div class="mq-region" id="mq-region"></div>
+      <div class="mq-dong"   id="mq-dong">-</div>
+      <div class="mq-hint"   id="mq-hint"></div>
+    </div>
     
     <!-- 지도 컨트롤 (왼쪽 상단) -->
     <div id="map-controls">
@@ -1388,7 +1431,7 @@ let POLY_CACHE = null; // 폴리곤 캐시
 let answerLayer = null; // 정답 폴리곤 레이어 (최신)
 let answerLayers = []; // 정답 폴리곤 전체 누적 (초록)
 let wrongLayers = [];  // 오답 폴리곤 전체 누적 (빨강)
-let isDarkTheme = true;
+let isDarkTheme = false; // 기본값: 컬러 모드
 let answerRange = 1.5;  // 정답 인정 범위 (km) // 다크 모드 (기본)
 let mapTileLayer = null; // 지도 타일 레이어
 let tempL=[];      // 정답(ok) 임시 레이어
@@ -2059,10 +2102,8 @@ function buildCityMenu() {
   groupsContainer.innerHTML = '';
   if (flatContainer) flatContainer.innerHTML = '';
 
-  // 기본 선택: 동 개수 상위 5개
-  const defaultSelected = new Set(
-    CITY_META_V4.slice(0, 5).map(c => c.key)
-  );
+  // 기본 선택: 없음 (사용자가 직접 선택)
+  const defaultSelected = new Set();
 
   // meta를 이름 기준으로 빠르게 찾기 위한 맵
   const metaByName = new Map(CITY_META_V4.map(m => [m.name, m]));
@@ -2312,6 +2353,8 @@ window.startQuiz = function(){
       return;
     }
     document.getElementById('start').classList.add('hidden');
+    // [수정4] 퀴즈 재시작 시 저장된 테마 복원
+    isDarkTheme = _savedTheme;
     initMap(); buildFilter(); reshuffle(); nextQ();
     document.getElementById('range-control').style.display = 'block';
   };
@@ -2349,6 +2392,7 @@ let allAnswerLayers = [];
 let _savedCitySelection = null;  // [{key, color}, ...]
 let _savedGuMode = false;
 let _savedAnswerRange = 1.5;
+let _savedTheme = false;         // [수정4] 테마 저장 (false=컬러, true=다크)
 
 window.selectAllCities = function() {
   document.querySelectorAll('.stag:not(.disabled)').forEach(div => {
@@ -2379,6 +2423,7 @@ function saveQuizSelection() {
   });
   _savedGuMode = document.getElementById('gu-quiz-mode')?.checked || false;
   _savedAnswerRange = answerRange || 1.5;
+  _savedTheme = isDarkTheme; // [수정4] 테마 저장
 }
 
 // 저장된 선택 상태 복원
@@ -2419,6 +2464,9 @@ function restoreQuizSelection() {
 
 window.goHome = function(){
   if(confirm('퀴즈를 종료하고 처음으로 돌아가시겠습니까?')){
+    // [수정4] 현재 테마 상태 저장 (goHome 후 복원용)
+    _savedTheme = isDarkTheme;
+
     // 퀴즈 완전 중단: 레이어/큐 초기화
     canAns = false;
     cur = null;
@@ -2441,13 +2489,13 @@ window.goHome = function(){
     const ansBar = document.getElementById('ans-bar');
     if(ansBar){ ansBar.classList.remove('show'); }
 
-    // start 화면 표시 (fs-screen fixed overlay가 모든 것을 덮음)
-    showOnly('start');
+    // 모바일 오버레이 숨기기
+    updateMobileQCard(null);
 
+    // start 화면 표시
+    showOnly('start');
     // 저장된 선택 복원
-    if (_savedCitySelection) {
-      restoreQuizSelection();
-    }
+    if (_savedCitySelection) restoreQuizSelection();
   }
 }
 
@@ -2513,8 +2561,9 @@ function closeAnswerBar(){
 function initMap(){
   map = L.map('map', { center:[37.55,127.00], zoom:10, scrollWheelZoom:true });
 
-  // [3단계] MAP_TILE_THEMES 기반 초기 타일 (다크 기본)
-  const cfg = MAP_TILE_THEMES['dark'];
+  // 기본 테마: 컬러 모드 (isDarkTheme 전역값 기준)
+  const themeKey = isDarkTheme ? 'dark' : 'color';
+  const cfg = MAP_TILE_THEMES[themeKey];
   mapTileLayer = L.tileLayer(cfg.url, {
     attribution: cfg.attr,
     subdomains:  cfg.subdomains,
@@ -2522,6 +2571,10 @@ function initMap(){
     minZoom:     8,
     errorTileUrl: '',
   }).addTo(map);
+
+  // 테마 아이콘 초기화
+  const icon = document.getElementById('theme-icon');
+  if(icon) icon.textContent = cfg.icon;
 
   map.on('click', onMapClick);
   map.scrollWheelZoom.enable();
@@ -2653,25 +2706,23 @@ function showQuestionCard(q) {
   document.getElementById('qN').textContent = '문제 #' + qCnt;
 
   // _city(_do) 부모 정보 직접 활용
-  const cityLabel  = q.rn;   // _city 기반
-  const guLabel    = q.gu;   // _gu  기반 (없으면 '')
+  const cityLabel  = q.rn;
+  const guLabel    = q.gu;
   const unitLabel  = q.d;
   const utype      = q.utype || '동';
 
   if (isGuQuizMode) {
-    // 구 문제 ON: 시 + 단위名 표시 → 구 맞추기
     document.getElementById('qR').textContent = '📍 ' + cityLabel;
     document.getElementById('qD').textContent = unitLabel;
-    document.getElementById('qH').textContent =
-      '💡 이 ' + utype + '은 어느 구에 속할까요?';
+    document.getElementById('qH').textContent = '💡 이 ' + utype + '은 어느 구에 속할까요?';
   } else {
-    // 구 문제 OFF: 시 · 구 표시 → 동 위치 맞추기
-    document.getElementById('qR').textContent =
-      '📍 ' + cityLabel + (guLabel ? ' · ' + guLabel : '');
+    document.getElementById('qR').textContent = '📍 ' + cityLabel + (guLabel ? ' · ' + guLabel : '');
     document.getElementById('qD').textContent = unitLabel;
-    document.getElementById('qH').textContent =
-      '💡 ' + (guLabel || cityLabel) + ' 관할 행정' + utype;
+    document.getElementById('qH').textContent = '💡 ' + (guLabel || cityLabel) + ' 관할 행정' + utype;
   }
+
+  // [수정5] 모바일 오버레이 동기 갱신
+  updateMobileQCard(q);
 }
 
 function closeOkModal(){
@@ -3794,54 +3845,135 @@ async function confirmTossPayment() {
 function toggleSidePanel() {
   const main   = document.getElementById('main');
   const toggle = document.getElementById('side-toggle');
-  const isCollapsed = main.classList.contains('side-collapsed');
-  main.classList.toggle('side-collapsed', !isCollapsed);
-  toggle.textContent = isCollapsed ? '◀' : '▶';
-  toggle.title = isCollapsed ? '패널 접기' : '패널 펼치기';
-  // [5단계] 지도 리사이즈 — 패널 열림/닫힘 후 지도 영역 자동 맞춤
+
+  // side-collapsed(수동) OR side-auto-collapsed(모바일 자동) 둘 중 하나라도 접혀있으면 '접힌 상태'
+  const isCollapsed = main.classList.contains('side-collapsed')
+                   || main.classList.contains('side-auto-collapsed');
+
+  if (isCollapsed) {
+    // 펼치기: 두 클래스 모두 제거
+    main.classList.remove('side-collapsed', 'side-auto-collapsed');
+    toggle.textContent = '◀';
+    toggle.title = '패널 접기';
+  } else {
+    // 접기: side-collapsed만 추가 (auto는 CSS에서 다시 적용됨)
+    main.classList.add('side-collapsed');
+    main.classList.remove('side-auto-collapsed');
+    toggle.textContent = '▶';
+    toggle.title = '패널 펼치기';
+  }
+
+  // 모바일 오버레이 갱신
+  updateMobileQCard(cur);
+
+  // 지도 리사이즈
   setTimeout(() => {
     if (map) map.invalidateSize({ animate: false });
   }, 280);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   [10단계] 모바일 초기화 & 창 크기 변경 대응
+   [수정5] 모바일 문제 오버레이 — 사이드바 접힌 상태에서만 표시
    ═══════════════════════════════════════════════════════════════ */
+function isMobileMode() {
+  return window.innerWidth <= 1080;
+}
+
+function isSideCollapsed() {
+  const main = document.getElementById('main');
+  return main && (main.classList.contains('side-collapsed') || main.classList.contains('side-auto-collapsed'));
+}
+
+/**
+ * 모바일 문제 오버레이 갱신
+ * q = 현재 문제 객체 (null이면 숨김)
+ */
+function updateMobileQCard(q) {
+  const overlay = document.getElementById('mobile-qcard-overlay');
+  if (!overlay) return;
+
+  // 사이드바가 접혀있고 퀴즈가 진행 중일 때만 표시
+  if (!q || !isSideCollapsed()) {
+    overlay.classList.remove('visible');
+    return;
+  }
+
+  // 문제 내용 동기화
+  const regionEl = document.getElementById('mq-region');
+  const dongEl   = document.getElementById('mq-dong');
+  const hintEl   = document.getElementById('mq-hint');
+
+  const cityLabel = q.rn || '';
+  const guLabel   = q.gu  || '';
+  const unitLabel = q.d   || '';
+  const utype     = q.utype || '동';
+
+  if (isGuQuizMode) {
+    regionEl.textContent = '📍 ' + cityLabel;
+    dongEl.textContent   = unitLabel;
+    hintEl.textContent   = '💡 이 ' + utype + '은 어느 구에 속할까요?';
+  } else {
+    regionEl.textContent = '📍 ' + cityLabel + (guLabel ? ' · ' + guLabel : '');
+    dongEl.textContent   = unitLabel;
+    hintEl.textContent   = '💡 ' + (guLabel || cityLabel) + ' 관할 행정' + utype;
+  }
+
+  overlay.classList.add('visible');
+}
+
+/* [수정1] 모바일 초기화 & 창 크기 변경 대응 — 1080px 기준 */
 function initMobileOptimizations() {
   const main = document.getElementById('main');
   if (!main) return;
 
-  // 768px 이하: 퀴즈 시작 시 패널 자동 접힘
   function applyMobileCollapse() {
-    if (window.innerWidth <= 768) {
-      main.classList.add('side-collapsed', 'side-auto-collapsed');
+    if (isMobileMode()) {
+      // 모바일: 아직 수동으로 접지 않은 경우에만 auto-collapse 적용
+      if (!main.classList.contains('side-collapsed')) {
+        main.classList.add('side-auto-collapsed');
+      }
       const toggle = document.getElementById('side-toggle');
-      if (toggle) { toggle.textContent = '▶'; toggle.title = '패널 펼치기'; }
+      const isNowCollapsed = isSideCollapsed();
+      if (toggle) {
+        toggle.textContent = isNowCollapsed ? '▶' : '◀';
+        toggle.title = isNowCollapsed ? '패널 펼치기' : '패널 접기';
+      }
     } else {
+      // 데스크탑으로 전환: auto-collapse 해제 (수동 접힘은 유지)
       main.classList.remove('side-auto-collapsed');
-      // 데스크탑으로 복귀 시 사용자가 수동으로 접은 경우는 유지
+      const toggle = document.getElementById('side-toggle');
+      const isNowCollapsed = main.classList.contains('side-collapsed');
+      if (toggle) {
+        toggle.textContent = isNowCollapsed ? '▶' : '◀';
+        toggle.title = isNowCollapsed ? '패널 펼치기' : '패널 접기';
+      }
     }
+    // 오버레이 상태 갱신
+    updateMobileQCard(cur);
   }
 
-  // 창 크기 변경 시 지도 + 패널 재조정
+  // 창 크기 변경 시 디바운스 처리
   let resizeTimer;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
-      applyMobileCollapse();
-      if (map) map.invalidateSize({ animate: false });
-    }, 150);
-  });
+  // 중복 리스너 방지
+  if (!window._mobileResizeAttached) {
+    window._mobileResizeAttached = true;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        applyMobileCollapse();
+        if (map) map.invalidateSize({ animate: false });
+      }, 150);
+    });
+  }
 
   applyMobileCollapse();
 }
 
-// startQuiz 후 모바일 최적화 트리거를 위해 기존 startQuiz에 훅 추가
+// startQuiz 후 모바일 최적화 트리거
 const _origStartQuiz = window.startQuiz;
 window.startQuiz = function() {
   _origStartQuiz && _origStartQuiz();
-  // 퀴즈 시작 직후 모바일이면 패널 접기
-  setTimeout(initMobileOptimizations, 100);
+  setTimeout(initMobileOptimizations, 150);
 };
 
 
