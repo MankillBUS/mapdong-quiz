@@ -3277,15 +3277,15 @@ async function signOut(){
 }
 
 /* ── 세션 감지 & 라우팅 ── */
+// 퀴즈 진행 중 여부 확인 — 전역 함수로 선언 (onAuthStateChange + visibilitychange 양쪽에서 사용)
+function quizActive(){
+  const mapEl = document.getElementById('map');
+  return mapEl && mapEl.offsetParent !== null;
+}
+
 sb.auth.onAuthStateChange(async(event, session) => {
   // 토큰 갱신은 무시 (탭 전환 시 발생)
   if(event === 'TOKEN_REFRESHED') return;
-
-  // 퀴즈 진행 중 여부 확인
-  function quizActive(){
-    const mapEl = document.getElementById('map');
-    return mapEl && mapEl.offsetParent !== null;
-  }
 
   if(session?.user){
     currentUser = session.user;
