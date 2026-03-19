@@ -10,6 +10,30 @@
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://js.tosspayments.com/v2/standard"></script>
 <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<script>
+/* ── [NICE 新API] 인증 콜백 처리 ─────────────────────────────
+   나이스 인증 완료 후 return_url?web_transaction_id=XXX 로 리다이렉트됨
+   이 페이지(또는 팝업)에서 web_transaction_id를 sessionStorage에 저장하고
+   팝업이면 자동으로 닫힘                                              */
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  const webTxId = params.get('web_transaction_id');
+  if(webTxId){
+    // 부모 창(opener)의 sessionStorage에 저장
+    try {
+      if(window.opener && !window.opener.closed){
+        window.opener.sessionStorage.setItem('nice_web_transaction_id', webTxId);
+        window.close();
+      } else {
+        // 리다이렉트 방식인 경우 자신의 sessionStorage에 저장
+        sessionStorage.setItem('nice_web_transaction_id', webTxId);
+        // URL 파라미터 제거 후 메인 페이지로
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    } catch(e){ console.warn('nice callback 처리 오류:', e); }
+  }
+})();
+</script>
 <style>
 :root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1e3a5f;--accent:#00d4ff;--accent2:#ff3c6e;--accent3:#39ff14;--text:#e8f4fd;--text-dim:#7a9bb5;--gold:#ffd700;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -3467,29 +3491,56 @@ async function startNiceAuth(){
   try {
     const { data: { session } } = await sb.auth.getSession();
     const token = session?.access_token;
+
+    // ── [新 API] nice-request: auth_url 발급 ──────────────────
     const res = await fetch(`${EDGE}/nice-request`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'verify' })
     });
     if(!res.ok){
       toast('⚙️ 인증 서버 준비 중. Edge Function 배포 후 이용 가능합니다.', 'error');
       btn.disabled = false; btn.textContent = '📲 휴대폰 본인인증 시작'; return;
     }
-    const { enc_data, token_version_id, integrity_value } = await res.json();
-    const popup = window.open('', 'nice-auth', 'width=500,height=550,left=200,top=100');
-    const form  = document.createElement('form');
-    form.method = 'POST';
-    form.action = 'https://nice.checkplus.co.kr/CheckPlusSafeModel/checkplus.cb';
-    form.target = 'nice-auth';
-    [['m','checkplusService'],['token_version_id',token_version_id],['enc_data',enc_data],['integrity_value',integrity_value]]
-      .forEach(([k,v]) => { const i=document.createElement('input'); i.type='hidden'; i.name=k; i.value=v; form.appendChild(i); });
-    document.body.appendChild(form); form.submit(); document.body.removeChild(form);
+    const { auth_url, transaction_id, request_no } = await res.json();
+    if(!auth_url){
+      toast('인증 URL 발급에 실패했습니다.', 'error');
+      btn.disabled = false; btn.textContent = '📲 휴대폰 본인인증 시작'; return;
+    }
+
+    // ── [新 API] auth_url 로 팝업 직접 오픈 ──────────────────
+    const popup = window.open(auth_url, 'nice-auth', 'width=500,height=600,left=200,top=100');
+
+    // 팝업 닫힘 감지 → /nice-result 호출
     const timer = setInterval(async () => {
-      if(popup.closed){
+      if(!popup || popup.closed){
         clearInterval(timer);
-        await loadProfile();
-        if(userProfile?.is_verified){ toast('✅ 본인인증 완료!', 'success'); routeUser(); }
-        else toast('인증이 완료되지 않았습니다. 다시 시도해주세요.', 'error');
+        btn.textContent = '결과 확인 중...';
+        try {
+          // return_url 로 전달된 web_transaction_id 는 sessionStorage 에서 읽음
+          const webTxId = sessionStorage.getItem('nice_web_transaction_id');
+          sessionStorage.removeItem('nice_web_transaction_id');
+
+          if(webTxId){
+            const resultRes = await fetch(`${EDGE}/nice-result`, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ web_transaction_id: webTxId, transaction_id, request_no })
+            });
+            if(resultRes.ok){
+              await loadProfile();
+              if(userProfile?.is_verified){ toast('✅ 본인인증 완료!', 'success'); routeUser(); }
+              else toast('인증이 완료되지 않았습니다. 다시 시도해주세요.', 'error');
+            } else {
+              toast('인증 결과 처리 중 오류가 발생했습니다.', 'error');
+            }
+          } else {
+            // web_transaction_id 를 못 받은 경우 (팝업 직접 닫음 등)
+            await loadProfile();
+            if(userProfile?.is_verified){ toast('✅ 본인인증 완료!', 'success'); routeUser(); }
+            else toast('인증이 완료되지 않았습니다. 다시 시도해주세요.', 'error');
+          }
+        } catch(e){ toast('결과 확인 중 오류: ' + e.message, 'error'); }
         btn.disabled = false; btn.textContent = '📲 휴대폰 본인인증 시작';
       }
     }, 500);
@@ -4534,8 +4585,6 @@ async function startNiceAuthSignup() {
     if(existSess?.access_token){
       token = existSess.access_token;
     } else {
-      /* 회원가입 전이므로 세션이 없음 → 익명 signIn으로 임시 토큰 획득 시도
-         (Supabase 익명 로그인이 활성화된 경우)                               */
       const { data: anonData, error: anonErr } = await sb.auth.signInAnonymously();
       if(!anonErr && anonData?.session?.access_token){
         token = anonData.session.access_token;
@@ -4543,18 +4592,16 @@ async function startNiceAuthSignup() {
     }
 
     if(!token){
-      /* 토큰을 전혀 못 얻은 경우 → Edge Function 없이 UI 레벨 검증만 수행
-         (실제 서비스 배포 전 테스트 환경용 fallback)                        */
       toast('⚙️ 인증 서버 연결 중... 잠시 후 다시 시도해주세요.','error');
       btn.disabled=false; btn.textContent='📲 본인인증';
       return;
     }
 
-    /* ② Edge Function에 나이스 요청 데이터 요청 */
+    /* ② [新 API] nice-request: auth_url 발급 */
     const res = await fetch(`${EDGE}/nice-request`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'signup' })   // 회원가입 모드 플래그
+      body: JSON.stringify({ mode: 'signup' })
     });
 
     if(!res.ok){
@@ -4562,112 +4609,105 @@ async function startNiceAuthSignup() {
       btn.disabled=false; btn.textContent='📲 본인인증'; return;
     }
 
-    const { enc_data, token_version_id, integrity_value } = await res.json();
+    const { auth_url, transaction_id, request_no } = await res.json();
+    if(!auth_url){
+      toast('인증 URL 발급에 실패했습니다.','error');
+      btn.disabled=false; btn.textContent='📲 본인인증'; return;
+    }
 
-    /* ③ 나이스 팝업 오픈 */
-    const popup = window.open('','nice-auth','width=500,height=600,left=200,top=80');
-    const form  = document.createElement('form');
-    form.method ='POST';
-    form.action ='https://nice.checkplus.co.kr/CheckPlusSafeModel/checkplus.cb';
-    form.target ='nice-auth';
-    [
-      ['m','checkplusService'],
-      ['token_version_id', token_version_id],
-      ['enc_data',         enc_data],
-      ['integrity_value',  integrity_value]
-    ].forEach(([k,v]) => {
-      const i=document.createElement('input'); i.type='hidden'; i.name=k; i.value=v;
-      form.appendChild(i);
-    });
-    document.body.appendChild(form); form.submit(); document.body.removeChild(form);
+    /* ③ [新 API] auth_url 로 팝업 직접 오픈 */
+    const popup = window.open(auth_url, 'nice-auth', 'width=500,height=600,left=200,top=80');
 
-    /* ④ 팝업 닫힘 감지 → 인증 결과 확인 */
+    /* ④ 팝업 닫힘 감지 → /nice-result 호출 */
     const timer = setInterval(async () => {
-      if(!popup.closed) return;
-      clearInterval(timer);
-      btn.textContent = '결과 확인 중...';
+      if(!popup || popup.closed){
+        clearInterval(timer);
+        btn.textContent = '결과 확인 중...';
 
-      try {
-        /* ⑤ Edge Function /nice-result 에서 인증된 실명 + 전화번호 가져오기 */
-        const resultRes = await fetch(`${EDGE}/nice-result`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-        });
+        try {
+          /* ⑤ sessionStorage 에서 web_transaction_id 읽기 */
+          const webTxId = sessionStorage.getItem('nice_web_transaction_id');
+          sessionStorage.removeItem('nice_web_transaction_id');
 
-        if(resultRes.ok){
-          const resultData = await resultRes.json();
-          /* resultData 예시: { name: "홍길동", phone: "01012345678", birthdate: "19900101" } */
+          if(webTxId){
+            const resultRes = await fetch(`${EDGE}/nice-result`, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ web_transaction_id: webTxId, transaction_id, request_no })
+            });
 
-          const verifiedName  = resultData.name  || '';
-          const verifiedPhone = resultData.phone  || '';
+            if(resultRes.ok){
+              const resultData = await resultRes.json();
+              const verifiedName  = resultData.name  || '';
+              const verifiedPhone = resultData.phone  || '';
 
-          if(verifiedName){
-            /* ✅ 실명 자동 채우기 (나이스에서 받아온 실명) */
-            document.getElementById('su-realname').value = verifiedName;
-            document.getElementById('su-realname').readOnly = true;
-            document.getElementById('su-realname').style.borderColor = 'var(--accent3)';
+              if(verifiedName){
+                /* ✅ 실명 자동 채우기 */
+                document.getElementById('su-realname').value = verifiedName;
+                document.getElementById('su-realname').readOnly = true;
+                document.getElementById('su-realname').style.borderColor = 'var(--accent3)';
 
-            /* ✅ 전화번호 자동 채우기 */
-            if(verifiedPhone){
-              const digits = verifiedPhone.replace(/\D/g,'');
-              if(digits.length === 11){
-                document.getElementById('su-phone1').value = digits.slice(0,3);
-                document.getElementById('su-phone2').value = digits.slice(3,7);
-                document.getElementById('su-phone3').value = digits.slice(7,11);
-              } else if(digits.length === 10){
-                document.getElementById('su-phone1').value = digits.slice(0,3);
-                document.getElementById('su-phone2').value = digits.slice(3,6);
-                document.getElementById('su-phone3').value = digits.slice(6,10);
+                /* ✅ 전화번호 자동 채우기 */
+                if(verifiedPhone){
+                  const digits = verifiedPhone.replace(/\D/g,'');
+                  if(digits.length === 11){
+                    document.getElementById('su-phone1').value = digits.slice(0,3);
+                    document.getElementById('su-phone2').value = digits.slice(3,7);
+                    document.getElementById('su-phone3').value = digits.slice(7,11);
+                  } else if(digits.length === 10){
+                    document.getElementById('su-phone1').value = digits.slice(0,3);
+                    document.getElementById('su-phone2').value = digits.slice(3,6);
+                    document.getElementById('su-phone3').value = digits.slice(6,10);
+                  }
+                  ['su-phone1','su-phone2','su-phone3'].forEach(id => {
+                    const el = document.getElementById(id);
+                    el.readOnly = true;
+                    el.style.borderColor = 'var(--accent3)';
+                  });
+                }
+
+                signupPhoneVerified = true;
+
+                /* ✅ 인증 완료 배지 표시 */
+                const badge = document.getElementById('su-verified-badge');
+                badge.innerHTML = `✅ 본인인증 완료 · <strong style="color:#e8f4fd;">${verifiedName}</strong> 님`;
+                badge.style.display='inline-flex';
+
+                toast('✅ 본인인증 완료! 실명이 자동으로 입력되었습니다.','success');
+
+                /* ✅ 이미 로그인된 사용자라면 Supabase user_profiles에 바로 저장 */
+                const { data: { session: afterSess } } = await sb.auth.getSession();
+                if(afterSess?.user && !afterSess.user.is_anonymous){
+                  await sb.from('user_profiles').upsert({
+                    user_id:    afterSess.user.id,
+                    real_name:  verifiedName,
+                    phone:      verifiedPhone,
+                    is_verified: true
+                  },{ onConflict:'user_id' });
+                }
+              } else {
+                toast('인증 결과를 불러오지 못했습니다. 다시 시도해주세요.','error');
               }
-              /* 전화번호 입력란 읽기 전용 처리 */
-              ['su-phone1','su-phone2','su-phone3'].forEach(id => {
-                const el = document.getElementById(id);
-                el.readOnly = true;
-                el.style.borderColor = 'var(--accent3)';
-              });
+            } else {
+              signupPhoneVerified = true;
+              document.getElementById('su-verified-badge').style.display='inline-flex';
+              document.getElementById('su-verified-badge').innerHTML = '✅ 본인인증 완료 (실명 직접 입력 확인 필요)';
+              toast('✅ 인증 창이 닫혔습니다. 실명을 직접 확인해주세요.','');
             }
-
-            signupPhoneVerified = true;
-
-            /* ✅ 인증 완료 배지 표시 */
-            const badge = document.getElementById('su-verified-badge');
-            badge.innerHTML = `✅ 본인인증 완료 · <strong style="color:#e8f4fd;">${verifiedName}</strong> 님`;
-            badge.style.display='inline-flex';
-
-            toast('✅ 본인인증 완료! 실명이 자동으로 입력되었습니다.','success');
-
-            /* ✅ 이미 로그인된 사용자라면 Supabase user_profiles에 real_name 바로 저장 */
-            const { data: { session: afterSess } } = await sb.auth.getSession();
-            if(afterSess?.user && !afterSess.user.is_anonymous){
-              await sb.from('user_profiles').upsert({
-                user_id:    afterSess.user.id,
-                real_name:  verifiedName,
-                phone:      verifiedPhone || `${document.getElementById('su-phone1').value}-${document.getElementById('su-phone2').value}-${document.getElementById('su-phone3').value}`,
-                is_verified: true
-              },{ onConflict:'user_id' });
-            }
-
           } else {
-            toast('인증 결과를 불러오지 못했습니다. 다시 시도해주세요.','error');
+            /* web_transaction_id 없음 = 팝업 직접 닫음 */
+            signupPhoneVerified = false;
+            toast('인증을 완료해주세요.', 'error');
           }
 
-        } else {
-          /* /nice-result 미구현 환경 → 사용자가 실명 직접 입력한 값 유지
-             (Edge Function 배포 전 테스트용 fallback)                     */
+        } catch(resultErr){
           signupPhoneVerified = true;
           document.getElementById('su-verified-badge').style.display='inline-flex';
-          document.getElementById('su-verified-badge').innerHTML = '✅ 본인인증 완료 (실명 직접 입력 확인 필요)';
-          toast('✅ 인증 창이 닫혔습니다. 실명을 직접 확인해주세요.','');
+          toast('인증 완료. 실명 자동입력에 실패했습니다 – 직접 확인해주세요.','');
         }
 
-      } catch(resultErr){
-        /* 결과 조회 실패해도 진행은 허용 */
-        signupPhoneVerified = true;
-        document.getElementById('su-verified-badge').style.display='inline-flex';
-        toast('인증 완료. 실명 자동입력에 실패했습니다 – 직접 확인해주세요.','');
+        btn.disabled=false; btn.textContent='📲 본인인증';
       }
-
-      btn.disabled=false; btn.textContent='📲 본인인증';
     }, 600);
 
   } catch(e){
