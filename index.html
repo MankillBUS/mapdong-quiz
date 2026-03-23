@@ -1563,6 +1563,27 @@ const CITY_COLORS = [
  * [4단계 핵심] JSON에서 도시 메타 자동 구축
  * CITY_META 하드코딩 완전 제거
  */
+/**
+ * _meta 구조(시각화 변환본)와 flat 구조(기존) 둘 다 읽는 헬퍼.
+ * node._meta?.key → node.key 순으로 fallback
+ */
+function _m(node, key) {
+  if (!node) return undefined;
+  return (key in node) ? node[key] : node._meta?.[key];
+}
+
+/**
+ * 동 노드에서 geometry 추출.
+ * flat 구조: node.geometry
+ * Feature 구조: node.type==='Feature' → node.geometry
+ */
+function _geo(node) {
+  if (!node) return null;
+  if (node.geometry) return node.geometry;
+  if (node.type === 'Feature' && node.geometry) return node.geometry;
+  return null;
+}
+
 function buildCityMetaFromCache(polyCache) {
   if (!polyCache) return;
   CITY_META_V4 = [];
@@ -1575,19 +1596,18 @@ function buildCityMetaFromCache(polyCache) {
     const lats = [], lngs = [];
 
     for (const [k, v] of Object.entries(cityNode)) {
-      if (k.startsWith('_') || typeof v !== 'object' || !v) continue;
-      if (v._type === '구') {
-        const units = v._all_list || [];
+      if (k.startsWith('_') || k === '_meta' || typeof v !== 'object' || !v) continue;
+      if (_m(v, '_type') === '구') {
+        const units = _m(v, '_all_list') || [];
         if (units.length > 0) {
           hasGu = true;
           total += units.length;
           for (const uName of units) {
             const ud = v[uName];
-            // center 또는 geometry 기반 좌표 수집
             if (ud?.center) { lats.push(ud.center[0]); lngs.push(ud.center[1]); }
-            else if (ud?.geometry?.coordinates) {
+            else if (_geo(ud)?.coordinates) {
               try {
-                const coords = ud.geometry.coordinates[0];
+                const coords = _geo(ud).coordinates[0];
                 const la = coords.map(c=>c[1]), ln = coords.map(c=>c[0]);
                 lats.push(la.reduce((s,v)=>s+v,0)/la.length);
                 lngs.push(ln.reduce((s,v)=>s+v,0)/ln.length);
@@ -1595,13 +1615,12 @@ function buildCityMetaFromCache(polyCache) {
             }
           }
         }
-      } else if (v.geometry || v.center) {
-        // geometry 또는 center 중 하나라도 있으면 카운트
+      } else if (_geo(v) || v.center) {
         total++;
         if (v.center) { lats.push(v.center[0]); lngs.push(v.center[1]); }
-        else if (v.geometry?.coordinates) {
+        else if (_geo(v)?.coordinates) {
           try {
-            const coords = v.geometry.coordinates[0];
+            const coords = _geo(v).coordinates[0];
             const la = coords.map(c=>c[1]), ln = coords.map(c=>c[0]);
             lats.push(la.reduce((s,v)=>s+v,0)/la.length);
             lngs.push(ln.reduce((s,v)=>s+v,0)/ln.length);
@@ -1610,8 +1629,8 @@ function buildCityMetaFromCache(polyCache) {
       }
     }
     if (!hasGu) {
-      total = (cityNode._all_list || []).length;
-      for (const uName of (cityNode._all_list || [])) {
+      total = (_m(cityNode, '_all_list') || []).length;
+      for (const uName of (_m(cityNode, '_all_list') || [])) {
         const ud = cityNode[uName];
         if (ud?.center) { lats.push(ud.center[0]); lngs.push(ud.center[1]); }
       }
@@ -1631,13 +1650,13 @@ function buildCityMetaFromCache(polyCache) {
     }
 
     // 줌 레벨
-    const type_ = cityNode._type || '';
+    const type_ = _m(cityNode, '_type') || '';
     const zoom = (type_ === '특별시' || type_ === '광역시') ? 11
                : (total > 20) ? 11
                : (total > 10) ? 12 : 13;
 
     // 퀴즈 메타
-    const qm = cityNode._quiz_meta || {};
+    const qm = _m(cityNode, '_quiz_meta') || {};
     const quizLevel = qm.quiz_level || (hasGu ? 'gu' : 'dong');
 
     CITY_META_V4.push({
@@ -1654,7 +1673,7 @@ function buildCityMetaFromCache(polyCache) {
 
     // 프론트 검증: NO_GU 도시에 구 데이터가 있으면 경고
     if (!hasGu) {
-      const hasGuNode = Object.values(cityNode).some(v => v?._type === '구');
+      const hasGuNode = Object.values(cityNode).some(v => v && typeof v === 'object' && _m(v, '_type') === '구');
       if (hasGuNode) {
         FE_VALIDATION.warn('NO_GU_HAS_GU_NODE',
           `${cityName}: _quiz_meta.has_gu=false인데 구 노드가 존재함`, { cityName });
@@ -1664,10 +1683,10 @@ function buildCityMetaFromCache(polyCache) {
 
   for (const [topKey, topVal] of Object.entries(polyCache)) {
     if (topKey.startsWith('_') || typeof topVal !== 'object' || !topVal) continue;
-    const t = topVal._type || '';
+    const t = _m(topVal, '_type') || '';
     if (t === '도') {
       for (const [city, cv] of Object.entries(topVal)) {
-        if (!city.startsWith('_') && typeof cv === 'object' && cv) {
+        if (!city.startsWith('_') && city !== '_meta' && typeof cv === 'object' && cv) {
           processCity(city, cv, topKey);
         }
       }
@@ -1690,7 +1709,7 @@ function getCityNode(cityName) {
   if (!POLY_CACHE) return null;
   if (POLY_CACHE[cityName]) return POLY_CACHE[cityName];
   for (const [, tv] of Object.entries(POLY_CACHE)) {
-    if (tv?._type === '도' && tv[cityName]) return tv[cityName];
+    if (_m(tv, '_type') === '도' && tv[cityName]) return tv[cityName];
   }
   return null;
 }
@@ -1722,31 +1741,31 @@ function getDongGeo(cityName, gu, dong) {
 
   // ── 렌더 차단 검증 ────────────────────────────────────────────
   // 1) 구 노드(_type==='구')를 동 노드로 오인한 경우 차단
-  if (node._type === '구') {
+  if (_m(node, '_type') === '구') {
     FE_VALIDATION.error('PARENT_NODE_AS_DONG',
       `${cityName}/${gu}/${dong}: 구 노드가 동으로 요청됨 — 렌더 차단`,
-      { cityName, gu, dong, nodeType: node._type }
+      { cityName, gu, dong, nodeType: _m(node, '_type') }
     );
     return null;
   }
 
   // 2) _geometry 키 존재: 구 폴리곤이 동 위치에 잘못 저장됨
-  if (node._geometry) {
+  if (node._geometry || node._meta?._geometry) {
     FE_VALIDATION.error('PARENT_GEOMETRY_IN_DONG',
       `${cityName}/${gu}/${dong}: _geometry 필드 존재 — 구 폴리곤 혼입 차단`,
       { cityName, gu, dong }
     );
-    // _geometry 제거 후 반환 (데이터는 살리되 구 폴리곤만 제거)
-    const { _geometry, ...safeNode } = node;
+    const { _geometry, _meta, ...safeNode } = node;
     return safeNode;
   }
 
-  // 3) 부모-자식 좌표 완전 동일 탐지 (N2에서 걸렸어야 하나 2차 방어)
-  if (gu && node.geometry) {
+  // 3) 부모-자식 좌표 완전 동일 탐지
+  if (gu && _geo(node)) {
     const guNode = cn[gu];
-    if (guNode?._geometry?.geometry) {
-      const dongCoords = JSON.stringify(node.geometry.coordinates);
-      const guCoords   = JSON.stringify(guNode._geometry.geometry.coordinates);
+    const guGeom = guNode?._geometry || guNode?._meta?._geometry;
+    if (guGeom?.geometry) {
+      const dongCoords = JSON.stringify(_geo(node).coordinates);
+      const guCoords   = JSON.stringify(guGeom.geometry.coordinates);
       if (dongCoords === guCoords) {
         FE_VALIDATION.error('COORD_IDENTITY_DONG_EQ_GU',
           `${cityName}/${gu}/${dong}: 동 좌표 === 구 좌표 — 렌더 차단 (N2 누락)`,
@@ -1757,13 +1776,19 @@ function getDongGeo(cityName, gu, dong) {
     }
   }
 
-  // 4) level mismatch: 동 퀴즈인데 노드 타입이 구
+  // 4) level mismatch
   const validLeafTypes = new Set(['동','읍','면','리']);
-  if (node._type && !validLeafTypes.has(node._type)) {
+  const nodeType = _m(node, '_type');
+  if (nodeType && !validLeafTypes.has(nodeType)) {
     FE_VALIDATION.warn('LEVEL_MISMATCH',
-      `${cityName}/${gu}/${dong}: _type='${node._type}'는 리프 단위가 아님`,
-      { cityName, gu, dong, type: node._type }
+      `${cityName}/${gu}/${dong}: _type='${nodeType}'는 리프 단위가 아님`,
+      { cityName, gu, dong, type: nodeType }
     );
+  }
+
+  // Feature 구조인 경우 geometry를 표준 위치로 정규화해서 반환
+  if (node.type === 'Feature' && node.geometry && !node.geometry.type?.startsWith('_')) {
+    return node;  // Feature 구조 그대로 반환 (caller가 _geo()로 접근)
   }
 
   return node;
@@ -1773,19 +1798,22 @@ function getDongGeo(cityName, gu, dong) {
 function getGuGeo(cityName, gu) {
   const cn = getCityNode(cityName);
   if (!cn || !gu) return null;
-  return cn[gu]?.['_geometry'] || null;
+  const guNode = cn[gu];
+  return guNode?._geometry || guNode?._meta?._geometry || null;
 }
 
 /** GeoJSON 또는 단위 노드의 중심 좌표 반환 */
 function getCenter(geo) {
   if (!geo) return null;
   if (geo.center) return [geo.center[0], geo.center[1]];
-  if (geo._center) return [geo._center[0], geo._center[1]];
+  const c = _m(geo, '_center');
+  if (c) return [c[0], c[1]];
   try {
-    const type   = geo.geometry.type;
+    const g      = _geo(geo) || geo.geometry;
+    const type   = g.type;
     const coords = type === 'Polygon'
-      ? geo.geometry.coordinates[0]
-      : geo.geometry.coordinates[0][0];
+      ? g.coordinates[0]
+      : g.coordinates[0][0];
     const lats = coords.map(c => c[1]), lngs = coords.map(c => c[0]);
     return [
       Math.round(lats.reduce((s,v)=>s+v,0)/lats.length * 10000) / 10000,
@@ -1819,29 +1847,26 @@ function buildDBFromCache() {
     const dongs = [];
 
     if (hasGu) {
-      // 구 있는 도시: cn._gu_list → 각 구 → _all_list → 단위
-      const guList = cn._gu_list || Object.keys(cn).filter(k => !k.startsWith('_') && cn[k]?._type === '구');
+      // 구 있는 도시: _gu_list → 각 구 → _all_list → 단위
+      const guList = _m(cn, '_gu_list') || Object.keys(cn).filter(k => !k.startsWith('_') && k !== '_meta' && _m(cn[k], '_type') === '구');
 
       for (const gu of guList) {
         const guData = cn[gu];
         if (!guData) continue;
 
-        const unitList = guData._all_list || [];
+        const unitList = _m(guData, '_all_list') || [];
         for (const uName of unitList) {
           const node = guData[uName];
           if (!node || typeof node !== 'object') continue;
 
-          // ── 부모 노드 완전 배제 ──────────────────────────────
-          // _type이 '구'이면 절대 출제 대상 아님
-          if (node._type === '구') {
+          if (_m(node, '_type') === '구') {
             FE_VALIDATION.error('PARENT_IN_UNIT_LIST',
               `${cityName}/${gu}: _all_list에 구 노드 '${uName}' 포함 — 제외`,
               { cityName, gu, uName }
             );
             continue;
           }
-          // geometry 없어도 center 있으면 출제 허용 (폴리곤 없이 마커만 표시)
-          if (!node.geometry && !node.center) {
+          if (!_geo(node) && !node.center) {
             FE_VALIDATION.warn('NO_GEOMETRY',
               `${cityName}/${gu}/${uName}: geometry/center 모두 없음 — 제외`, { cityName, gu, uName }
             );
@@ -1856,44 +1881,42 @@ function buildDBFromCache() {
             continue;
           }
 
-          // _gu 필드 검증 (3단계에서 설정된 값과 일치 확인)
-          if (node._gu && node._gu !== gu) {
+          const nodeGu = _m(node, '_gu');
+          if (nodeGu && nodeGu !== gu) {
             FE_VALIDATION.warn('GU_MISMATCH',
-              `${cityName}/${uName}: node._gu='${node._gu}' != 경로상 gu='${gu}'`,
-              { cityName, gu, uName, nodeGu: node._gu }
+              `${cityName}/${uName}: node._gu='${nodeGu}' != 경로상 gu='${gu}'`,
+              { cityName, gu, uName, nodeGu }
             );
           }
 
           dongs.push({
             d:     uName,
-            gu:    node._gu || gu,
+            gu:    nodeGu || gu,
             lat:   ll[0],
             lng:   ll[1],
-            rn:    node._city || cityName,
-            do_:   node._do || doName,
-            utype: node._type || '동',
+            rn:    _m(node, '_city') || cityName,
+            do_:   _m(node, '_do')   || doName,
+            utype: _m(node, '_type') || '동',
             rk:    key,
-            // quiz_meta: 각 단위의 _quiz_meta (없으면 구 메타 상속)
-            qm:    node._quiz_meta || guData._quiz_meta || cn._quiz_meta || {},
+            qm:    _m(node, '_quiz_meta') || _m(guData, '_quiz_meta') || _m(cn, '_quiz_meta') || {},
           });
         }
       }
     } else {
       // 구 없는 도시: _all_list 직접
-      const unitList = cn._all_list || [];
+      const unitList = _m(cn, '_all_list') || [];
       for (const uName of unitList) {
         const node = cn[uName];
         if (!node || typeof node !== 'object') continue;
 
-        // 구 노드 배제 (구 없는 도시인데 구가 섞인 경우)
-        if (node._type === '구') {
+        if (_m(node, '_type') === '구') {
           FE_VALIDATION.error('PARENT_IN_NO_GU_CITY',
             `${cityName}: 구 없는 도시인데 구 노드 '${uName}' 발견 — 제외`,
             { cityName, uName }
           );
           continue;
         }
-        if (!node.geometry && !node.center) {
+        if (!_geo(node) && !node.center) {
           FE_VALIDATION.warn('NO_GEOMETRY', `${cityName}/${uName}: geometry/center 모두 없음 — 제외`, {});
           continue;
         }
@@ -1903,14 +1926,14 @@ function buildDBFromCache() {
 
         dongs.push({
           d:     uName,
-          gu:    '',   // 구 없음
+          gu:    '',
           lat:   ll[0],
           lng:   ll[1],
-          rn:    node._city || cityName,
-          do_:   node._do || doName,
-          utype: node._type || '동',
+          rn:    _m(node, '_city') || cityName,
+          do_:   _m(node, '_do')   || doName,
+          utype: _m(node, '_type') || '동',
           rk:    key,
-          qm:    node._quiz_meta || cn._quiz_meta || {},
+          qm:    _m(node, '_quiz_meta') || _m(cn, '_quiz_meta') || {},
         });
       }
     }
@@ -2988,7 +3011,8 @@ window.toggleShowAll = function(){
           clat = geo.center[0];
           clng = geo.center[1];
         } else {
-          const coords = geo.geometry.coordinates[0];
+          const coords = (_geo(geo) || geo.geometry)?.coordinates?.[0];
+          if (!coords) throw new Error('no coords');
           const lats = coords.map(c=>c[1]), lngs = coords.map(c=>c[0]);
           clat = (Math.max(...lats)+Math.min(...lats))/2;
           clng = (Math.max(...lngs)+Math.min(...lngs))/2;
@@ -3006,7 +3030,7 @@ window.toggleShowAll = function(){
       const node = POLY_CACHE ? getDongGeo(dong.rn, dong.gu, dong.d) : null;
       if(!node) return;
       // node는 전체 노드 객체 — geometry 필드 추출
-      const geo = node.geometry || null;
+      const geo = _geo(node);
       if(geo){
         const lyr = drawPolygon(geo, '#00d4ff', 0.15);
         if(lyr) allAnswerLayers.push(lyr);
@@ -3075,8 +3099,7 @@ function doOk(dist, clickLat, clickLng){
     const node = isGuQuizMode
       ? getGuGeo(cur.rn, cur.gu)
       : getDongGeo(cur.rn, cur.gu, cur.d);
-    // 구 geo는 _geometry 형식, 동 node는 geometry 필드를 가진 노드
-    const geo = isGuQuizMode ? node : (node?.geometry || null);
+    const geo = isGuQuizMode ? node : (_geo(node) || null);
     if(geo){
       answerLayer = drawPolygon(geo, '#39ff14', 0.25);
       if(answerLayer) answerLayers.push(answerLayer);
@@ -3162,7 +3185,7 @@ function doNo(dist, clickLat, clickLng){
     // ★ 오답 폴리곤 표시 (빨간색)
     if(POLY_CACHE && snapCur){
       const node = isGuQuizMode ? getGuGeo(snapCur.rn, snapCur.gu) : getDongGeo(snapCur.rn, snapCur.gu, snapCur.d);
-      const geo = isGuQuizMode ? node : (node?.geometry || null);
+      const geo = isGuQuizMode ? node : (_geo(node) || null);
       if(geo){
         answerLayer = drawPolygon(geo, '#ff3c6e', 0.3);
         if(answerLayer) wrongLayers.push(answerLayer);
