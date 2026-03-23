@@ -1569,7 +1569,15 @@ const CITY_COLORS = [
  */
 function _m(node, key) {
   if (!node) return undefined;
-  return (key in node) ? node[key] : node._meta?.[key];
+  // 1. 직접 키 존재
+  if (key in node) return node[key];
+  // 2. _meta 한 단계
+  const m1 = node._meta;
+  if (m1 && key in m1) return m1[key];
+  // 3. _meta._meta 두 단계 (to_visual 중복 적용 시 발생하는 이중 중첩 대응)
+  const m2 = m1?._meta;
+  if (m2 && key in m2) return m2[key];
+  return undefined;
 }
 
 /**
