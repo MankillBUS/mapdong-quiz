@@ -3194,15 +3194,34 @@ function addR(ok,q,skip){
   while(l.children.length>25)l.removeChild(l.lastChild);
 }
 
-/* ════════════════════════════════════════════
-   Supabase + 인증 + 결제 로직
-   ⚠️ 배포 전 아래 두 값을 실제 키로 교체하세요
-════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════
+   🔑 API 키 설정 — 여기서만 키를 교체하세요
+   ──────────────────────────────────────────────────────────
+   [Supabase]
+   SUPABASE_URL  Supabase 대시보드 > Project Settings > API > Project URL
+   SUPABASE_KEY  Supabase 대시보드 > Project Settings > API > anon public key
+
+   [토스 클라이언트 키 — 공개 가능, 이 파일에서 직접 교체]
+   TOSS_CLIENT_KEY         토스 대시보드 > 결제위젯 연동 키 > 클라이언트 키
+                           → 일반결제 (daily 1~25일권) 위젯에서 사용
+   TOSS_BILLING_CLIENT_KEY 토스 대시보드 > 자동결제 연동 키 > 클라이언트 키
+                           → 구독결제 (monthly~yearly) 카드등록에서 사용
+
+   [토스 시크릿 키 — 절대 비공개, Supabase Edge Function Secrets에 등록]
+   TOSS_SECRET_KEY         Supabase > Functions > Secrets
+                           → Edge Function /toss-payment 일반결제 승인
+   TOSS_BILLING_SECRET_KEY Supabase > Functions > Secrets
+                           → Edge Function /toss-billing-charge 구독결제 승인
+   ════════════════════════════════════════════════════════ */
 const SUPABASE_URL  = 'https://emgsueepzioudqnitkyn.supabase.co';
-const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemlvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkwNzQsImV4cCI6MjA4NjU2NTA3NH0.epR1k3MVh0MfZejFh9VflCNOS8Uz8EuCZlez5OBMz3s'
-const TOSS_CLIENT_KEY         = 'test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm'; // 단건결제(daily) 위젯 키
-const TOSS_BILLING_CLIENT_KEY = 'test_ck_6bJXmgo28eNQQzNd4o1y3LAnGKWx';   // 구독 자동결제 v2 API 개별 연동 키
-const SUBSCRIPTION_PLANS      = ['monthly','quarterly','halfyear','yearly']; // 구독 플랜 목록
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemlvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkwNzQsImV4cCI6MjA4NjU2NTA3NH0.epR1k3MVh0MfZejFh9VflCNOS8Uz8EuCZlez5OBMz3s';
+
+/* ▼ 토스 심사 완료 후 아래 두 줄의 키를 실제 발급 키로 교체 ▼ */
+const TOSS_CLIENT_KEY         = 'live_gck_DLJOpm5QrlP47AGDJeLdrPNdxbWn';
+const TOSS_BILLING_CLIENT_KEY = 'live_ck_ORzdMaqN3wn2eqdXYQEN85AkYXQG';
+/* ▲ 여기까지 ▲ */
+
+const SUBSCRIPTION_PLANS = ['monthly','quarterly','halfyear','yearly'];
 const EDGE = `${SUPABASE_URL}/functions/v1`;
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -3735,32 +3754,41 @@ async function acceptRefundAndPay() {
   pendingPlanKey = null;
 }
 
-/* ── 실제 토스페이먼츠 결제 호출 ───────────────────────────── */
-
 /* ════════════════════════════════════════════════════════════
-   💳 토스페이먼츠 v2 결제 위젯 (올바른 구현)
-   
-   ▶ 문제 원인:
-     기존 코드는 widgets.requestPayment()를 바로 호출했는데,
-     이 방식은 위젯(결제수단 선택 UI)을 화면에 먼저 렌더링한 뒤
-     사용자가 결제수단을 선택하고 '결제하기'를 눌러야 합니다.
-     즉, renderPaymentMethods()와 renderAgreement()를 먼저 호출해서
-     결제수단 선택 화면을 보여줘야 하는데, 그 단계가 없었습니다.
-   
-   ▶ 해결 방법:
-     1) 결제하기 버튼 클릭 → 모달 열기
-     2) 모달 안에서 위젯 렌더링 (결제수단 선택 UI 표시)
-     3) 사용자가 결제수단 선택 후 '결제하기' 버튼 클릭
-     4) requestPayment() 호출 → 토스 결제창
+   💳 토스페이먼츠 v2 결제 엔진
+   ──────────────────────────────────────────────────────────
+   ■ 클라이언트 키  (공개 가능 — 파일 상단 const 구역에서 교체)
+     TOSS_CLIENT_KEY         일반결제 위젯   (daily 1~25일권)
+                             토스 대시보드: 결제위젯 연동 키 > 클라이언트 키
+     TOSS_BILLING_CLIENT_KEY 구독 자동결제   (monthly~yearly)
+                             토스 대시보드: 자동결제 연동 키 > 클라이언트 키
+
+   ■ 시크릿 키  (비공개 — Supabase Edge Function Secrets에 등록)
+     TOSS_SECRET_KEY         일반결제 승인용
+     TOSS_BILLING_SECRET_KEY 구독결제 승인용
+
+   ■ 결제 흐름
+     [일반결제 daily]
+       requestPayment() → 환불약관 동의 → startPayment()
+       → 위젯 모달 렌더링 (카드/계좌/간편 전체)
+       → confirmTossPayment() → ?payment=success
+       → Edge /toss-payment → premium_until 업데이트
+
+     [구독결제 monthly~yearly]
+       requestPayment() → 환불약관 동의 → startPayment()
+       → requestBillingAuth() (토스 카드등록창 리다이렉트)
+       → ?billing=success
+       → Edge /toss-billing-charge → premium_until 업데이트
    ════════════════════════════════════════════════════════ */
 
-let _tossWidgets = null;      // 단건결제용 widgets 인스턴스 (daily)
-let _tossPayment = null;      // 구독결제용 v2 payment 인스턴스 (billing)
-let _tossPlanKey = null;      // 결제할 플랜
-let _tossAmount  = 0;         // 결제 금액
-let _tossOrderId = null;      // 주문 ID
+/* ── 토스 인스턴스 상태 변수 ─────────────────────────────────── */
+let _tossWidgets = null;   // 💳 일반결제용 widgets 인스턴스  (daily)
+let _tossPayment = null;   // 💜 구독결제용 payment 인스턴스  (monthly~yearly)
+let _tossPlanKey = null;   // 현재 결제 중인 플랜 키
+let _tossAmount  = 0;      // 현재 결제 금액
+let _tossOrderId = null;   // 현재 주문 ID
 
-/* ── 결제 버튼 클릭 → 모달 열기 + 위젯 렌더링 ─────────────── */
+/* ── startPayment: 환불약관 동의 후 결제 진입 ───────────────── */
 async function startPayment(planKey) {
   if(!currentUser){ toast('로그인이 필요합니다', 'error'); return; }
 
