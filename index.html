@@ -307,14 +307,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   /* 헤더 스탯바 숨기고 로고+유저칩만 */
   #stats-bar{display:none;}
   #header{justify-content:space-between;}
-
-  /* 출처 표기: 모바일에서 하단 중앙 */
-  #data-attribution{
-    bottom:10px !important;
-    right:50% !important;
-    transform:translateX(50%);
-    white-space:nowrap;
-  }
 }
 
 /* 터치 디바이스: 호버 효과 비활성화로 탭 반응성 향상 */
@@ -1394,20 +1386,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div id="side-toggle" onclick="toggleSidePanel()" title="패널 접기/펼치기">◀</div>
   <div id="mapw">
     <div id="map"></div>
-    <!-- 데이터 출처 표기 -->
-    <div id="data-attribution" style="
-      position:absolute; z-index:900; pointer-events:none;
-      bottom:24px; right:8px;
-      font-size:9px; color:rgba(255,255,255,0.55);
-      background:rgba(0,0,0,0.35); border-radius:4px;
-      padding:2px 6px; line-height:1.4;
-      backdrop-filter:blur(2px);
-    ">
-      행정구역 © <a href="https://github.com/vuski/admdongkor"
-        target="_blank" rel="noopener"
-        style="color:rgba(255,255,255,0.7);text-decoration:none;pointer-events:auto;"
-        >vuski/admdongkor</a> · 국토교통부
-    </div>
 
     <!-- [수정5] 모바일 문제카드 오버레이 — 사이드바 접힌 상태에서만 표시 -->
     <div id="mobile-qcard-overlay">
@@ -1550,68 +1528,21 @@ let CITY_META_V4 = [];  // [{name, key, do_, center, zoom, color, hasGu, quizLev
 // 도시명 → DB키 변환 (한글 → slug)
 function cityNameToKey(name) {
   const map = {
-    // 특별시·광역시·특별자치시
-    '서울특별시':'seoul','인천광역시':'incheon',
-    '부산광역시':'busan','대구광역시':'daegu',
-    '광주광역시':'gwangju_metro','대전광역시':'daejeon',
-    '울산광역시':'ulsan','세종특별자치시':'sejong','세종시':'sejong',
-    // 수원시 (4개 구)
-    '수원시장안구':'suwon_jangan','수원시권선구':'suwon_gwonseon',
-    '수원시팔달구':'suwon_paldal','수원시영통구':'suwon_yeongtong',
-    // 성남시 (3개 구)
-    '성남시분당구':'seongnam_bundang','성남시수정구':'seongnam_sujeong','성남시중원구':'seongnam_jungwon',
-    // 고양시 (3개 구)
-    '고양시덕양구':'goyang_deokyang','고양시일산동구':'goyang_ilsandong','고양시일산서구':'goyang_ilsanseo',
-    // 용인시 (3개 구)
-    '용인시기흥구':'yongin_giheung','용인시수지구':'yongin_suji','용인시처인구':'yongin_cheoin',
-    // 부천시 (3개 구)
-    '부천시원미구':'bucheon_wonmi','부천시소사구':'bucheon_sosa','부천시오정구':'bucheon_ojeong',
-    // 안양시 (2개 구)
-    '안양시동안구':'anyang_dongan','안양시만안구':'anyang_manan',
-    // 안산시 (2개 구)
-    '안산시상록구':'ansan_sangnok','안산시단원구':'ansan_danwon',
-    // 창원시 (5개 구)
-    '창원시의창구':'changwon_uichang','창원시성산구':'changwon_seongsan',
-    '창원시마산합포구':'changwon_masanhappo','창원시마산회원구':'changwon_masanhoewon',
-    '창원시진해구':'changwon_jinhae',
-    // 포항시 (2개 구)
-    '포항시남구':'pohang_nam','포항시북구':'pohang_buk',
-    // 전주시 (2개 구)
-    '전주시완산구':'jeonju_wansan','전주시덕진구':'jeonju_deokjin',
-    // 천안시 (2개 구)
-    '천안시동남구':'cheonan_dongnam','천안시서북구':'cheonan_seobuk',
-    // 청주시 (4개 구)
-    '청주시상당구':'cheongju_sangdang','청주시서원구':'cheongju_seowon',
-    '청주시흥덕구':'cheongju_heungdeok','청주시청원구':'cheongju_cheongwon',
-    // 화성시 (4개 구)
-    '화성시동탄구':'hwaseong_dongtan','화성시만세구':'hwaseong_manse',
-    '화성시병점구':'hwaseong_byeongjeom','화성시효행구':'hwaseong_hyohaeng',
-    // 일반 시·군
-    '화성시':'hwaseong','파주시':'paju','김포시':'gimpo',
-    '남양주시':'namyangju','구리시':'guri','하남시':'hanam',
-    '광주시':'gwangju','이천시':'icheon','평택시':'pyeongtaek',
-    '시흥시':'siheung','광명시':'gwangmyeong','군포시':'gunpo',
-    '의왕시':'uiwang','과천시':'gwacheon','의정부시':'uijeongbu',
-    '양주시':'yangju','동두천시':'dongducheon','연천군':'yeoncheon',
-    '포천시':'pocheon','가평군':'gapyeong','양평군':'yangpyeong',
-    '여주시':'yeoju','안성시':'anseong',
-    '춘천시':'chuncheon','원주시':'wonju','강릉시':'gangneung',
-    '경주시':'gyeongju','포항시':'pohang','구미시':'gumi',
-    '안동시':'andong','김천시':'gimcheon','영주시':'yeongju',
-    '영천시':'yeongcheon','상주시':'sangju','문경시':'mungyeong',
-    '경산시':'gyeongsan',
-    '진주시':'jinju','김해시':'gimhae','거제시':'geoje',
-    '통영시':'tongyeong','사천시':'sacheon','양산시':'yangsan',
-    '밀양시':'miryang',
-    '전주시':'jeonju','군산시':'gunsan','익산시':'iksan',
-    '정읍시':'jeongeup','남원시':'namwon','김제시':'gimje',
-    '목포시':'mokpo','여수시':'yeosu','순천시':'suncheon',
-    '나주시':'naju','광양시':'gwangyang',
-    '아산시':'asan','천안시':'cheonan','공주시':'gongju',
-    '보령시':'boryeong','서산시':'seosan','논산시':'nonsan',
-    '당진시':'dangjin','계룡시':'gyeryong',
-    '청주시':'cheongju','충주시':'chungju','제천시':'jecheon',
-    '제주시':'jeju','서귀포시':'seogwipo',
+    '서울특별시':'seoul','인천광역시':'incheon','수원시':'suwon',
+    '성남시':'seongnam','광주시':'gwangju','고양시':'goyang',
+    '용인시':'yongin','부천시':'bucheon','안양시':'anyang',
+    '화성시':'hwaseong','대전광역시':'daejeon','부산광역시':'busan',
+    '대구광역시':'daegu','광주광역시':'gwangju_metro','경주시':'gyeongju',
+    '파주시':'paju','세종특별자치시':'sejong','김포시':'gimpo',
+    '포항시':'pohang','서귀포시':'seogwipo','춘천시':'chuncheon',
+    '제주시':'jeju','남양주시':'namyangju','군포시':'gunpo',
+    '시흥시':'siheung','천안시':'cheonan','이천시':'icheon',
+    '목포시':'mokpo','강릉시':'gangneung','의정부시':'uijeongbu',
+    '익산시':'iksan','원주시':'wonju','김해시':'gimhae',
+    '구미시':'gumi','아산시':'asan','창원시':'changwon',
+    '하남시':'hanam','울산광역시':'ulsan','청주시':'cheongju',
+    '광명시':'gwangmyeong','구리시':'guri','평택시':'pyeongtaek',
+    '전주시':'jeonju','순천시':'suncheon',
   };
   return map[name] || name.replace(/[^\w가-힣]/g,'').toLowerCase();
 }
@@ -2928,18 +2859,31 @@ function onMapClick(e){
 
     if(isGuQuizMode){
       // ── 구 문제 ON ───────────────────────────────────
-      // cur.gu  = 정답 구名 (_gu 부모 정보)
-      // cur.rn  = 소속 시名 (_city 부모 정보)
-      // 마우스로 구 범위를 클릭하면 정답
-      const guPoly = getGuGeo(cur.rn, cur.gu);
-      if(guPoly && isInsidePolygon(clickLat, clickLng, guPoly)){
-        const guCenter = getCenter(guPoly);
-        const dist = guCenter ? getDist(clickLat, clickLng, guCenter[0], guCenter[1]) : 0;
-        doOk(dist, clickLat, clickLng);
+      // 구 없는 도시(cur.gu === cur.rn): 동/읍/면 폴리곤으로 판정
+      const isNoGu = !cur.gu || cur.gu === cur.rn;
+      if(isNoGu){
+        // 구 없는 도시 → 동 폴리곤 기준
+        const dongPoly = getDongGeo(cur.rn, cur.gu, cur.d);
+        if(dongPoly && isInsidePolygon(clickLat, clickLng, dongPoly)){
+          const dist = getDist(clickLat, clickLng, cur.lat, cur.lng);
+          doOk(dist, null, null);
+        } else {
+          const dist = getDist(clickLat, clickLng, cur.lat, cur.lng);
+          if(dist <= answerRange) doOk(dist, null, null);
+          else doNo(dist, clickLat, clickLng);
+        }
       } else {
-        const guCenter = guPoly ? getCenter(guPoly) : null;
-        const dist = guCenter ? getDist(clickLat, clickLng, guCenter[0], guCenter[1]) : 999;
-        doNo(dist, clickLat, clickLng);
+        // 구 있는 도시 → 구 폴리곤 기준
+        const guPoly = getGuGeo(cur.rn, cur.gu);
+        if(guPoly && isInsidePolygon(clickLat, clickLng, guPoly)){
+          const guCenter = getCenter(guPoly);
+          const dist = guCenter ? getDist(clickLat, clickLng, guCenter[0], guCenter[1]) : 0;
+          doOk(dist, clickLat, clickLng);
+        } else {
+          const guCenter = guPoly ? getCenter(guPoly) : null;
+          const dist = guCenter ? getDist(clickLat, clickLng, guCenter[0], guCenter[1]) : 999;
+          doNo(dist, clickLat, clickLng);
+        }
       }
     } else {
       // ── 구 문제 OFF ──────────────────────────────────
@@ -3054,36 +2998,52 @@ window.toggleShowAll = function(){
   let count = 0;
 
   if(isGuQuizMode){
-    // 구 모드: 구 폴리곤 + 구 이름만
+    // 구 모드: 구 폴리곤 + 구 이름 / 구 없는 도시는 동 폴리곤 + 동 이름
     const done = new Set();
     allDongs.forEach(dong=>{
-      const gk = dong.rn + '|' + dong.gu;
-      if(done.has(gk)) return;
-      done.add(gk);
-      const geo = POLY_CACHE ? getGuGeo(dong.rn, dong.gu) : null;
-      if(!geo) return;
-      const lyr = drawPolygon(geo, '#00d4ff', 0.15);
-      if(lyr) allAnswerLayers.push(lyr);
-      // 구 이름 레이블 - center 필드 우선 사용
-      try{
-        let clat, clng;
-        if(geo.center){
-          // ★ 미리 계산된 정확한 중심 사용
-          clat = geo.center[0];
-          clng = geo.center[1];
-        } else {
-          const coords = (_geo(geo) || geo.geometry)?.coordinates?.[0];
-          if (!coords) throw new Error('no coords');
-          const lats = coords.map(c=>c[1]), lngs = coords.map(c=>c[0]);
-          clat = (Math.max(...lats)+Math.min(...lats))/2;
-          clng = (Math.max(...lngs)+Math.min(...lngs))/2;
+      const isNoGu = !dong.gu || dong.gu === dong.rn;
+      if(isNoGu){
+        // 구 없는 도시: 동 폴리곤 + 동/읍/면 이름
+        const node = POLY_CACHE ? getDongGeo(dong.rn, dong.gu, dong.d) : null;
+        if(!node) return;
+        const geo = _geo(node);
+        if(geo){
+          const lyr = drawPolygon(geo, '#00d4ff', 0.15);
+          if(lyr) allAnswerLayers.push(lyr);
         }
-        const mk = L.marker([clat,clng],{icon:L.divIcon({className:'',iconAnchor:[0,0],
-          html:`<div style="display:inline-block;background:rgba(0,212,255,.92);color:#000;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4);">${dong.gu}</div>`
+        const mk = L.marker([dong.lat, dong.lng],{icon:L.divIcon({className:'',iconAnchor:[0,0],
+          html:`<div style="display:inline-block;background:rgba(0,212,255,.92);color:#000;padding:3px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.3);">${dong.d}</div>`
         })}).addTo(map);
         allAnswerLayers.push(mk);
-      }catch(e){}
-      count++;
+        count++;
+      } else {
+        // 구 있는 도시: 구 폴리곤 + 구 이름 (중복 제거)
+        const gk = dong.rn + '|' + dong.gu;
+        if(done.has(gk)) return;
+        done.add(gk);
+        const geo = POLY_CACHE ? getGuGeo(dong.rn, dong.gu) : null;
+        if(!geo) return;
+        const lyr = drawPolygon(geo, '#00d4ff', 0.15);
+        if(lyr) allAnswerLayers.push(lyr);
+        try{
+          let clat, clng;
+          if(geo.center){
+            clat = geo.center[0];
+            clng = geo.center[1];
+          } else {
+            const coords = (_geo(geo) || geo.geometry)?.coordinates?.[0];
+            if (!coords) throw new Error('no coords');
+            const lats = coords.map(c=>c[1]), lngs = coords.map(c=>c[0]);
+            clat = (Math.max(...lats)+Math.min(...lats))/2;
+            clng = (Math.max(...lngs)+Math.min(...lngs))/2;
+          }
+          const mk = L.marker([clat,clng],{icon:L.divIcon({className:'',iconAnchor:[0,0],
+            html:`<div style="display:inline-block;background:rgba(0,212,255,.92);color:#000;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4);">${dong.gu}</div>`
+          })}).addTo(map);
+          allAnswerLayers.push(mk);
+        }catch(e){}
+        count++;
+      }
     });
   } else {
     // 동 모드: 동 폴리곤 + 동 이름
@@ -3120,7 +3080,9 @@ function mkMark(lat,lng,ok){
   const col=ok?'#39ff14':'#ff3c6e';
   const m=L.circleMarker([lat,lng],{radius:13,fillColor:col,color:'#fff',weight:3,fillOpacity:.9}).addTo(map);
   // 구 퀴즈: 구이름 표시 / 동 퀴즈: 동이름 표시
-  const labelText = isGuQuizMode ? cur.gu : cur.d;
+  // 구 없는 도시는 구퀴즈 ON이어도 동/읍/면 이름 표시
+  const _noGu = !cur.gu || cur.gu === cur.rn;
+  const labelText = (isGuQuizMode && !_noGu) ? cur.gu : cur.d;
   const ico=L.divIcon({className:'',iconAnchor:[0,0],
     html:`<div style="display:inline-block;background:${col};color:#000;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:700;white-space:nowrap;font-family:\'Noto Sans KR\',sans-serif;margin-top:-32px;margin-left:16px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${labelText}</div>`});
   const lb=L.marker([lat,lng],{icon:ico}).addTo(map);
@@ -3140,10 +3102,11 @@ function doOk(dist, clickLat, clickLng){
   totC++;streak++;sessAns++;
   addR(true,cur);updStats();updPrg();
 
-  // 마커 위치: 구 문제 ON → 구 중심 / 구 문제 OFF → 단위 중심
+  // 마커 위치: 구 문제 ON → 구 중심(구 없는 도시는 동 중심) / OFF → 단위 중심
+  const _isNoGu = !cur.gu || cur.gu === cur.rn;
   let mLat, mLng;
-  if(isGuQuizMode){
-    const guPoly = getGuGeo(cur.rn, cur.gu);  // cur.gu = _gu 부모 정보
+  if(isGuQuizMode && !_isNoGu){
+    const guPoly = getGuGeo(cur.rn, cur.gu);
     const guCtr  = guPoly ? getCenter(guPoly) : null;
     mLat = guCtr ? guCtr[0] : (clickLat ?? cur.lat);
     mLng = guCtr ? guCtr[1] : (clickLng ?? cur.lng);
@@ -3154,13 +3117,17 @@ function doOk(dist, clickLat, clickLng){
   mkMark(mLat, mLng, true);
 
   // 정답 폴리곤 (초록)
-  // 구 문제 ON  → 구 폴리곤(_geometry) 표시
-  // 구 문제 OFF → 동/읍/면 폴리곤 표시
   if(POLY_CACHE && cur){
-    const node = isGuQuizMode
-      ? getGuGeo(cur.rn, cur.gu)
-      : getDongGeo(cur.rn, cur.gu, cur.d);
-    const geo = isGuQuizMode ? node : (_geo(node) || null);
+    let node, geo;
+    if(isGuQuizMode && !_isNoGu){
+      // 구 있는 도시: 구 폴리곤
+      node = getGuGeo(cur.rn, cur.gu);
+      geo  = node || null;
+    } else {
+      // 구 없는 도시 or 동퀴즈: 동 폴리곤
+      node = getDongGeo(cur.rn, cur.gu, cur.d);
+      geo  = _geo(node) || null;
+    }
     if(geo){
       answerLayer = drawPolygon(geo, '#39ff14', 0.25);
       if(answerLayer) answerLayers.push(answerLayer);
@@ -3169,7 +3136,8 @@ function doOk(dist, clickLat, clickLng){
 
   // 정답 레이블 추가 (지도 위)
   if(POLY_CACHE && cur){
-    const labelText = isGuQuizMode ? cur.gu : cur.d;
+    // 구 없는 도시는 구퀴즈 ON이어도 동/읍/면 이름 표시
+    const labelText = (isGuQuizMode && !_isNoGu) ? cur.gu : cur.d;
     const lk = L.divIcon({className:'', iconAnchor:[0,0],
       html:`<div style="display:inline-block;background:rgba(57,255,20,.9);color:#000;padding:3px 7px;border-radius:5px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.4);">${labelText}</div>`});
     const lm = L.marker([mLat, mLng], {icon:lk}).addTo(map);
@@ -3187,17 +3155,17 @@ function doOk(dist, clickLat, clickLng){
   // 정답 모달 내용
   // 구 문제 ON  → "정답: 시 구名 / 단위: 동名"
   // 구 문제 OFF → "시 구 동名 / 거리"
-  if(isGuQuizMode){
-    // cur.rn(_city), cur.gu(_gu) 활용
+  if(isGuQuizMode && !_isNoGu){
+    // 구 있는 도시: 구 이름 강조
     document.getElementById('mD').innerHTML =
       `정답 구: <span class="mdn"><strong style="color:#39ff14">`+
-      `${cur.rn}${cur.gu ? ' '+cur.gu : ''}</strong></span>`+
+      `${cur.rn} ${cur.gu}</strong></span>`+
       `<br>${cur.utype||'동'}: <strong>${cur.d}</strong>`;
   } else {
-    // cur.rn(_city), cur.gu(_gu), cur.d 활용
-    const loc = cur.gu ? `${cur.rn} ${cur.gu}` : cur.rn;
+    // 구 없는 도시 or 동퀴즈: 동/읍/면 이름 표시
+    const loc = (cur.gu && cur.gu !== cur.rn) ? `${cur.rn} ${cur.gu}` : cur.rn;
     document.getElementById('mD').innerHTML =
-      `<span class="mdn">${loc} <strong>${cur.d}</strong></span>`+
+      `<span class="mdn">${loc} <strong style="color:#39ff14">${cur.d}</strong></span>`+
       `<br>클릭 위치 기준 <strong>${dist.toFixed(2)}km</strong> · ${answerRange.toFixed(1)}km 이내`;
   }
   ov.classList.add('show');
@@ -3212,8 +3180,9 @@ function doNo(dist, clickLat, clickLng){
   const snapClickLat = clickLat;
   const snapClickLng = clickLng;
 
-  // 1) 구퀴즈: 구 중심으로 이동 / 동퀴즈: 동 위치로 이동
-  if(isGuQuizMode){
+  // 1) 구퀴즈: 구 중심으로 이동 / 구 없는 도시 or 동퀴즈: 동 위치로 이동
+  const _snapNoGu = !snapCur.gu || snapCur.gu === snapCur.rn;
+  if(isGuQuizMode && !_snapNoGu){
     const guPoly = getGuGeo(snapCur.rn, snapCur.gu);
     const guCtr = guPoly ? getCenter(guPoly) : null;
     map.flyTo(guCtr || [snapCur.lat, snapCur.lng], 12, {duration:1.2});
@@ -3221,11 +3190,11 @@ function doNo(dist, clickLat, clickLng){
     map.flyTo([snapCur.lat, snapCur.lng], 14, {duration:1.2});
   }
 
-  // 2) 이동 완료 후 마커+폴리곤 표시 (snapCur 사용으로 위치 보장)
+  // 2) 이동 완료 후 마커+폴리곤 표시
   setTimeout(()=>{
-    // ★ 구퀴즈: 오답 마커는 정답 구의 center에 / 동퀴즈: 동 위치에
+    // 구퀴즈+구있는도시: 구 center / 나머지: 동 위치
     let mLat, mLng;
-    if(isGuQuizMode){
+    if(isGuQuizMode && !_snapNoGu){
       const guPoly = getGuGeo(snapCur.rn, snapCur.gu);
       const guCtr = guPoly ? getCenter(guPoly) : null;
       mLat = guCtr ? guCtr[0] : snapCur.lat;
@@ -3236,7 +3205,8 @@ function doNo(dist, clickLat, clickLng){
     }
     // mkMark는 cur 전역변수 참조하므로, 직접 레이어 생성
     const col = '#ff3c6e';
-    const labelText = isGuQuizMode ? snapCur.gu : snapCur.d;
+    // 구 없는 도시는 구퀴즈 ON이어도 동/읍/면 이름 표시
+    const labelText = (isGuQuizMode && !_snapNoGu) ? snapCur.gu : snapCur.d;
     const wm = L.circleMarker([mLat, mLng], {radius:13,fillColor:col,color:'#fff',weight:3,fillOpacity:.9}).addTo(map);
     const ico = L.divIcon({className:'', iconAnchor:[0,0],
       html:`<div style="display:inline-block;background:${col};color:#000;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:700;white-space:nowrap;font-family:'Noto Sans KR',sans-serif;margin-top:-32px;margin-left:16px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${labelText}</div>`});
@@ -3245,8 +3215,14 @@ function doNo(dist, clickLat, clickLng){
 
     // ★ 오답 폴리곤 표시 (빨간색)
     if(POLY_CACHE && snapCur){
-      const node = isGuQuizMode ? getGuGeo(snapCur.rn, snapCur.gu) : getDongGeo(snapCur.rn, snapCur.gu, snapCur.d);
-      const geo = isGuQuizMode ? node : (_geo(node) || null);
+      let node, geo;
+      if(isGuQuizMode && !_snapNoGu){
+        node = getGuGeo(snapCur.rn, snapCur.gu);
+        geo  = node || null;
+      } else {
+        node = getDongGeo(snapCur.rn, snapCur.gu, snapCur.d);
+        geo  = _geo(node) || null;
+      }
       if(geo){
         answerLayer = drawPolygon(geo, '#ff3c6e', 0.3);
         if(answerLayer) wrongLayers.push(answerLayer);
@@ -3266,16 +3242,18 @@ function doNo(dist, clickLat, clickLng){
   // 오답 모달 내용
   // 구 문제 ON  → "정답 구: 시 구名 / 단위: 동名 / 거리"
   // 구 문제 OFF → "정답: 시 구 동名 / 거리"
-  if(isGuQuizMode){
+  if(isGuQuizMode && !_snapNoGu){
+    // 구 있는 도시: 구 이름 강조
     document.getElementById('mD').innerHTML =
       `정답 구: <span class="mdn"><strong style="color:#ff3c6e">`+
-      `${snapCur.rn}${snapCur.gu ? ' '+snapCur.gu : ''}</strong></span>`+
+      `${snapCur.rn} ${snapCur.gu}</strong></span>`+
       `<br>${snapCur.utype||'동'}: <strong>${snapCur.d}</strong>`+
       `<br>클릭 위치에서 <strong>${dist.toFixed(2)}km</strong> 거리`;
   } else {
-    const loc = snapCur.gu ? `${snapCur.rn} ${snapCur.gu}` : snapCur.rn;
+    // 구 없는 도시 or 동퀴즈: 동/읍/면 이름 표시
+    const loc = (snapCur.gu && snapCur.gu !== snapCur.rn) ? `${snapCur.rn} ${snapCur.gu}` : snapCur.rn;
     document.getElementById('mD').innerHTML =
-      `정답: <span class="mdn">${loc} <strong>${snapCur.d}</strong></span>`+
+      `정답: <span class="mdn">${loc} <strong style="color:#ff3c6e">${snapCur.d}</strong></span>`+
       `<br>클릭 위치에서 <strong>${dist.toFixed(2)}km</strong> 거리`;
   }
   ov.classList.add('show');
