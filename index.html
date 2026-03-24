@@ -307,6 +307,14 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   /* 헤더 스탯바 숨기고 로고+유저칩만 */
   #stats-bar{display:none;}
   #header{justify-content:space-between;}
+
+  /* 출처 표기: 모바일에서 하단 중앙 */
+  #data-attribution{
+    bottom:10px !important;
+    right:50% !important;
+    transform:translateX(50%);
+    white-space:nowrap;
+  }
 }
 
 /* 터치 디바이스: 호버 효과 비활성화로 탭 반응성 향상 */
@@ -1386,6 +1394,20 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div id="side-toggle" onclick="toggleSidePanel()" title="패널 접기/펼치기">◀</div>
   <div id="mapw">
     <div id="map"></div>
+    <!-- 데이터 출처 표기 -->
+    <div id="data-attribution" style="
+      position:absolute; z-index:900; pointer-events:none;
+      bottom:24px; right:8px;
+      font-size:9px; color:rgba(255,255,255,0.55);
+      background:rgba(0,0,0,0.35); border-radius:4px;
+      padding:2px 6px; line-height:1.4;
+      backdrop-filter:blur(2px);
+    ">
+      행정구역 © <a href="https://github.com/vuski/admdongkor"
+        target="_blank" rel="noopener"
+        style="color:rgba(255,255,255,0.7);text-decoration:none;pointer-events:auto;"
+        >vuski/admdongkor</a> · 국토교통부
+    </div>
 
     <!-- [수정5] 모바일 문제카드 오버레이 — 사이드바 접힌 상태에서만 표시 -->
     <div id="mobile-qcard-overlay">
@@ -1528,21 +1550,68 @@ let CITY_META_V4 = [];  // [{name, key, do_, center, zoom, color, hasGu, quizLev
 // 도시명 → DB키 변환 (한글 → slug)
 function cityNameToKey(name) {
   const map = {
-    '서울특별시':'seoul','인천광역시':'incheon','수원시':'suwon',
-    '성남시':'seongnam','광주시':'gwangju','고양시':'goyang',
-    '용인시':'yongin','부천시':'bucheon','안양시':'anyang',
-    '화성시':'hwaseong','대전광역시':'daejeon','부산광역시':'busan',
-    '대구광역시':'daegu','광주광역시':'gwangju_metro','경주시':'gyeongju',
-    '파주시':'paju','세종특별자치시':'sejong','김포시':'gimpo',
-    '포항시':'pohang','서귀포시':'seogwipo','춘천시':'chuncheon',
-    '제주시':'jeju','남양주시':'namyangju','군포시':'gunpo',
-    '시흥시':'siheung','천안시':'cheonan','이천시':'icheon',
-    '목포시':'mokpo','강릉시':'gangneung','의정부시':'uijeongbu',
-    '익산시':'iksan','원주시':'wonju','김해시':'gimhae',
-    '구미시':'gumi','아산시':'asan','창원시':'changwon',
-    '하남시':'hanam','울산광역시':'ulsan','청주시':'cheongju',
-    '광명시':'gwangmyeong','구리시':'guri','평택시':'pyeongtaek',
-    '전주시':'jeonju','순천시':'suncheon',
+    // 특별시·광역시·특별자치시
+    '서울특별시':'seoul','인천광역시':'incheon',
+    '부산광역시':'busan','대구광역시':'daegu',
+    '광주광역시':'gwangju_metro','대전광역시':'daejeon',
+    '울산광역시':'ulsan','세종특별자치시':'sejong','세종시':'sejong',
+    // 수원시 (4개 구)
+    '수원시장안구':'suwon_jangan','수원시권선구':'suwon_gwonseon',
+    '수원시팔달구':'suwon_paldal','수원시영통구':'suwon_yeongtong',
+    // 성남시 (3개 구)
+    '성남시분당구':'seongnam_bundang','성남시수정구':'seongnam_sujeong','성남시중원구':'seongnam_jungwon',
+    // 고양시 (3개 구)
+    '고양시덕양구':'goyang_deokyang','고양시일산동구':'goyang_ilsandong','고양시일산서구':'goyang_ilsanseo',
+    // 용인시 (3개 구)
+    '용인시기흥구':'yongin_giheung','용인시수지구':'yongin_suji','용인시처인구':'yongin_cheoin',
+    // 부천시 (3개 구)
+    '부천시원미구':'bucheon_wonmi','부천시소사구':'bucheon_sosa','부천시오정구':'bucheon_ojeong',
+    // 안양시 (2개 구)
+    '안양시동안구':'anyang_dongan','안양시만안구':'anyang_manan',
+    // 안산시 (2개 구)
+    '안산시상록구':'ansan_sangnok','안산시단원구':'ansan_danwon',
+    // 창원시 (5개 구)
+    '창원시의창구':'changwon_uichang','창원시성산구':'changwon_seongsan',
+    '창원시마산합포구':'changwon_masanhappo','창원시마산회원구':'changwon_masanhoewon',
+    '창원시진해구':'changwon_jinhae',
+    // 포항시 (2개 구)
+    '포항시남구':'pohang_nam','포항시북구':'pohang_buk',
+    // 전주시 (2개 구)
+    '전주시완산구':'jeonju_wansan','전주시덕진구':'jeonju_deokjin',
+    // 천안시 (2개 구)
+    '천안시동남구':'cheonan_dongnam','천안시서북구':'cheonan_seobuk',
+    // 청주시 (4개 구)
+    '청주시상당구':'cheongju_sangdang','청주시서원구':'cheongju_seowon',
+    '청주시흥덕구':'cheongju_heungdeok','청주시청원구':'cheongju_cheongwon',
+    // 화성시 (4개 구)
+    '화성시동탄구':'hwaseong_dongtan','화성시만세구':'hwaseong_manse',
+    '화성시병점구':'hwaseong_byeongjeom','화성시효행구':'hwaseong_hyohaeng',
+    // 일반 시·군
+    '화성시':'hwaseong','파주시':'paju','김포시':'gimpo',
+    '남양주시':'namyangju','구리시':'guri','하남시':'hanam',
+    '광주시':'gwangju','이천시':'icheon','평택시':'pyeongtaek',
+    '시흥시':'siheung','광명시':'gwangmyeong','군포시':'gunpo',
+    '의왕시':'uiwang','과천시':'gwacheon','의정부시':'uijeongbu',
+    '양주시':'yangju','동두천시':'dongducheon','연천군':'yeoncheon',
+    '포천시':'pocheon','가평군':'gapyeong','양평군':'yangpyeong',
+    '여주시':'yeoju','안성시':'anseong',
+    '춘천시':'chuncheon','원주시':'wonju','강릉시':'gangneung',
+    '경주시':'gyeongju','포항시':'pohang','구미시':'gumi',
+    '안동시':'andong','김천시':'gimcheon','영주시':'yeongju',
+    '영천시':'yeongcheon','상주시':'sangju','문경시':'mungyeong',
+    '경산시':'gyeongsan',
+    '진주시':'jinju','김해시':'gimhae','거제시':'geoje',
+    '통영시':'tongyeong','사천시':'sacheon','양산시':'yangsan',
+    '밀양시':'miryang',
+    '전주시':'jeonju','군산시':'gunsan','익산시':'iksan',
+    '정읍시':'jeongeup','남원시':'namwon','김제시':'gimje',
+    '목포시':'mokpo','여수시':'yeosu','순천시':'suncheon',
+    '나주시':'naju','광양시':'gwangyang',
+    '아산시':'asan','천안시':'cheonan','공주시':'gongju',
+    '보령시':'boryeong','서산시':'seosan','논산시':'nonsan',
+    '당진시':'dangjin','계룡시':'gyeryong',
+    '청주시':'cheongju','충주시':'chungju','제천시':'jecheon',
+    '제주시':'jeju','서귀포시':'seogwipo',
   };
   return map[name] || name.replace(/[^\w가-힣]/g,'').toLowerCase();
 }
