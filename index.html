@@ -1893,12 +1893,17 @@ function getCenter(geo) {
   const c = _m(geo, '_center');
   if (c) return [c[0], c[1]];
   try {
-    const g      = _geo(geo) || geo.geometry;
-    const type   = g.type;
-    const coords = type === 'Polygon'
-      ? g.coordinates[0]
-      : g.coordinates[0][0];
-    const lats = coords.map(c => c[1]), lngs = coords.map(c => c[0]);
+    const g = _geo(geo) || geo.geometry;
+    // 모든 좌표를 평탄화해서 중심 계산
+    let allCoords = [];
+    if (g.type === 'Polygon') {
+      allCoords = g.coordinates[0];
+    } else if (g.type === 'MultiPolygon') {
+      // MultiPolygon: 각 폴리곤의 외곽 링 좌표 모두 수집
+      g.coordinates.forEach(poly => allCoords.push(...poly[0]));
+    }
+    if (!allCoords.length) return null;
+    const lats = allCoords.map(c => c[1]), lngs = allCoords.map(c => c[0]);
     return [
       Math.round(lats.reduce((s,v)=>s+v,0)/lats.length * 10000) / 10000,
       Math.round(lngs.reduce((s,v)=>s+v,0)/lngs.length * 10000) / 10000,
@@ -3103,15 +3108,13 @@ window.toggleShowAll = function(){
         if(lyr) allAnswerLayers.push(lyr);
         try{
           let clat, clng;
-          if(geo.center){
-            clat = geo.center[0];
-            clng = geo.center[1];
+          // getCenter로 통일 (Polygon/MultiPolygon 모두 처리)
+          const ctr = getCenter(geo);
+          if(ctr){
+            clat = ctr[0];
+            clng = ctr[1];
           } else {
-            const coords = (_geo(geo) || geo.geometry)?.coordinates?.[0];
-            if (!coords) throw new Error('no coords');
-            const lats = coords.map(c=>c[1]), lngs = coords.map(c=>c[0]);
-            clat = (Math.max(...lats)+Math.min(...lats))/2;
-            clng = (Math.max(...lngs)+Math.min(...lngs))/2;
+            throw new Error('no center');
           }
           const mk = L.marker([clat,clng],{icon:L.divIcon({className:'',iconAnchor:[0,0],
             html:`<div style="display:inline-block;background:rgba(0,212,255,.92);color:#000;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.4);">${dong.gu}</div>`
