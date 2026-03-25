@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MapDong 커뮤니티</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+:root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1e3a5f;--accent:#00d4ff;--accent2:#ff3c6e;--accent3:#39ff14;--text:#e8f4fd;--text-dim:#7a9bb5;--gold:#ffd700;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+
+/* 헤더 */
+#comm-header{
+  height:52px;background:var(--surface);border-bottom:2px solid var(--border);
+  display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0;
+  position:sticky;top:0;z-index:100;
+}
+.comm-logo{font-family:'Black Han Sans',sans-serif;font-size:1.2rem;color:var(--accent);letter-spacing:2px;}
+.comm-logo span{color:var(--accent2);}
+#btn-back-quiz{
+  margin-left:auto;
+  background:linear-gradient(135deg,#a29bfe,#6c5ce7);
+  border:none;border-radius:8px;padding:6px 14px;
+  font-size:.82rem;font-weight:700;color:#fff;cursor:pointer;
+  transition:opacity .2s;
+}
+#btn-back-quiz:hover{opacity:.85;}
+.comm-cat-title{font-size:.9rem;color:var(--text-dim);}
+
+/* 레이아웃 */
+#comm-body{display:flex;flex:1;min-height:0;overflow:hidden;}
+
+/* 왼쪽 사이드바 */
+#comm-left{
+  width:200px;flex-shrink:0;
+  background:var(--surface);border-right:2px solid var(--border);
+  overflow-y:auto;padding:10px 0;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+}
+#comm-left::-webkit-scrollbar{width:3px;}
+#comm-left::-webkit-scrollbar-thumb{background:var(--border);}
+
+.cl-header{padding:6px 12px;font-size:.55rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid var(--border);margin-bottom:4px;}
+.cl-parent{padding:7px 12px;font-size:.78rem;font-weight:600;color:var(--text);cursor:pointer;transition:background .15s;user-select:none;display:flex;align-items:center;gap:6px;}
+.cl-parent:hover{background:var(--surface2);}
+.cl-parent .arr{margin-left:auto;font-size:.6rem;color:var(--text-dim);transition:transform .2s;}
+.cl-parent.open .arr{transform:rotate(90deg);}
+.cl-children{display:none;}
+.cl-children.open{display:block;}
+.cl-child{padding:6px 12px 6px 26px;font-size:.73rem;color:var(--text-dim);cursor:pointer;transition:background .15s,color .15s;}
+.cl-child:hover{background:var(--surface2);color:var(--text);}
+.cl-child.active{color:var(--accent);background:rgba(0,212,255,.08);}
+
+/* 메인 콘텐츠 */
+#comm-main{flex:1;overflow-y:auto;padding:20px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+#comm-main::-webkit-scrollbar{width:4px;}
+#comm-main::-webkit-scrollbar-thumb{background:var(--border);}
+
+/* 게시판 상단 */
+.board-top{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.board-title{font-size:1.1rem;font-weight:700;color:var(--text);}
+.board-write-btn{
+  margin-left:auto;
+  background:var(--accent);color:#000;
+  border:none;border-radius:8px;padding:7px 16px;
+  font-size:.8rem;font-weight:700;cursor:pointer;
+  transition:opacity .2s;
+}
+.board-write-btn:hover{opacity:.85;}
+
+/* 게시글 목록 */
+.post-list{display:flex;flex-direction:column;gap:1px;}
+.post-row{
+  background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  padding:12px 16px;cursor:pointer;transition:border-color .15s,background .15s;
+  display:grid;grid-template-columns:1fr auto;gap:4px;
+  margin-bottom:4px;
+}
+.post-row:hover{border-color:var(--accent);background:rgba(0,212,255,.04);}
+.post-title-row{display:flex;align-items:center;gap:8px;}
+.post-title{font-size:.88rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.post-pin{color:var(--gold);font-size:.75rem;}
+.post-meta{font-size:.68rem;color:var(--text-dim);grid-column:1;margin-top:3px;}
+.post-stats{font-size:.65rem;color:var(--text-dim);text-align:right;align-self:center;}
+
+/* 잠금 안내 */
+.locked-notice{
+  background:var(--surface2);border:1px solid var(--border);border-radius:12px;
+  padding:30px;text-align:center;
+}
+.locked-notice .lock-icon{font-size:2.5rem;margin-bottom:12px;}
+.locked-notice h3{color:var(--text);margin-bottom:8px;}
+.locked-notice p{color:var(--text-dim);font-size:.85rem;line-height:1.7;}
+.lock-upgrade-btn{
+  display:inline-block;margin-top:16px;
+  background:linear-gradient(135deg,#a29bfe,#6c5ce7);
+  color:#fff;border:none;border-radius:10px;padding:10px 24px;
+  font-size:.85rem;font-weight:700;cursor:pointer;
+}
+
+/* 포스트 뷰 */
+#post-view{display:none;}
+.post-view-header{margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+.post-view-title{font-size:1.2rem;font-weight:700;color:var(--text);margin-bottom:6px;}
+.post-view-meta{font-size:.72rem;color:var(--text-dim);}
+.post-view-content{font-size:.88rem;color:var(--text);line-height:1.8;white-space:pre-wrap;word-break:break-word;}
+#btn-back-list{background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:5px 12px;font-size:.78rem;cursor:pointer;margin-bottom:16px;}
+#btn-back-list:hover{border-color:var(--accent);color:var(--accent);}
+
+/* 글쓰기 폼 */
+#post-write{display:none;}
+.write-title{font-size:1rem;font-weight:700;color:var(--text);margin-bottom:14px;}
+.write-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:.85rem;outline:none;transition:border-color .15s;}
+.write-input:focus{border-color:var(--accent);}
+.write-textarea{resize:vertical;min-height:200px;}
+.write-actions{display:flex;gap:10px;margin-top:12px;justify-content:flex-end;}
+.btn-submit{background:var(--accent);color:#000;border:none;border-radius:8px;padding:9px 22px;font-size:.85rem;font-weight:700;cursor:pointer;}
+.btn-cancel-write{background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:9px 16px;font-size:.85rem;cursor:pointer;}
+
+/* 제목만 보기 (비회원) */
+.post-title-only{padding:10px 14px;border-bottom:1px solid var(--border);font-size:.85rem;color:var(--text-dim);display:flex;align-items:center;gap:6px;}
+.post-title-only .pt-title{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* 페이지네이션 */
+.pagination{display:flex;gap:6px;justify-content:center;margin-top:20px;}
+.pg-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:5px 10px;font-size:.78rem;cursor:pointer;transition:all .15s;}
+.pg-btn:hover,.pg-btn.active{border-color:var(--accent);color:var(--accent);}
+
+/* 반응형 */
+@media(max-width:640px){
+  #comm-left{width:160px;}
+  #comm-main{padding:12px;}
+}
+</style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<div id="comm-header">
+  <div class="comm-logo">Map<span>Dong</span></div>
+  <div class="comm-cat-title" id="comm-cat-title">커뮤니티</div>
+  <button id="btn-back-quiz" onclick="backToQuiz()">🗺 퀴즈로 돌아가기</button>
+</div>
+
+<!-- 본문 -->
+<div id="comm-body">
+
+  <!-- 왼쪽 카테고리 사이드바 -->
+  <div id="comm-left">
+    <div class="cl-header">카테고리</div>
+    <div id="comm-sidebar"></div>
+  </div>
+
+  <!-- 메인 게시판 -->
+  <div id="comm-main">
+    <!-- 게시글 목록 -->
+    <div id="post-list-view">
+      <div class="board-top">
+        <div class="board-title" id="board-title">게시판</div>
+        <button class="board-write-btn" id="btn-write" onclick="showWriteForm()">✏️ 글쓰기</button>
+      </div>
+      <div id="post-list"></div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+
+    <!-- 포스트 상세 -->
+    <div id="post-view">
+      <button id="btn-back-list" onclick="showListView()">← 목록으로</button>
+      <div class="post-view-header">
+        <div class="post-view-title" id="pv-title"></div>
+        <div class="post-view-meta" id="pv-meta"></div>
+      </div>
+      <div class="post-view-content" id="pv-content"></div>
+    </div>
+
+    <!-- 글쓰기 폼 -->
+    <div id="post-write">
+      <button id="btn-back-list2" onclick="showListView()">← 목록으로</button>
+      <div class="write-title">✏️ 새 글쓰기</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;">
+        <input id="write-title-input" class="write-input" placeholder="제목을 입력하세요" maxlength="100">
+        <textarea id="write-content-input" class="write-input write-textarea" placeholder="내용을 입력하세요"></textarea>
+      </div>
+      <div class="write-actions">
+        <button class="btn-cancel-write" onclick="showListView()">취소</button>
+        <button class="btn-submit" onclick="submitPost()">등록하기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://emgsueepzioudqnitkyn.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemlvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkwNzQsImV4cCI6MjA4NjU2NTA3NH0.epR1k3MVh0MfZejFh9VflCNOS8Uz8EuCZlez5OBMz3s';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser    = null;
+let userProfile    = null;
+let currentCatId   = null;
+let currentCatSlug = null;
+let currentCatName = '게시판';
+let currentPage    = 1;
+const PAGE_SIZE    = 20;
+
+/* ── 카테고리 정의 ─────────────────────────────────────── */
+const CATS = [
+  { id:1,  name:'보험관련문의', slug:'insurance', icon:'🛡️', children:[
+    { id:11, name:'보험가입',   slug:'insurance-join'      },
+    { id:12, name:'사고났어요', slug:'insurance-accident'  },
+    { id:13, name:'보상관련',   slug:'insurance-claim'     },
+  ]},
+  { id:2,  name:'퀵서비스', slug:'quick', icon:'⚡', children:[
+    { id:21, name:'꿀팁',     slug:'quick-tip'      },
+    { id:22, name:'탁송위치', slug:'quick-location'  },
+    { id:23, name:'자유',     slug:'quick-free'      },
+    { id:24, name:'고민',     slug:'quick-worry'     },
+    { id:25, name:'사건사고', slug:'quick-incident'  },
+  ]},
+  { id:3,  name:'배민&배플', slug:'baemin', icon:'🛵', children:[
+    { id:31, name:'꿀팁',     slug:'baemin-tip'      },
+    { id:32, name:'자유',     slug:'baemin-free'     },
+    { id:33, name:'고민',     slug:'baemin-worry'    },
+    { id:34, name:'사건사고', slug:'baemin-incident'  },
+  ]},
+  { id:4,  name:'쿠팡&쿠플', slug:'coupang', icon:'📦', children:[
+    { id:41, name:'꿀팁',     slug:'coupang-tip'      },
+    { id:42, name:'자유',     slug:'coupang-free'     },
+    { id:43, name:'고민',     slug:'coupang-worry'    },
+    { id:44, name:'사건사고', slug:'coupang-incident'  },
+  ]},
+  { id:5,  name:'택시', slug:'taxi', icon:'🚕', children:[
+    { id:51, name:'꿀팁', slug:'taxi-tip'    },
+    { id:52, name:'자유', slug:'taxi-free'   },
+    { id:53, name:'고민', slug:'taxi-worry'  },
+  ]},
+  { id:6,  name:'화물', slug:'cargo', icon:'🚚', children:[
+    { id:61, name:'꿀팁', slug:'cargo-tip'   },
+    { id:62, name:'자유', slug:'cargo-free'  },
+    { id:63, name:'고민', slug:'cargo-worry' },
+  ]},
+  { id:7,  name:'대리운전', slug:'proxy-drive', icon:'🚗', children:[
+    { id:71, name:'꿀팁', slug:'proxy-tip'   },
+    { id:72, name:'자유', slug:'proxy-free'  },
+    { id:73, name:'고민', slug:'proxy-worry' },
+  ]},
+];
+
+/* ── 초기화 ────────────────────────────────────────────── */
+async function init(){
+  const { data: { session } } = await sb.auth.getSession();
+  if(session?.user){
+    currentUser = session.user;
+    const { data } = await sb.from('user_profiles').select('*').eq('user_id', currentUser.id).single();
+    userProfile = data;
+  }
+
+  // URL 파라미터 파싱
+  const params = new URLSearchParams(window.location.search);
+  const slug   = params.get('cat');
+  const catId  = params.get('catId');
+  const catName= params.get('catName') || '게시판';
+
+  if(slug && catId){
+    currentCatSlug = slug;
+    currentCatId   = Number(catId);
+    currentCatName = catName;
+  }
+
+  renderSidebar();
+  renderBoard();
+}
+
+function isActivePremium(){
+  return userProfile?.is_premium && userProfile?.premium_until
+      && new Date(userProfile.premium_until) > new Date();
+}
+function isActiveMapdongFamily(){
+  return userProfile?.is_mapdong_family
+      && userProfile?.mapdong_family_until
+      && new Date(userProfile.mapdong_family_until) > new Date();
+}
+function canAccess(){ return isActivePremium() || isActiveMapdongFamily(); }
+function canWrite() { return canAccess(); }
+
+/* ── 사이드바 렌더 ─────────────────────────────────────── */
+function renderSidebar(){
+  const el = document.getElementById('comm-sidebar');
+  let html = '';
+  CATS.forEach(cat => {
+    const isOpen = cat.children.some(c => c.slug === currentCatSlug);
+    html += `<div class="cl-parent${isOpen?' open':''}" onclick="toggleCat('${cat.slug}')">
+      <span>${cat.icon} ${cat.name}</span>
+      <span class="arr">›</span>
+    </div>
+    <div class="cl-children${isOpen?' open':''}" id="clch-${cat.slug}">`;
+    cat.children.forEach(ch => {
+      const active = ch.slug === currentCatSlug ? ' active' : '';
+      html += `<div class="cl-child${active}" onclick="selectCat('${ch.slug}',${ch.id},'${ch.name}')">ㄴ ${ch.name}</div>`;
+    });
+    html += '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function toggleCat(slug){
+  const ch = document.getElementById('clch-' + slug);
+  const pr = ch?.previousElementSibling;
+  if(!ch) return;
+  const open = ch.classList.contains('open');
+  document.querySelectorAll('.cl-children.open').forEach(e => e.classList.remove('open'));
+  document.querySelectorAll('.cl-parent.open').forEach(e => e.classList.remove('open'));
+  if(!open){ ch.classList.add('open'); pr?.classList.add('open'); }
+}
+
+function selectCat(slug, id, name){
+  currentCatSlug = slug; currentCatId = id; currentCatName = name;
+  currentPage = 1;
+  window.history.replaceState({}, '', `?cat=${slug}&catId=${id}&catName=${encodeURIComponent(name)}`);
+  renderSidebar();
+  renderBoard();
+}
+
+/* ── 게시판 렌더 ────────────────────────────────────────── */
+async function renderBoard(){
+  document.getElementById('board-title').textContent = currentCatName || '게시판';
+  document.getElementById('comm-cat-title').textContent = currentCatName || '커뮤니티';
+  document.getElementById('post-view').style.display  = 'none';
+  document.getElementById('post-write').style.display = 'none';
+  document.getElementById('post-list-view').style.display = 'block';
+
+  const canAcc = canAccess();
+  const writeBtn = document.getElementById('btn-write');
+  if(writeBtn) writeBtn.style.display = canWrite() ? 'block' : 'none';
+
+  const listEl = document.getElementById('post-list');
+
+  if(!currentCatId){ listEl.innerHTML = '<div style="color:var(--text-dim);text-align:center;padding:40px">카테고리를 선택하세요</div>'; return; }
+
+  if(!canAcc){
+    // 비회원/일반회원: 제목만 표시
+    await renderTitleOnly(listEl);
+    return;
+  }
+
+  // 맵동가족/프리미엄: 전체 게시글
+  listEl.innerHTML = '<div style="color:var(--text-dim);text-align:center;padding:20px">로딩 중...</div>';
+  const from = (currentPage - 1) * PAGE_SIZE;
+  const to   = from + PAGE_SIZE - 1;
+  const { data, error, count } = await sb.from('community_posts')
+    .select('id,title,created_at,view_count,like_count,is_pinned,user_id', { count: 'exact' })
+    .eq('category_id', currentCatId)
+    .eq('is_deleted', false)
+    .order('is_pinned', { ascending: false })
+    .order('created_at',  { ascending: false })
+    .range(from, to);
+
+  if(error){ listEl.innerHTML = '<div style="color:var(--accent2)">불러오기 오류</div>'; return; }
+  if(!data?.length){ listEl.innerHTML = '<div style="color:var(--text-dim);text-align:center;padding:40px">게시글이 없습니다</div>'; return; }
+
+  listEl.innerHTML = data.map(p => `
+    <div class="post-row" onclick="viewPost(${p.id})">
+      <div class="post-title-row">
+        ${p.is_pinned ? '<span class="post-pin">📌</span>' : ''}
+        <span class="post-title">${escHtml(p.title)}</span>
+      </div>
+      <div class="post-stats">👁 ${p.view_count} &nbsp; ❤️ ${p.like_count}</div>
+      <div class="post-meta">${new Date(p.created_at).toLocaleDateString('ko-KR')}</div>
+    </div>
+  `).join('');
+
+  renderPagination(count);
+}
+
+async function renderTitleOnly(listEl){
+  const { data } = await sb.from('community_posts')
+    .select('id,title,is_pinned')
+    .eq('category_id', currentCatId)
+    .eq('is_deleted', false)
+    .order('is_pinned', { ascending: false })
+    .order('created_at', { ascending: false })
+    .range(0, 29);
+
+  const lockedNotice = `
+    <div class="locked-notice">
+      <div class="lock-icon">🔒</div>
+      <h3>멤버 전용 게시판</h3>
+      <p>맵동가족(990원/월) 또는 프리미엄 회원만<br>게시글 내용을 열람하고 작성할 수 있습니다.</p>
+      <button class="lock-upgrade-btn" onclick="window.location.href='index.html'">← 돌아가서 가입하기</button>
+    </div>`;
+
+  if(!data?.length){
+    listEl.innerHTML = lockedNotice;
+    return;
+  }
+  listEl.innerHTML = lockedNotice + '<div style="margin-top:12px">' +
+    data.map(p => `
+      <div class="post-title-only">
+        ${p.is_pinned ? '<span style="color:var(--gold)">📌</span>' : ''}
+        <span class="pt-title">${escHtml(p.title)}</span>
+        <span class="rs-lock" style="margin-left:auto">🔒</span>
+      </div>`).join('') + '</div>';
+  document.getElementById('pagination').innerHTML = '';
+}
+
+function renderPagination(total){
+  const pages = Math.ceil(total / PAGE_SIZE);
+  const el = document.getElementById('pagination');
+  if(pages <= 1){ el.innerHTML = ''; return; }
+  let html = '';
+  for(let i = 1; i <= pages; i++){
+    html += `<button class="pg-btn${i===currentPage?' active':''}" onclick="goPage(${i})">${i}</button>`;
+  }
+  el.innerHTML = html;
+}
+function goPage(p){ currentPage = p; renderBoard(); window.scrollTo(0,0); }
+
+/* ── 포스트 보기 ────────────────────────────────────────── */
+async function viewPost(postId){
+  if(!canAccess()){ alert('맵동가족 또는 프리미엄 회원만 열람 가능합니다'); return; }
+  const { data } = await sb.from('community_posts').select('*').eq('id', postId).single();
+  if(!data) return;
+  // 조회수 증가
+  await sb.from('community_posts').update({ view_count: (data.view_count||0)+1 }).eq('id', postId);
+
+  document.getElementById('post-list-view').style.display = 'none';
+  document.getElementById('post-write').style.display     = 'none';
+  const pv = document.getElementById('post-view');
+  pv.style.display = 'block';
+  document.getElementById('pv-title').textContent   = data.title;
+  document.getElementById('pv-meta').textContent    = new Date(data.created_at).toLocaleString('ko-KR');
+  document.getElementById('pv-content').textContent = data.content;
+}
+
+/* ── 글쓰기 ─────────────────────────────────────────────── */
+function showWriteForm(){
+  if(!canWrite()){ alert('맵동가족 또는 프리미엄 회원만 작성 가능합니다'); return; }
+  document.getElementById('post-list-view').style.display = 'none';
+  document.getElementById('post-view').style.display      = 'none';
+  document.getElementById('post-write').style.display     = 'block';
+  document.getElementById('write-title-input').value   = '';
+  document.getElementById('write-content-input').value = '';
+}
+
+async function submitPost(){
+  const title   = document.getElementById('write-title-input').value.trim();
+  const content = document.getElementById('write-content-input').value.trim();
+  if(!title)   { alert('제목을 입력하세요'); return; }
+  if(!content) { alert('내용을 입력하세요'); return; }
+  if(!currentUser){ alert('로그인이 필요합니다'); return; }
+  if(!currentCatId){ alert('카테고리를 선택하세요'); return; }
+
+  const { error } = await sb.from('community_posts').insert({
+    category_id: currentCatId,
+    user_id: currentUser.id,
+    title, content,
+  });
+  if(error){ alert('등록 실패: ' + error.message); return; }
+  showListView();
+  renderBoard();
+}
+
+function showListView(){
+  document.getElementById('post-list-view').style.display = 'block';
+  document.getElementById('post-view').style.display      = 'none';
+  document.getElementById('post-write').style.display     = 'none';
+}
+
+function backToQuiz(){
+  window.location.href = 'index.html';
+}
+
+function escHtml(s){
+  return (s||'')    .replace(/&/g,'&amp;')    .replace(/</g,'&lt;')    .replace(/>/g,'&gt;')    .replace(/"/g,'&quot;');
+}
+
+init();
+</script>
+</body>
+</html>
