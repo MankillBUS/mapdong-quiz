@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MapDong · 내정보 수정</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+/* 나이스 콜백 처리 */
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  const webTxId = params.get('web_transaction_id');
+  if(webTxId){
+    try {
+      if(window.opener && !window.opener.closed){
+        window.opener.sessionStorage.setItem('nice_web_transaction_id', webTxId);
+        window.close();
+      } else {
+        sessionStorage.setItem('nice_web_transaction_id', webTxId);
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    } catch(e){ console.warn('nice callback 오류:', e); }
+  }
+})();
+</script>
+<style>
+:root{
+  --bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;
+  --border:#1e3a5f;--accent:#00d4ff;--accent2:#ff3c6e;
+  --accent3:#39ff14;--text:#e8f4fd;--text-dim:#7a9bb5;--gold:#ffd700;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+
+/* 헤더 */
+#mi-header{height:52px;background:var(--surface);border-bottom:2px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:14px;flex-shrink:0;position:sticky;top:0;z-index:100;}
+.mi-logo{font-family:'Black Han Sans',sans-serif;font-size:1.2rem;color:var(--accent);letter-spacing:2px;}
+.mi-logo span{color:var(--accent2);}
+.mi-page-title{font-size:.9rem;color:var(--text-dim);}
+#btn-back-home{margin-left:auto;background:linear-gradient(135deg,#a29bfe,#6c5ce7);border:none;border-radius:8px;padding:6px 14px;font-size:.82rem;font-weight:700;color:#fff;cursor:pointer;transition:opacity .2s;}
+#btn-back-home:hover{opacity:.85;}
+
+/* 메인 */
+#mi-body{flex:1;display:flex;justify-content:center;padding:32px 20px;overflow-y:auto;}
+.mi-container{width:100%;max-width:520px;display:flex;flex-direction:column;gap:16px;}
+
+/* 카드 */
+.mi-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+.mi-card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;transition:background .15s;}
+.mi-card-header:hover{background:var(--surface2);}
+.mi-card-title{font-size:.95rem;font-weight:700;color:var(--text);}
+.mi-card-desc{font-size:.72rem;color:var(--text-dim);margin-top:2px;}
+.mi-card-arrow{margin-left:auto;font-size:.8rem;color:var(--text-dim);transition:transform .25s;}
+.mi-card-body{display:none;padding:20px;flex-direction:column;gap:14px;}
+.mi-card-body.open{display:flex;}
+
+/* 사용자 요약 */
+.mi-user-summary{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px;}
+.mi-avatar{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#0099bb);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:700;color:#000;flex-shrink:0;}
+.mi-user-name{font-size:1rem;font-weight:700;color:var(--text);}
+.mi-user-email{font-size:.72rem;color:var(--text-dim);margin-top:2px;}
+.mi-user-badge{margin-left:auto;font-size:.65rem;padding:3px 10px;border-radius:10px;font-weight:700;}
+.mi-user-badge.premium{background:var(--gold);color:#000;}
+.mi-user-badge.mapdong{background:linear-gradient(135deg,#a29bfe,#6c5ce7);color:#fff;}
+.mi-user-badge.trial{background:var(--surface);border:1px solid var(--text-dim);color:var(--text-dim);}
+
+/* 폼 */
+.mi-label{font-size:.72rem;color:var(--text-dim);margin-bottom:5px;display:block;}
+.mi-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:.87rem;outline:none;transition:border-color .15s;}
+.mi-input:focus{border-color:var(--accent);}
+.mi-input:disabled{opacity:.5;cursor:not-allowed;}
+.mi-input.verified{border-color:var(--accent3);}
+.mi-input.error{border-color:var(--accent2);}
+.mi-btn{width:100%;padding:11px;border:none;border-radius:10px;font-size:.88rem;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:opacity .2s,box-shadow .2s;}
+.mi-btn:disabled{opacity:.45;cursor:not-allowed;}
+.mi-btn.primary{background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;}
+.mi-btn.primary:hover:not(:disabled){box-shadow:0 4px 16px rgba(0,212,255,.35);}
+.mi-btn.danger{background:linear-gradient(135deg,var(--accent2),#bb1144);color:#fff;}
+.mi-btn.ghost{background:none;border:1px solid var(--border);color:var(--text-dim);}
+.mi-btn.ghost:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+.mi-row{display:flex;gap:8px;}
+.mi-row .mi-btn{flex:1;}
+
+/* 메시지 */
+.mi-msg{padding:10px 14px;border-radius:8px;font-size:.78rem;line-height:1.5;display:none;}
+.mi-msg.ok{background:rgba(57,255,20,.1);border:1px solid var(--accent3);color:var(--accent3);display:block;}
+.mi-msg.err{background:rgba(255,60,110,.1);border:1px solid var(--accent2);color:var(--accent2);display:block;}
+.mi-msg.info{background:rgba(0,212,255,.08);border:1px solid var(--accent);color:var(--accent);display:block;}
+
+/* 닉네임 변경 가능 배지 */
+.mi-limit-badge{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;padding:4px 10px;border-radius:8px;white-space:nowrap;}
+.mi-limit-badge.ok-change{background:rgba(57,255,20,.1);color:var(--accent3);border:1px solid var(--accent3);}
+.mi-limit-badge.no-change{background:rgba(255,60,110,.1);color:var(--accent2);border:1px solid var(--accent2);}
+
+/* 인증 단계 */
+.mi-step{display:flex;align-items:center;gap:8px;font-size:.75rem;color:var(--text-dim);padding:8px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);}
+.mi-step-dot{width:8px;height:8px;border-radius:50%;background:var(--border);flex-shrink:0;transition:background .3s;}
+.mi-step-dot.done{background:var(--accent3);}
+.mi-step-dot.active{background:var(--accent);box-shadow:0 0 6px var(--accent);}
+
+.mi-loading{text-align:center;padding:40px;color:var(--text-dim);font-size:.85rem;}
+
+@media(max-width:480px){#mi-body{padding:16px 12px;}.mi-card-body{padding:16px;}}
+</style>
+</head>
+<body>
+
+<div id="mi-header">
+  <div class="mi-logo">Map<span>Dong</span></div>
+  <div class="mi-page-title">내정보 수정</div>
+  <button id="btn-back-home" onclick="backToIndex()">← 돌아가기</button>
+</div>
+
+<div id="mi-body">
+  <div class="mi-container">
+
+    <div class="mi-loading" id="mi-loading">⏳ 정보 불러오는 중...</div>
+
+    <div id="mi-content" style="display:none;flex-direction:column;gap:16px;">
+
+      <!-- 사용자 요약 -->
+      <div class="mi-user-summary">
+        <div class="mi-avatar" id="mi-avatar">?</div>
+        <div>
+          <div class="mi-user-name" id="mi-username">-</div>
+          <div class="mi-user-email" id="mi-useremail">-</div>
+        </div>
+        <div class="mi-user-badge trial" id="mi-badge">체험판</div>
+      </div>
+
+      <!-- 닉네임 변경 카드 -->
+      <div class="mi-card">
+        <div class="mi-card-header" id="hdr-nick" onclick="toggleCard('nick')">
+          <div>
+            <div class="mi-card-title">✏️ 닉네임 변경</div>
+            <div class="mi-card-desc">30일에 1회 변경 가능</div>
+          </div>
+          <div class="mi-card-arrow" id="arr-nick">›</div>
+        </div>
+        <div class="mi-card-body" id="body-nick">
+          <div>
+            <label class="mi-label">현재 닉네임</label>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+              <div style="flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);
+                border-radius:8px;padding:10px 14px;font-size:.95rem;font-weight:700;
+                color:var(--accent);" id="cur-nickname">-</div>
+              <div class="mi-limit-badge" id="nick-limit-badge">확인 중...</div>
+            </div>
+          </div>
+          <div>
+            <label class="mi-label">새 닉네임</label>
+            <input class="mi-input" id="new-nickname"
+              placeholder="2~12자, 한글·영문·숫자" maxlength="12"
+              oninput="validateNickname(this.value)">
+          </div>
+          <div class="mi-msg" id="nick-msg"></div>
+          <div class="mi-row">
+            <button class="mi-btn ghost" onclick="toggleCard('nick')">취소</button>
+            <button class="mi-btn primary" id="btn-save-nick" onclick="saveNickname()" disabled>변경하기</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 비밀번호 변경 카드 -->
+      <div class="mi-card">
+        <div class="mi-card-header" id="hdr-pw" onclick="toggleCard('pw')">
+          <div>
+            <div class="mi-card-title">🔒 비밀번호 변경</div>
+            <div class="mi-card-desc">나이스 본인인증 후 변경 가능</div>
+          </div>
+          <div class="mi-card-arrow" id="arr-pw">›</div>
+        </div>
+        <div class="mi-card-body" id="body-pw">
+
+          <!-- 단계 표시 -->
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div class="mi-step">
+              <div class="mi-step-dot active" id="dot-1"></div>
+              <span id="step1-text">① 휴대폰 본인인증</span>
+            </div>
+            <div class="mi-step">
+              <div class="mi-step-dot" id="dot-2"></div>
+              <span id="step2-text">② 새 비밀번호 입력</span>
+            </div>
+          </div>
+
+          <!-- STEP 1 -->
+          <div id="pw-step1">
+            <div class="mi-msg info" style="display:block;">
+              📋 본인인증 완료 시 입력하신 실명이 가입 정보와 일치해야 합니다.
+            </div>
+            <button class="mi-btn primary" id="btn-nice-pw" onclick="startNiceForPw()">
+              📲 휴대폰 본인인증 시작
+            </button>
+          </div>
+
+          <!-- STEP 2 (인증 성공 후) -->
+          <div id="pw-step2" style="display:none;flex-direction:column;gap:10px;">
+            <div class="mi-msg ok" style="display:block;">✅ 본인인증이 완료되었습니다.</div>
+            <div>
+              <label class="mi-label">새 비밀번호</label>
+              <input class="mi-input" id="new-pw" type="password"
+                placeholder="8자 이상, 영문+숫자 포함" oninput="validatePw()">
+            </div>
+            <div>
+              <label class="mi-label">비밀번호 확인</label>
+              <input class="mi-input" id="new-pw2" type="password"
+                placeholder="비밀번호를 한 번 더 입력하세요" oninput="validatePw()">
+            </div>
+            <div class="mi-msg" id="pw-msg"></div>
+            <div class="mi-row">
+              <button class="mi-btn ghost" onclick="resetPwStep()">처음으로</button>
+              <button class="mi-btn danger" id="btn-save-pw" onclick="savePassword()" disabled>
+                🔒 비밀번호 변경
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /mi-content -->
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://emgsueepzioudqnitkyn.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemlvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkwNzQsImV4cCI6MjA4NjU2NTA3NH0.epR1k3MVh0MfZejFh9VflCNOS8Uz8EuCZlez5OBMz3s';
+const EDGE = `${SUPABASE_URL}/functions/v1`;
+const sb   = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser    = null;
+let userProfile    = null;
+let _niceVerified  = false;
+let _niceTxId      = null;
+let _niceReqNo     = null;
+let _canChangeNick = false;
+
+/* ── 초기화 ── */
+async function init(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session?.user){
+    alert('로그인이 필요합니다.');
+    window.location.href = 'index.html';
+    return;
+  }
+  currentUser = session.user;
+
+  const { data } = await sb.from('user_profiles')
+    .select('*').eq('user_id', currentUser.id).single();
+  userProfile = data;
+
+  if(!userProfile){
+    alert('프로필 정보를 불러올 수 없습니다.');
+    window.location.href = 'index.html';
+    return;
+  }
+
+  renderSummary();
+  checkNicknameLimit();
+
+  document.getElementById('mi-loading').style.display = 'none';
+  const c = document.getElementById('mi-content');
+  c.style.display = 'flex';
+}
+
+function isActivePremium(){
+  return userProfile?.is_premium && userProfile?.premium_until
+    && new Date(userProfile.premium_until) > new Date();
+}
+function isActiveMapdongFamily(){
+  return userProfile?.is_mapdong_family && userProfile?.mapdong_family_until
+    && new Date(userProfile.mapdong_family_until) > new Date();
+}
+
+function renderSummary(){
+  const email    = currentUser.email || '';
+  const nickname = userProfile.nickname || email.split('@')[0];
+  document.getElementById('mi-avatar').textContent    = nickname[0]?.toUpperCase() || '?';
+  document.getElementById('mi-username').textContent  = nickname;
+  document.getElementById('mi-useremail').textContent = email;
+  document.getElementById('cur-nickname').value       = nickname;
+
+  const badge = document.getElementById('mi-badge');
+  if(isActivePremium())         { badge.textContent='프리미엄'; badge.className='mi-user-badge premium'; }
+  else if(isActiveMapdongFamily()){ badge.textContent='맵동가족'; badge.className='mi-user-badge mapdong'; }
+  else                           { badge.textContent='체험판';   badge.className='mi-user-badge trial';   }
+}
+
+function checkNicknameLimit(){
+  const badge     = document.getElementById('nick-limit-badge');
+  const changedAt = userProfile?.nickname_changed_at;
+
+  if(!changedAt){
+    _canChangeNick = true;
+    badge.textContent = '✅ 변경 가능';
+    badge.className   = 'mi-limit-badge ok-change';
+    return;
+  }
+
+  const diffMs = Date.now() - new Date(changedAt).getTime();
+  const diff30 = 30 * 24 * 60 * 60 * 1000;
+
+  if(diffMs >= diff30){
+    _canChangeNick = true;
+    badge.textContent = '✅ 변경 가능';
+    badge.className   = 'mi-limit-badge ok-change';
+  } else {
+    _canChangeNick = false;
+    const daysLeft = Math.ceil((diff30 - diffMs) / (24*60*60*1000));
+    badge.textContent = `🔒 ${daysLeft}일 후 변경 가능`;
+    badge.className   = 'mi-limit-badge no-change';
+    document.getElementById('new-nickname').disabled   = true;
+    document.getElementById('btn-save-nick').disabled  = true;
+    showMsg('nick-msg',
+      `마지막 변경: ${new Date(changedAt).toLocaleDateString('ko-KR')} · ${daysLeft}일 후 변경 가능`,
+      'err');
+  }
+}
+
+/* ── 카드 토글 ── */
+function toggleCard(key){
+  const body = document.getElementById('body-' + key);
+  const arr  = document.getElementById('arr-' + key);
+  const isOpen = body.classList.contains('open');
+  ['nick','pw'].forEach(k => {
+    document.getElementById('body-'+k).classList.remove('open');
+    document.getElementById('arr-'+k).style.transform = '';
+  });
+  if(!isOpen){
+    body.classList.add('open');
+    arr.style.transform = 'rotate(90deg)';
+  }
+}
+
+/* ══════════════════════════════════════════════════
+   닉네임 변경
+══════════════════════════════════════════════════ */
+function validateNickname(val){
+  const btn = document.getElementById('btn-save-nick');
+  if(!_canChangeNick){ btn.disabled=true; return; }
+  if(val.length < 2)                         { showMsg('nick-msg','2자 이상 입력하세요.','err'); btn.disabled=true; return; }
+  if(!/^[가-힣a-zA-Z0-9]+$/.test(val))     { showMsg('nick-msg','한글·영문·숫자만 사용 가능합니다.','err'); btn.disabled=true; return; }
+  if(val === userProfile.nickname)           { showMsg('nick-msg','현재 닉네임과 동일합니다.','err'); btn.disabled=true; return; }
+  showMsg('nick-msg','사용 가능한 닉네임입니다.','ok');
+  btn.disabled = false;
+}
+
+async function saveNickname(){
+  if(!_canChangeNick){ showMsg('nick-msg','30일 제한으로 변경할 수 없습니다.','err'); return; }
+  const newNick = document.getElementById('new-nickname').value.trim();
+  if(!newNick){ showMsg('nick-msg','새 닉네임을 입력하세요.','err'); return; }
+
+  // 중복 확인
+  const { data: dup } = await sb.from('user_profiles')
+    .select('id').eq('nickname', newNick).neq('user_id', currentUser.id).maybeSingle();
+  if(dup){ showMsg('nick-msg','이미 사용 중인 닉네임입니다.','err'); return; }
+
+  // 확인 팝업 열기
+  const currentNick = document.getElementById('cur-nickname').textContent || '-';
+  document.getElementById('confirm-from').textContent = currentNick;
+  document.getElementById('confirm-to').textContent   = newNick;
+  const overlay = document.getElementById('nick-confirm-overlay');
+  overlay.style.display = 'flex';
+}
+
+function closeNickConfirm(){
+  document.getElementById('nick-confirm-overlay').style.display = 'none';
+}
+
+async function confirmNickChange(){
+  closeNickConfirm();
+  const newNick = document.getElementById('new-nickname').value.trim();
+  const btn     = document.getElementById('btn-save-nick');
+  btn.disabled  = true; btn.textContent = '변경 중...';
+
+  const { error } = await sb.from('user_profiles').update({
+    nickname:            newNick,
+    nickname_changed_at: new Date().toISOString(),
+  }).eq('user_id', currentUser.id);
+
+  if(error){
+    showMsg('nick-msg','변경 오류: '+error.message,'err');
+    btn.disabled=false; btn.textContent='변경하기'; return;
+  }
+
+  // auth metadata 업데이트
+  await sb.auth.updateUser({ data: { name: newNick } });
+
+  userProfile.nickname             = newNick;
+  userProfile.nickname_changed_at  = new Date().toISOString();
+  document.getElementById('cur-nickname').textContent = newNick;
+  document.getElementById('mi-username').textContent  = newNick;
+  document.getElementById('mi-avatar').textContent    = newNick[0]?.toUpperCase() || '?';
+  document.getElementById('new-nickname').value       = '';
+  _canChangeNick = false;
+  checkNicknameLimit();
+
+  // 변경 완료 팝업 (브라우저 alert 대신 인라인 메시지)
+  showMsg('nick-msg', `✅ 닉네임이 "${newNick}"으로 변경되었습니다!`, 'ok');
+  btn.textContent = '✅ 변경 완료';
+}
+
+/* ══════════════════════════════════════════════════
+   비밀번호 변경 — STEP 1: 나이스 인증
+══════════════════════════════════════════════════ */
+async function startNiceForPw(){
+  const btn = document.getElementById('btn-nice-pw');
+  btn.disabled=true; btn.textContent='인증창 여는 중...';
+
+  try {
+    const { data:{ session } } = await sb.auth.getSession();
+    const token = session?.access_token;
+
+    let res;
+    try {
+      const ctrl = new AbortController();
+      setTimeout(() => ctrl.abort(), 10000);
+      res = await fetch(`${EDGE}/nice-request`, {
+        method:'POST',
+        headers:{ 'Authorization':`Bearer ${token}`, 'Content-Type':'application/json' },
+        body: JSON.stringify({ mode: 'pw_change' }),
+        signal: ctrl.signal,
+      });
+    } catch(fe){
+      showMsg('pw-msg', fe.name==='AbortError' ? '⏱️ 인증 서버 응답 시간 초과' : '🔌 인증 서버 연결 실패', 'err');
+      btn.disabled=false; btn.textContent='📲 휴대폰 본인인증 시작'; return;
+    }
+
+    if(!res.ok){ showMsg('pw-msg','인증 서버 오류. 잠시 후 다시 시도해주세요.','err'); btn.disabled=false; btn.textContent='📲 휴대폰 본인인증 시작'; return; }
+
+    const { auth_url, transaction_id, request_no } = await res.json();
+    if(!auth_url){ showMsg('pw-msg','인증 URL 발급 실패.','err'); btn.disabled=false; btn.textContent='📲 휴대폰 본인인증 시작'; return; }
+
+    _niceTxId  = transaction_id;
+    _niceReqNo = request_no;
+
+    const popup = window.open(auth_url, 'nice-auth-pw', 'width=500,height=600,left=200,top=100');
+
+    const timer = setInterval(async () => {
+      if(!popup || popup.closed){
+        clearInterval(timer);
+        btn.textContent = '인증 확인 중...';
+        await verifyNiceResult(token);
+        btn.disabled=false; btn.textContent='📲 휴대폰 본인인증 시작';
+      }
+    }, 500);
+
+  } catch(e){
+    showMsg('pw-msg','인증 요청 오류: '+e.message,'err');
+    btn.disabled=false; btn.textContent='📲 휴대폰 본인인증 시작';
+  }
+}
+
+async function verifyNiceResult(token){
+  const webTxId = sessionStorage.getItem('nice_web_transaction_id');
+  sessionStorage.removeItem('nice_web_transaction_id');
+
+  if(!webTxId && !_niceTxId){ showMsg('pw-msg','인증을 완료해주세요.','err'); return; }
+
+  try {
+    const r = await fetch(`${EDGE}/nice-result`, {
+      method:'POST',
+      headers:{ 'Authorization':`Bearer ${token}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ web_transaction_id: webTxId, transaction_id: _niceTxId, request_no: _niceReqNo }),
+    });
+    if(!r.ok){ showMsg('pw-msg','인증 결과 처리 오류.','err'); return; }
+
+    const data = await r.json();
+    const verifiedName = (data.name || '').trim();
+    if(!verifiedName){ showMsg('pw-msg','인증 결과에서 실명을 확인할 수 없습니다.','err'); return; }
+
+    // 실명 대조
+    const storedName = (userProfile?.real_name || '').trim();
+    if(storedName && verifiedName !== storedName){
+      showMsg('pw-msg',
+        `⚠️ 본인인증 실명(${verifiedName})이 가입 정보(${storedName})와 일치하지 않습니다.`,
+        'err');
+      return;
+    }
+
+    // 성공 → STEP 2
+    _niceVerified = true;
+    goToStep2();
+
+  } catch(e){ showMsg('pw-msg','결과 확인 중 오류: '+e.message,'err'); }
+}
+
+function goToStep2(){
+  document.getElementById('dot-1').className   = 'mi-step-dot done';
+  document.getElementById('dot-2').className   = 'mi-step-dot active';
+  document.getElementById('step1-text').style.color = 'var(--accent3)';
+  document.getElementById('step2-text').style.color = 'var(--accent)';
+  document.getElementById('pw-step1').style.display = 'none';
+  document.getElementById('pw-step2').style.display = 'flex';
+  document.getElementById('new-pw').focus();
+}
+
+function resetPwStep(){
+  _niceVerified = false;
+  document.getElementById('dot-1').className   = 'mi-step-dot active';
+  document.getElementById('dot-2').className   = 'mi-step-dot';
+  document.getElementById('step1-text').style.color = '';
+  document.getElementById('step2-text').style.color = '';
+  document.getElementById('pw-step2').style.display = 'none';
+  document.getElementById('pw-step1').style.display = 'block';
+  document.getElementById('new-pw').value   = '';
+  document.getElementById('new-pw2').value  = '';
+  document.getElementById('pw-msg').className = 'mi-msg';
+  document.getElementById('btn-nice-pw').disabled = false;
+  document.getElementById('btn-nice-pw').textContent = '📲 휴대폰 본인인증 시작';
+}
+
+/* ══════════════════════════════════════════════════
+   비밀번호 변경 — STEP 2
+══════════════════════════════════════════════════ */
+function validatePw(){
+  const pw1 = document.getElementById('new-pw').value;
+  const pw2 = document.getElementById('new-pw2').value;
+  const btn = document.getElementById('btn-save-pw');
+  if(!pw1){ document.getElementById('pw-msg').className='mi-msg'; btn.disabled=true; return; }
+  if(pw1.length < 8 || !/[a-zA-Z]/.test(pw1) || !/[0-9]/.test(pw1)){
+    showMsg('pw-msg','8자 이상, 영문과 숫자를 모두 포함해야 합니다.','err'); btn.disabled=true; return;
+  }
+  if(pw2 && pw1 !== pw2){ showMsg('pw-msg','비밀번호가 일치하지 않습니다.','err'); btn.disabled=true; return; }
+  if(pw2 && pw1 === pw2){ showMsg('pw-msg','✅ 비밀번호가 일치합니다.','ok'); btn.disabled=false; return; }
+  document.getElementById('pw-msg').className='mi-msg'; btn.disabled=true;
+}
+
+async function savePassword(){
+  if(!_niceVerified){ showMsg('pw-msg','본인인증을 먼저 완료해주세요.','err'); return; }
+  const pw1 = document.getElementById('new-pw').value;
+  const pw2 = document.getElementById('new-pw2').value;
+  if(!pw1 || pw1 !== pw2){ showMsg('pw-msg','비밀번호를 확인해주세요.','err'); return; }
+
+  const btn = document.getElementById('btn-save-pw');
+  btn.disabled=true; btn.textContent='변경 중...';
+
+  const { error } = await sb.auth.updateUser({ password: pw1 });
+  if(error){ showMsg('pw-msg','변경 오류: '+error.message,'err'); btn.disabled=false; btn.textContent='🔒 비밀번호 변경'; return; }
+
+  showMsg('pw-msg','✅ 비밀번호가 변경되었습니다. 다시 로그인해주세요.','ok');
+  btn.textContent = '변경 완료';
+
+  // 2초 후 로그아웃 → 로그인 화면
+  setTimeout(async () => {
+    await sb.auth.signOut();
+    window.location.href = 'index.html';
+  }, 2000);
+}
+
+/* ── 유틸 ── */
+function showMsg(elId, text, type){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  el.textContent = text;
+  el.className   = 'mi-msg ' + type;
+}
+function backToIndex(){ window.location.href = 'index.html'; }
+
+init();
+</script>
+<!-- 닉네임 변경 확인 팝업 -->
+<div id="nick-confirm-overlay" style="display:none;position:fixed;inset:0;
+  background:rgba(10,14,26,.85);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:16px;
+    padding:28px 28px 22px;max-width:320px;width:90%;text-align:center;
+    box-shadow:0 8px 40px rgba(0,0,0,.5);">
+    <div style="font-size:2rem;margin-bottom:12px;">✏️</div>
+    <div style="font-size:.88rem;color:var(--text-dim);line-height:1.8;margin-bottom:18px;">
+      <span id="confirm-from" style="color:var(--text);font-weight:600;">-</span>
+      &nbsp;→&nbsp;
+      <span id="confirm-to" style="color:var(--accent);font-weight:700;font-size:1rem;">-</span><br>
+      <span style="font-size:.8rem;">으로 닉네임을 변경하시겠습니까?</span>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="closeNickConfirm()"
+        style="flex:1;padding:10px;border-radius:9px;font-size:.85rem;font-weight:700;
+          cursor:pointer;background:var(--surface);border:1px solid var(--border);
+          color:var(--text-dim);font-family:inherit;">취소</button>
+      <button onclick="confirmNickChange()"
+        style="flex:1;padding:10px;border-radius:9px;font-size:.85rem;font-weight:700;
+          cursor:pointer;background:linear-gradient(135deg,#a29bfe,#6c5ce7);
+          color:#fff;border:none;font-family:inherit;">변경하기</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
