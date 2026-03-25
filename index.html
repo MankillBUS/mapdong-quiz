@@ -1657,6 +1657,12 @@ function buildCityMetaFromCache(polyCache) {
       ];
     }
 
+    // center가 없으면 _meta._center 활용
+    if (!lats.length) {
+      const mc = _m(cityNode, '_center');
+      if (mc) { lats.push(mc[0]); lngs.push(mc[1]); }
+    }
+
     // 줌 레벨
     const type_ = _m(cityNode, '_type') || '';
     const zoom = (type_ === '특별시' || type_ === '광역시') ? 11
@@ -1692,20 +1698,19 @@ function buildCityMetaFromCache(polyCache) {
   for (const [topKey, topVal] of Object.entries(polyCache)) {
     if (topKey.startsWith('_') || typeof topVal !== 'object' || !topVal) continue;
     const t = _m(topVal, '_type') || '';
-    // 도·특별자치도: 아래 시군구를 각각 등록
-    if (t === '도' || t === '특별자치도') {
+
+    if (t === '도' || t === '특별자치도' || t === '특별자치시') {
+      // 도/특별자치도: 아래 시군구 각각 등록 (수원시, 화성시, 강릉시 ...)
+      // 특별자치시(세종): 아래 '세종시' 등록
       for (const [city, cv] of Object.entries(topVal)) {
         if (!city.startsWith('_') && city !== '_meta' && typeof cv === 'object' && cv) {
           processCity(city, cv, topKey);
         }
       }
-    } else if (['특별시','광역시','시','특별자치시'].includes(t)) {
-      // 특별자치시(세종): 아래 '세종시'를 cityName으로 등록
-      for (const [city, cv] of Object.entries(topVal)) {
-        if (!city.startsWith('_') && city !== '_meta' && typeof cv === 'object' && cv) {
-          processCity(city, cv, topKey);
-        }
-      }
+    } else if (t === '특별시' || t === '광역시') {
+      // 특별시/광역시: 자기 자신을 cityName으로 등록 (서울특별시, 부산광역시 ...)
+      // processCity가 아래 구들을 순회해서 hasGu=true, total 계산
+      processCity(topKey, topVal, null);
     }
   }
 
@@ -1721,12 +1726,13 @@ function buildCityMetaFromCache(polyCache) {
 // ── getCityNode (v4: 동일 로직 유지) ────────────────────────────
 function getCityNode(cityName) {
   if (!POLY_CACHE) return null;
+  // 1) 최상위 직접 (서울특별시, 부산광역시, 세종특별자치시 등)
   if (POLY_CACHE[cityName]) return POLY_CACHE[cityName];
-  // 도·특별자치도·특별자치시 아래에서도 탐색
-  const doTypes = new Set(['도','특별자치도','특별자치시','특별시','광역시']);
+  // 2) 도/특별자치도/특별자치시 아래 탐색 (수원시, 강릉시, 세종시 등)
+  const parentTypes = new Set(['도','특별자치도','특별자치시']);
   for (const [, tv] of Object.entries(POLY_CACHE)) {
     const t = _m(tv, '_type') || '';
-    if (doTypes.has(t) && tv[cityName]) return tv[cityName];
+    if (parentTypes.has(t) && tv[cityName]) return tv[cityName];
   }
   return null;
 }
@@ -1906,12 +1912,18 @@ function buildDBFromCache() {
             );
           }
 
+          // rn: getCityNode가 찾을 수 있는 이름 사용
+          // 광역시/특별시는 cityName('서울특별시'), 도 아래 시는 _city('수원시')
+          const _cityType = _m(cn, '_type') || '';
+          const _rn = (['특별시','광역시'].includes(_cityType))
+            ? cityName
+            : (_m(node, '_city') || cityName);
           dongs.push({
             d:     uName,
             gu:    nodeGu || gu,
             lat:   ll[0],
             lng:   ll[1],
-            rn:    _m(node, '_city') || cityName,
+            rn:    _rn,
             do_:   _m(node, '_do')   || doName,
             utype: _m(node, '_type') || '동',
             rk:    key,
@@ -1941,12 +1953,16 @@ function buildDBFromCache() {
         const ll = node.center || getCenter(node);
         if (!ll) continue;
 
+        const _cityType2 = _m(cn, '_type') || '';
+        const _rn2 = (['특별시','광역시'].includes(_cityType2))
+          ? cityName
+          : (_m(node, '_city') || cityName);
         dongs.push({
           d:     uName,
-          gu:    '',
+          gu:    _m(node, '_gu') || '',
           lat:   ll[0],
           lng:   ll[1],
-          rn:    _m(node, '_city') || cityName,
+          rn:    _rn2,
           do_:   _m(node, '_do')   || doName,
           utype: _m(node, '_type') || '동',
           rk:    key,
@@ -2104,6 +2120,9 @@ const CITY_GROUPS = {
   "🏙 서울": [
     "서울특별시",
   ],
+  "🌊 인천": [
+    "인천광역시",
+  ],
   "🏙 수도권 경기 서부·남부": [
     "수원시", "화성시", "평택시", "오산시",
     "안양시", "군포시", "의왕시", "광명시", "시흥시", "안산시",
@@ -2117,9 +2136,6 @@ const CITY_GROUPS = {
   ],
   "🏙 수도권 경기 외곽": [
     "안성시", "가평군",
-  ],
-  "🌊 인천": [
-    "인천광역시",
   ],
   "⛰ 강원도": [
     "춘천시", "원주시", "강릉시", "동해시", "태백시",
