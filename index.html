@@ -808,6 +808,155 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 }
 #toss-modal-pay-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(255,215,0,.4);}
 #toss-modal-pay-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+
+/* ═══════════════════════════════════════════════════════
+   오른쪽 사이드바 (커뮤니티 & 메뉴)
+   ═══════════════════════════════════════════════════════ */
+#right-side {
+  width: 230px;
+  background: var(--surface);
+  border-left: 2px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+  height: 100%;
+  transition: width .25s;
+  z-index: 600;
+}
+#right-side.collapsed { width: 0; border-left: none; }
+
+#right-side-toggle {
+  position: absolute; right: 230px; top: 50%;
+  transform: translateY(-50%);
+  z-index: 700;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  width: 18px; height: 56px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: right .25s, background .2s;
+  font-size: .75rem; color: var(--text-dim);
+}
+#right-side-toggle:hover { background: var(--surface2); color: var(--accent); border-color: var(--accent); }
+#main.right-collapsed #right-side { width: 0; border-left: none; }
+#main.right-collapsed #right-side-toggle { right: 0; border-right: 2px solid var(--border); border-left: none; border-radius: 0 8px 8px 0; }
+
+/* 오른쪽 사이드바 스크롤 영역 */
+#right-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 0 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+#right-scroll::-webkit-scrollbar { width: 3px; }
+#right-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* 메뉴 헤더 */
+.rs-header {
+  padding: 8px 12px 6px;
+  font-size: .55rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+/* 메뉴 아이템 */
+.rs-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: .78rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 0;
+  transition: background .15s, color .15s;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rs-item:hover { background: var(--surface2); color: var(--text); }
+.rs-item.active { color: var(--accent); background: rgba(0,212,255,.08); }
+.rs-item.locked { color: #3a5a75; cursor: default; }
+.rs-item.locked:hover { background: none; color: #3a5a75; }
+
+/* 카테고리 부모 그룹 */
+.rs-cat-parent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: background .15s;
+  user-select: none;
+}
+.rs-cat-parent:hover { background: var(--surface2); }
+.rs-cat-arrow { font-size: .6rem; margin-left: auto; transition: transform .2s; color: var(--text-dim); }
+.rs-cat-parent.open .rs-cat-arrow { transform: rotate(90deg); }
+
+/* 카테고리 자식 */
+.rs-cat-children { display: none; }
+.rs-cat-children.open { display: block; }
+.rs-child-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px 6px 28px;
+  font-size: .73rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.rs-child-item:hover { background: var(--surface2); color: var(--text); }
+.rs-child-item.active { color: var(--accent); }
+.rs-child-item.locked { color: #3a5a75; cursor: default; }
+.rs-child-item.locked:hover { background: none; }
+
+/* 잠금 아이콘 */
+.rs-lock { font-size: .65rem; opacity: .5; }
+
+/* MapDongMall 반짝이 */
+.rs-mall {
+  background: linear-gradient(90deg, #ffd700, #ff6b6b, #a29bfe, #00d4ff);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: mallShine 2s linear infinite;
+  font-weight: 700;
+}
+@keyframes mallShine { 0%{background-position:0%} 100%{background-position:300%} }
+
+/* 맵동가족 뱃지 */
+.user-badge.mapdong { background: linear-gradient(135deg, #a29bfe, #6c5ce7); color: #fff; }
+.dd-status.mapdong  { color: #a29bfe; }
+
+/* Mall 팝업 */
+#mall-popup {
+  display: none;
+  position: fixed;
+  background: linear-gradient(135deg, var(--surface), var(--surface2));
+  border: 1px solid #ffd700;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: .78rem;
+  color: var(--text);
+  z-index: 9000;
+  box-shadow: 0 4px 20px rgba(255,215,0,.3);
+  pointer-events: none;
+  max-width: 180px;
+  line-height: 1.6;
+}
+#mall-popup.show { display: block; }
+
 </style>
 </head>
 <body>
@@ -1313,7 +1462,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
         <div class="dd-email" id="dd-email">-</div>
         <div class="dd-status trial" id="dd-status">체험판 이용 중</div>
       </div>
-      <button class="dd-btn" onclick="showPaywall(event)">💳 프리미엄 업그레이드</button>
+      <button class="dd-btn" id="dd-myinfo" onclick="goMyInfo()">✏️ 내정보 수정</button>
+      <button class="dd-btn" id="dd-upgrade" onclick="showPaywall(event)">💳 프리미엄 업그레이드</button>
+      <button class="dd-btn" id="dd-mapdong-upgrade" onclick="showMapdongPaywall()" style="display:none">💜 맵동가족 가입 990원/월</button>
       <button class="dd-btn danger" onclick="signOut()">로그아웃</button>
     </div>
   </div>
@@ -1426,6 +1577,42 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
         <button class="ab-btn" onclick="hideWrongBoundary()" style="background:rgba(255,60,110,0.2);border:1px solid #ff3c6e;color:#ff3c6e;padding:6px 12px;border-radius:6px;font-size:.85rem;cursor:pointer;">🔴 틀린 경계</button>
       </div>
     </div>
+  </div>
+
+  <!-- ▶ 오른쪽 사이드바 토글 버튼 -->
+  <div id="right-side-toggle" onclick="toggleRightSide()" title="메뉴 접기/펼치기">▶</div>
+
+  <!-- ▶ 오른쪽 사이드바 -->
+  <div id="right-side">
+    <div id="right-scroll">
+
+      <!-- 내정보변경 (모든 회원) -->
+      <div class="rs-header">내 계정</div>
+      <div class="rs-item" id="rs-myinfo" onclick="goMyInfo()">👤 내정보 수정</div>
+
+      <!-- 프리미엄/맵동가족 전용 메뉴 -->
+      <div class="rs-header" style="margin-top:6px">멤버 전용</div>
+      <div class="rs-item" id="rs-rank"    onclick="goRanking()">🏆 랭킹보기</div>
+      <div class="rs-item" id="rs-event"   onclick="goEvent()">🎁 이벤트 당첨자</div>
+      <div class="rs-item" id="rs-mall"
+           onmouseenter="showMallPopup(event)"
+           onmouseleave="hideMallPopup()"
+           onclick="goMall()">
+        <span class="rs-mall">✨ MapDongMall</span>
+      </div>
+
+      <!-- 커뮤니티 게시판 -->
+      <div class="rs-header" style="margin-top:6px">커뮤니티</div>
+      <div id="rs-community-menu"><!-- JS로 채워짐 --></div>
+
+    </div>
+  </div>
+
+  <!-- Mall 팝업 -->
+  <div id="mall-popup">
+    🎉 <b>회원 특별가 적용!!</b><br>
+    맵동가족 · 프리미엄 회원<br>
+    한정 특별 혜택을 확인하세요!
   </div>
 </div>
 </div>
@@ -3420,7 +3607,7 @@ const TOSS_CLIENT_KEY         = 'live_gck_DLJOpm5QrlP47AGDJeLdrPNdxbWn';
 const TOSS_BILLING_CLIENT_KEY = 'live_ck_ORzdMaqN3wn2eqdXYQEN85AkYXQG';
 /* ▲ 여기까지 ▲ */
 
-const SUBSCRIPTION_PLANS = ['monthly','quarterly','halfyear','yearly'];
+const SUBSCRIPTION_PLANS = ['monthly','quarterly','halfyear','yearly','mapdong_family'];
 const EDGE = `${SUPABASE_URL}/functions/v1`;
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -3442,6 +3629,12 @@ function toast(msg, type=''){
 /* ── 화면 전환 ── */
 const SCREENS = ['screen-login','screen-verify','screen-paywall','start','screen-cs'];
 function showOnly(id){
+  // 오른쪽 사이드바: 로그인화면에서 숨김, start(지역선택)에서만 표시
+  const rightSide = document.getElementById('right-side');
+  const rightToggle = document.getElementById('right-side-toggle');
+  const showRight = (id === 'start');
+  if(rightSide)   rightSide.style.visibility   = showRight ? 'visible' : 'hidden';
+  if(rightToggle) rightToggle.style.visibility = showRight ? 'visible' : 'hidden';
   SCREENS.forEach(s => {
     const el = document.getElementById(s);
     if(el) el.classList.toggle('hidden', s !== id);
@@ -3596,30 +3789,59 @@ function isActivePremium(){
       && new Date(userProfile.premium_until) > new Date();
 }
 
+/* ── 맵동가족 활성 여부 ─────────────────────────────────── */
+function isActiveMapdongFamily(){
+  return userProfile?.is_mapdong_family
+      && userProfile?.mapdong_family_until
+      && new Date(userProfile.mapdong_family_until) > new Date();
+}
+
+/* ── 커뮤니티 접근 권한 (맵동가족 or 프리미엄) ──────────── */
+function canAccessCommunity(){
+  return isActivePremium() || isActiveMapdongFamily();
+}
+
 function renderUserChip(){
   if(!currentUser) return;
   const email   = currentUser.email || '';
   const name    = currentUser.user_metadata?.name || email.split('@')[0] || '사용자';
-  const isPrem  = isActivePremium();
-  const chip    = document.getElementById('user-chip');
+  const isPrem     = isActivePremium();
+  const isFamily   = isActiveMapdongFamily();
+  const chip       = document.getElementById('user-chip');
   chip.classList.add('visible');
   document.getElementById('user-avatar').textContent = name[0].toUpperCase();
   document.getElementById('user-name').textContent   = name;
   document.getElementById('dd-email').textContent    = email;
-  const badge  = document.getElementById('user-badge');
-  const status = document.getElementById('dd-status');
-  const tbar   = document.getElementById('trial-bar');
+  const badge   = document.getElementById('user-badge');
+  const status  = document.getElementById('dd-status');
+  const tbar    = document.getElementById('trial-bar');
+  const btnUpg  = document.getElementById('dd-upgrade');
+  const btnMdUpg= document.getElementById('dd-mapdong-upgrade');
+
   if(isPrem){
     const until = new Date(userProfile.premium_until).toLocaleDateString('ko-KR');
-    badge.textContent  = '프리미엄'; badge.className = 'user-badge premium';
-    status.textContent = `✨ 프리미엄 · ${until}까지`; status.className = 'dd-status premium';
+    badge.textContent   = '프리미엄'; badge.className = 'user-badge premium';
+    status.textContent  = `✨ 프리미엄 · ${until}까지`; status.className = 'dd-status premium';
     if(tbar) tbar.classList.add('hidden');
+    if(btnUpg)   btnUpg.style.display   = 'none';
+    if(btnMdUpg) btnMdUpg.style.display = 'none';
+  } else if(isFamily){
+    const until = new Date(userProfile.mapdong_family_until).toLocaleDateString('ko-KR');
+    badge.textContent   = '맵동가족'; badge.className = 'user-badge mapdong';
+    status.textContent  = `💜 맵동가족 · ${until}까지`; status.className = 'dd-status mapdong';
+    if(tbar) tbar.classList.add('hidden');
+    if(btnUpg)   btnUpg.style.display   = 'block';  // 프리미엄 업그레이드는 여전히 표시
+    if(btnMdUpg) btnMdUpg.style.display = 'none';
   } else {
     const used = userProfile?.plays_count || 0;
-    badge.textContent  = '체험판'; badge.className = 'user-badge trial';
-    status.textContent = `체험판 · ${used}/300 사용`; status.className = 'dd-status trial';
+    badge.textContent   = '체험판'; badge.className = 'user-badge trial';
+    status.textContent  = `체험판 · ${used}/300 사용`; status.className = 'dd-status trial';
     if(tbar){ tbar.classList.remove('hidden'); updateTrialBar(used); }
+    if(btnUpg)   btnUpg.style.display   = 'block';
+    if(btnMdUpg) btnMdUpg.style.display = 'block';
   }
+  // 오른쪽 사이드바 권한 업데이트
+  updateRightSidebarAuth();
 }
 
 function updateTrialBar(used){
@@ -3632,6 +3854,10 @@ function updateTrialBar(used){
 }
 
 function routeUser(){
+  // 사이드바 마지막 선택 복원
+  if(userProfile?.last_sidebar_category){
+    _lastSidebarSlug = userProfile.last_sidebar_category;
+  }
   // 로그인 안 됨
   if(!currentUser){
     if(document.getElementById('start').classList.contains('hidden')){
@@ -3789,20 +4015,22 @@ async function startNiceAuth(){
    각 플랜별 할인율을 숫자로 입력 (0 = 할인 없음)
    이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력    */
 const PLAN_DISCOUNTS = {
-  daily:    0,   /* 일일권 할인율 (%) - 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 */
-  monthly:  0,   /* 1개월권 할인율 (%) - 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 */
-  quarterly:0,   /* 3개월권 할인율 (%) - 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 */
-  halfyear: 0,   /* 6개월권 할인율 (%) - 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 */
-  yearly:   0,   /* 12개월권 할인율 (%) - 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 */
+  daily:          0,
+  monthly:        0,
+  quarterly:      0,
+  halfyear:       0,
+  yearly:         0,
+  mapdong_family: 0,
 };
 
 /* ── 플랜 기본 정보 ──────────────────────────────────────────── */
 const PLAN_INFO = {
-  daily:     { base: 600,   label: '일일권',    orderName: 'MapDong 프리미엄 일일권' },
-  monthly:   { base: 12000, label: '1개월권',   orderName: 'MapDong 프리미엄 1개월' },
-  quarterly: { base: 28000, label: '3개월권',   orderName: 'MapDong 프리미엄 3개월' },
-  halfyear:  { base: 42000, label: '6개월권',   orderName: 'MapDong 프리미엄 6개월' },
-  yearly:    { base: 80000, label: '12개월권',  orderName: 'MapDong 프리미엄 12개월' },
+  daily:          { base: 600,   label: '일일권',      orderName: 'MapDong 프리미엄 일일권' },
+  monthly:        { base: 12000, label: '1개월권',     orderName: 'MapDong 프리미엄 1개월' },
+  quarterly:      { base: 28000, label: '3개월권',     orderName: 'MapDong 프리미엄 3개월' },
+  halfyear:       { base: 42000, label: '6개월권',     orderName: 'MapDong 프리미엄 6개월' },
+  yearly:         { base: 80000, label: '12개월권',    orderName: 'MapDong 프리미엄 12개월' },
+  mapdong_family: { base: 990,   label: '맵동가족 월정액', orderName: 'MapDong 맵동가족 월정액' },
 };
 
 /* 할인 적용된 최종 가격 계산 */
@@ -4134,6 +4362,212 @@ async function confirmTossPayment() {
 }
 
 /* ── 5. 사이드 패널 토글 ──────────────────────────────────── */
+/* ─── 오른쪽 사이드바 ──────────────────────────────────── */
+function toggleRightSide() {
+  const main = document.getElementById('main');
+  main.classList.toggle('right-collapsed');
+  const btn = document.getElementById('right-side-toggle');
+  btn.textContent = main.classList.contains('right-collapsed') ? '◀' : '▶';
+}
+
+/* 커뮤니티 메뉴 렌더 */
+const COMMUNITY_CATS = [
+  { id:1,  name:'보험관련문의', slug:'insurance', icon:'🛡️', children:[
+    { id:11, name:'보험가입',  slug:'insurance-join'     },
+    { id:12, name:'사고났어요',slug:'insurance-accident' },
+    { id:13, name:'보상관련',  slug:'insurance-claim'    },
+  ]},
+  { id:2,  name:'퀵서비스', slug:'quick', icon:'⚡', children:[
+    { id:21, name:'꿀팁',     slug:'quick-tip'      },
+    { id:22, name:'탁송위치', slug:'quick-location' },
+    { id:23, name:'자유',     slug:'quick-free'     },
+    { id:24, name:'고민',     slug:'quick-worry'    },
+    { id:25, name:'사건사고', slug:'quick-incident' },
+  ]},
+  { id:3,  name:'배민&배플', slug:'baemin', icon:'🛵', children:[
+    { id:31, name:'꿀팁',     slug:'baemin-tip'      },
+    { id:32, name:'자유',     slug:'baemin-free'     },
+    { id:33, name:'고민',     slug:'baemin-worry'    },
+    { id:34, name:'사건사고', slug:'baemin-incident' },
+  ]},
+  { id:4,  name:'쿠팡&쿠플', slug:'coupang', icon:'📦', children:[
+    { id:41, name:'꿀팁',     slug:'coupang-tip'      },
+    { id:42, name:'자유',     slug:'coupang-free'     },
+    { id:43, name:'고민',     slug:'coupang-worry'    },
+    { id:44, name:'사건사고', slug:'coupang-incident' },
+  ]},
+  { id:5,  name:'택시', slug:'taxi', icon:'🚕', children:[
+    { id:51, name:'꿀팁', slug:'taxi-tip'   },
+    { id:52, name:'자유', slug:'taxi-free'  },
+    { id:53, name:'고민', slug:'taxi-worry' },
+  ]},
+  { id:6,  name:'화물', slug:'cargo', icon:'🚚', children:[
+    { id:61, name:'꿀팁', slug:'cargo-tip'   },
+    { id:62, name:'자유', slug:'cargo-free'  },
+    { id:63, name:'고민', slug:'cargo-worry' },
+  ]},
+  { id:7,  name:'대리운전', slug:'proxy-drive', icon:'🚗', children:[
+    { id:71, name:'꿀팁', slug:'proxy-tip'   },
+    { id:72, name:'자유', slug:'proxy-free'  },
+    { id:73, name:'고민', slug:'proxy-worry' },
+  ]},
+];
+
+let _lastSidebarSlug = null;
+
+function updateRightSidebarAuth(){
+  const canAccess = canAccessCommunity();
+  // 멤버 전용 메뉴 잠금 처리
+  ['rs-rank','rs-event','rs-mall'].forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    if(canAccess){ el.classList.remove('locked'); }
+    else         { el.classList.add('locked'); }
+  });
+  renderCommunityMenu();
+}
+
+function renderCommunityMenu(){
+  const el = document.getElementById('rs-community-menu');
+  if(!el) return;
+  const canAccess = canAccessCommunity();
+
+  let html = '';
+  COMMUNITY_CATS.forEach(cat => {
+    html += `<div class="rs-cat-parent" id="rscat-${cat.slug}" onclick="toggleRsCat('${cat.slug}')">
+      <span>${cat.icon} ${cat.name}</span>
+      <span class="rs-cat-arrow">›</span>
+    </div>
+    <div class="rs-cat-children" id="rschildren-${cat.slug}">`;
+    cat.children.forEach(ch => {
+      if(canAccess){
+        html += `<div class="rs-child-item" id="rsch-${ch.slug}"
+          onclick="openCommunity('${ch.slug}','${ch.id}','${ch.name}')">
+          ㄴ ${ch.name}
+        </div>`;
+      } else {
+        html += `<div class="rs-child-item locked">
+          ㄴ ${ch.name} <span class="rs-lock">🔒</span>
+        </div>`;
+      }
+    });
+    html += `</div>`;
+  });
+  el.innerHTML = html;
+
+  // 마지막 선택 카테고리 복원
+  if(_lastSidebarSlug) restoreLastSidebarSelection();
+}
+
+function toggleRsCat(slug){
+  const parent   = document.getElementById('rscat-' + slug);
+  const children = document.getElementById('rschildren-' + slug);
+  if(!parent || !children) return;
+  const isOpen = children.classList.contains('open');
+  // 다른 것 닫기
+  document.querySelectorAll('.rs-cat-children.open').forEach(el => el.classList.remove('open'));
+  document.querySelectorAll('.rs-cat-parent.open').forEach(el => el.classList.remove('open'));
+  if(!isOpen){
+    children.classList.add('open');
+    parent.classList.add('open');
+  }
+}
+
+function restoreLastSidebarSelection(){
+  if(!_lastSidebarSlug) return;
+  // 해당 slug의 부모 찾아서 열기
+  COMMUNITY_CATS.forEach(cat => {
+    const match = cat.children.find(c => c.slug === _lastSidebarSlug);
+    if(match){
+      const children = document.getElementById('rschildren-' + cat.slug);
+      const parent   = document.getElementById('rscat-' + cat.slug);
+      if(children){ children.classList.add('open'); }
+      if(parent)  { parent.classList.add('open');   }
+      const childEl = document.getElementById('rsch-' + _lastSidebarSlug);
+      if(childEl) childEl.classList.add('active');
+    }
+  });
+}
+
+async function saveSidebarCategory(slug){
+  _lastSidebarSlug = slug;
+  if(!currentUser) return;
+  try {
+    await sb.from('user_profiles')
+      .update({ last_sidebar_category: slug })
+      .eq('user_id', currentUser.id);
+  } catch(e){ console.warn('sidebar save err', e); }
+}
+
+function openCommunity(slug, catId, catName){
+  if(!canAccessCommunity()){
+    toast('맵동가족 또는 프리미엄 회원만 이용 가능합니다', 'error');
+    return;
+  }
+  saveSidebarCategory(slug);
+  // 자식 active 표시
+  document.querySelectorAll('.rs-child-item.active').forEach(e => e.classList.remove('active'));
+  const el = document.getElementById('rsch-' + slug);
+  if(el) el.classList.add('active');
+  // community.html 로 이동
+  window.location.href = `community.html?cat=${slug}&catId=${catId}&catName=${encodeURIComponent(catName)}`;
+}
+
+/* 메뉴 클릭 함수들 */
+function goMyInfo(){
+  closeDropdown();
+  window.location.href = 'myinfo.html';
+}
+function goRanking(){
+  if(!canAccessCommunity()){ toast('맵동가족 또는 프리미엄 회원만 이용 가능합니다','error'); return; }
+  toast('랭킹 페이지 준비 중입니다', 'info');
+}
+function goEvent(){
+  if(!canAccessCommunity()){ toast('맵동가족 또는 프리미엄 회원만 이용 가능합니다','error'); return; }
+  toast('이벤트 당첨자 페이지 준비 중입니다', 'info');
+}
+function goMall(){
+  if(!canAccessCommunity()){ toast('맵동가족 또는 프리미엄 회원만 이용 가능합니다','error'); return; }
+  toast('MapDongMall 준비 중입니다 ✨', 'info');
+}
+function showMallPopup(e){
+  const popup = document.getElementById('mall-popup');
+  popup.style.top  = (e.clientY - 80) + 'px';
+  popup.style.left = (e.clientX - 190) + 'px';
+  popup.classList.add('show');
+}
+function hideMallPopup(){
+  document.getElementById('mall-popup').classList.remove('show');
+}
+function closeDropdown(){
+  document.getElementById('user-dropdown').classList.remove('show');
+}
+
+/* ── 맵동가족 결제 페이월 ──────────────────────────────── */
+function showMapdongPaywall(){
+  closeDropdown();
+  // 맵동가족 전용 결제 시작 (990원 빌링)
+  startPayment('mapdong_family');
+}
+
+/* billing=success 콜백에서 맵동가족 처리 */
+async function handleMapdongBillingSuccess(authKey, customerKey, orderId, amount){
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(`${EDGE}/toss-payment`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ authKey, customerKey, orderId, amount: Number(amount), plan: 'mapdong_family' })
+  });
+  const data = await res.json();
+  if(res.ok){
+    toast('🎉 맵동가족이 되셨습니다!', 'success');
+    await loadProfile();
+    routeUser();
+  } else {
+    toast('맵동가족 가입 실패: ' + (data.error||data.message), 'error');
+  }
+}
+
 function toggleSidePanel() {
   const main   = document.getElementById('main');
   const toggle = document.getElementById('side-toggle');
@@ -4313,8 +4747,14 @@ async function handlePaymentCallback(){
         body: JSON.stringify({ authKey, customerKey, orderId, amount: Number(amount), plan })
       });
       const data = await res.json();
-      if(res.ok){ toast('🎉 ' + (data.message||'구독이 시작되었습니다!'), 'success'); await loadProfile(); routeUser(); }
-      else toast('구독 처리 실패: ' + (data.error||data.message), 'error');
+      if(res.ok){
+        const msg = plan === 'mapdong_family'
+          ? '🎉 맵동가족이 되셨습니다! 게시판을 이용해보세요!'
+          : (data.message || '구독이 시작되었습니다!');
+        toast(msg, 'success');
+        await loadProfile();
+        routeUser();
+      } else toast('구독 처리 실패: ' + (data.error||data.message), 'error');
     } catch(e){ toast('구독 처리 중 오류가 발생했습니다', 'error'); }
     return;
   }
