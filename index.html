@@ -1692,14 +1692,20 @@ function buildCityMetaFromCache(polyCache) {
   for (const [topKey, topVal] of Object.entries(polyCache)) {
     if (topKey.startsWith('_') || typeof topVal !== 'object' || !topVal) continue;
     const t = _m(topVal, '_type') || '';
-    if (t === '도') {
+    // 도·특별자치도: 아래 시군구를 각각 등록
+    if (t === '도' || t === '특별자치도') {
       for (const [city, cv] of Object.entries(topVal)) {
         if (!city.startsWith('_') && city !== '_meta' && typeof cv === 'object' && cv) {
           processCity(city, cv, topKey);
         }
       }
-    } else if (['특별시','광역시','시','특별자치시','특별자치도'].includes(t)) {
-      processCity(topKey, topVal, null);
+    } else if (['특별시','광역시','시','특별자치시'].includes(t)) {
+      // 특별자치시(세종): 아래 '세종시'를 cityName으로 등록
+      for (const [city, cv] of Object.entries(topVal)) {
+        if (!city.startsWith('_') && city !== '_meta' && typeof cv === 'object' && cv) {
+          processCity(city, cv, topKey);
+        }
+      }
     }
   }
 
@@ -1716,8 +1722,11 @@ function buildCityMetaFromCache(polyCache) {
 function getCityNode(cityName) {
   if (!POLY_CACHE) return null;
   if (POLY_CACHE[cityName]) return POLY_CACHE[cityName];
+  // 도·특별자치도·특별자치시 아래에서도 탐색
+  const doTypes = new Set(['도','특별자치도','특별자치시','특별시','광역시']);
   for (const [, tv] of Object.entries(POLY_CACHE)) {
-    if (_m(tv, '_type') === '도' && tv[cityName]) return tv[cityName];
+    const t = _m(tv, '_type') || '';
+    if (doTypes.has(t) && tv[cityName]) return tv[cityName];
   }
   return null;
 }
@@ -2092,21 +2101,25 @@ async function startMapTilePreload() {
 // ── [1단계] 지역 그룹 설정 — 배열 수정만으로 그룹 변경 가능 ──────
 // 배열에 없는 도시는 자동으로 '기타 지역' 그룹으로 이동
 const CITY_GROUPS = {
-  "🏙 수도권 경기 서부·남부·동부·북부": [
-    "서울특별시","수원시",
-    "화성시", "평택시", "오산시",
-    "안양시","군포시", "의왕시","광명시", "시흥시","안산시",
-    "부천시","김포시","성남시","용인시","고양시",
-    "파주시", "의정부시", "양주시", "동두천시", "연천군","포천시",
-    "남양주시", "구리시", "하남시",
-    "광주시", "이천시", "여주시", "양평군",
-    "과천시","포천시",
+  "🏙 서울": [
+    "서울특별시",
   ],
-  "🌊 인천 근방 경기도 포함": [
-  "인천광역시", "부천시",
+  "🏙 수도권 경기 서부·남부": [
+    "수원시", "화성시", "평택시", "오산시",
+    "안양시", "군포시", "의왕시", "광명시", "시흥시", "안산시",
+    "부천시", "김포시",
+  ],
+  "🏙 수도권 경기 동부·북부": [
+    "성남시", "용인시", "고양시",
+    "파주시", "의정부시", "양주시", "동두천시", "연천군", "포천시",
+    "남양주시", "구리시", "하남시",
+    "광주시", "이천시", "여주시", "양평군", "과천시",
   ],
   "🏙 수도권 경기 외곽": [
-    "안성시", "가평군","성남시","용인시","안산시",
+    "안성시", "가평군",
+  ],
+  "🌊 인천": [
+    "인천광역시",
   ],
   "⛰ 강원도": [
     "춘천시", "원주시", "강릉시", "동해시", "태백시",
@@ -2126,7 +2139,7 @@ const CITY_GROUPS = {
     "예산군", "태안군",
   ],
   "🌻 세종": [
-    "세종특별자치시",
+    "세종시",
   ],
   "🌿 전북특별자치도": [
     "전주시",
