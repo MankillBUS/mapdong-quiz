@@ -113,6 +113,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 #user-dropdown{position:fixed;top:60px;right:20px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px;min-width:190px;z-index:100000;display:none;box-shadow:0 8px 30px rgba(0,0,0,.5);}
 #user-dropdown.show{display:block;}
 .dd-info{padding:8px 10px 10px;border-bottom:1px solid var(--border);margin-bottom:6px;}
+.dd-info:hover .dd-email{color:var(--accent);}
 .dd-email{font-size:.68rem;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dd-status{font-size:.7rem;margin-top:4px;}
 .dd-status.premium{color:var(--gold);}
@@ -1458,13 +1459,21 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <span class="user-name" id="user-name">-</span>
     <span class="user-badge trial" id="user-badge">체험판</span>
     <div id="user-dropdown">
-      <div class="dd-info">
+      <!-- 닉네임 클릭 → 내정보 수정 -->
+      <div class="dd-info" id="dd-info-top" onclick="goMyInfo()"
+           style="cursor:pointer;transition:background .15s;border-radius:8px 8px 0 0;"
+           onmouseenter="this.style.background='var(--surface2)'"
+           onmouseleave="this.style.background=''">
+        <div style="font-size:.6rem;color:var(--text-dim);margin-bottom:2px;letter-spacing:1px">
+          클릭 시 내정보 수정 →
+        </div>
         <div class="dd-email" id="dd-email">-</div>
         <div class="dd-status trial" id="dd-status">체험판 이용 중</div>
       </div>
-      <button class="dd-btn" id="dd-myinfo" onclick="goMyInfo()">✏️ 내정보 수정</button>
       <button class="dd-btn" id="dd-upgrade" onclick="showPaywall(event)">💳 프리미엄 업그레이드</button>
       <button class="dd-btn" id="dd-mapdong-upgrade" onclick="showMapdongPaywall()" style="display:none">💜 맵동가족 가입 990원/월</button>
+      <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
+      <button class="dd-btn" id="dd-myinfo" onclick="goMyInfo()">✏️ 내정보 수정</button>
       <button class="dd-btn danger" onclick="signOut()">로그아웃</button>
     </div>
   </div>
@@ -3811,7 +3820,7 @@ function renderUserChip(){
   chip.classList.add('visible');
   document.getElementById('user-avatar').textContent = name[0].toUpperCase();
   document.getElementById('user-name').textContent   = name;
-  document.getElementById('dd-email').textContent    = email;
+  document.getElementById('dd-email').textContent    = name + ' (' + email + ')';
   const badge   = document.getElementById('user-badge');
   const status  = document.getElementById('dd-status');
   const tbar    = document.getElementById('trial-bar');
@@ -4516,6 +4525,10 @@ function openCommunity(slug, catId, catName){
 /* 메뉴 클릭 함수들 */
 function goMyInfo(){
   closeDropdown();
+  // 퀴즈 진행 중이면 확인 팝업
+  if(quizActive() && cur){
+    if(!confirm('퀴즈가 중단됩니다.\n내정보 수정 페이지로 이동하시겠습니까?')) return;
+  }
   window.location.href = 'myinfo.html';
 }
 function goRanking(){
