@@ -2,6 +2,9 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<!-- Google AdSense -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8230598534021197"
+     crossorigin="anonymous"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MapDong · 수도권 동(洞) 위치 퀴즈</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&family=Black+Han+Sans&family=Gowun+Dodum&family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet">
@@ -3066,16 +3069,66 @@ function showQuestionCard(q) {
   updateMobileQCard(q);
 }
 
+/* ═══════════════════════════════════════════════════════
+   📢 광고 시스템 — 일반/맵동가족 5문제마다 광고 표시
+   ═══════════════════════════════════════════════════════ */
+let _adQuizCount = 0;
+let _adTimer     = null;
+let _adNextFn    = null;
+const AD_INTERVAL  = 5;
+const AD_WAIT_SEC  = 5;
+
+function shouldShowAd() {
+  return !isActivePremium();
+}
+function handleAdGate(nextFn) {
+  if(!shouldShowAd()){ nextFn(); return; }
+  _adQuizCount++;
+  if(_adQuizCount % AD_INTERVAL !== 0){ nextFn(); return; }
+  _adNextFn = nextFn;
+  showAdOverlay();
+}
+function showAdOverlay() {
+  const overlay  = document.getElementById('ad-overlay');
+  if(!overlay){ _adNextFn && _adNextFn(); _adNextFn=null; return; }
+  overlay.style.display = 'flex';
+  let sec = AD_WAIT_SEC;
+  const cntEl   = document.getElementById('ad-countdown');
+  const skipBtn = document.getElementById('ad-skip-btn');
+  if(cntEl) cntEl.textContent = sec;
+  if(skipBtn){ skipBtn.disabled=true; skipBtn.style.opacity='.4'; skipBtn.style.cursor='not-allowed'; }
+  clearInterval(_adTimer);
+  _adTimer = setInterval(() => {
+    sec--;
+    if(cntEl) cntEl.textContent = sec;
+    if(sec <= 0){
+      clearInterval(_adTimer);
+      if(skipBtn){ skipBtn.disabled=false; skipBtn.style.opacity='1'; skipBtn.style.cursor='pointer'; }
+    }
+  }, 1000);
+}
+function skipAd() {
+  clearInterval(_adTimer);
+  const overlay = document.getElementById('ad-overlay');
+  if(overlay) overlay.style.display = 'none';
+  if(_adNextFn){ _adNextFn(); _adNextFn=null; }
+}
+
+function showShowAllLockedPopup(){
+  const m = document.getElementById('premium-feature-modal');
+  if(m) m.style.display = 'flex';
+}
+
 function closeOkModal(){
-  // 정답 모달 닫고 다음 문제 (폴리곤 & 레이블 유지)
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
-  canAns = true;
-
-  if(!queue.length) reshuffle();
-  cur = queue.pop(); qCnt++;
-  showQuestionCard(cur);
-  updStats();
+  handleAdGate(() => {
+    canAns = true;
+    if(!queue.length) reshuffle();
+    cur = queue.pop(); qCnt++;
+    showQuestionCard(cur);
+    updStats();
+  });
 }
 
 function nextQ(){
@@ -3221,6 +3274,10 @@ window.hideWrongBoundary = function(){
 };
 
 window.toggleShowAll = function(){
+  if(!isActivePremium()){
+    showShowAllLockedPopup();
+    return;
+  }
   if(allAnswersVisible){
     // 끄기: allAnswerLayers 제거 (tempL, answerLayers, wrongLayers 제외)
     const keep = new Set([...tempL, ...answerLayers, ...wrongLayers]);
@@ -3517,12 +3574,13 @@ function closeNoModal(){
     document.getElementById('ans-bar').classList.add('show');
   }
 
-  canAns = true;
-
-  if(!queue.length) reshuffle();
-  cur = queue.pop(); qCnt++;
-  showQuestionCard(cur);
-  updStats();
+  handleAdGate(() => {
+    canAns = true;
+    if(!queue.length) reshuffle();
+    cur = queue.pop(); qCnt++;
+    showQuestionCard(cur);
+    updStats();
+  });
 }
 
 window.focusA = function(){if(cur)map.flyTo([cur.lat,cur.lng],14,{duration:1.2});}
@@ -3604,17 +3662,16 @@ function toast(msg, type=''){
 /* ── 화면 전환 ── */
 const SCREENS = ['screen-login','screen-verify','screen-paywall','start','screen-cs'];
 function showOnly(id){
-  SCREENS.forEach(s => {
-    const el = document.getElementById(s);
-    if(el) el.classList.toggle('hidden', s !== id);
-  });
-  // 오른쪽 사이드바: start 화면에서만 표시
-  // visibility 대신 display 제어 — 왼쪽 사이드바와 동일하게 CSS만으로 처리
+  // 오른쪽 사이드바: start 화면에서만 표시 (display로 제어 — visibility:hidden은 검은화면 버그 유발)
   const showRight = (id === 'start');
   const rightSide   = document.getElementById('right-side');
   const rightToggle = document.getElementById('right-side-toggle');
   if(rightSide)   rightSide.style.display   = showRight ? '' : 'none';
   if(rightToggle) rightToggle.style.display = showRight ? '' : 'none';
+  SCREENS.forEach(s => {
+    const el = document.getElementById(s);
+    if(el) el.classList.toggle('hidden', s !== id);
+  });
 }
 
 /* ── 로그인 ── */
@@ -4499,7 +4556,10 @@ function goMyInfo(){
   window.location.href = 'myinfo.html';
 }
 function goRanking(){
-  if(!canAccessCommunity()){ toast('맵동가족 또는 프리미엄 회원만 이용 가능합니다','error'); return; }
+  if(!isActivePremium()){
+    showShowAllLockedPopup();
+    return;
+  }
   toast('랭킹 페이지 준비 중입니다', 'info');
 }
 function goEvent(){
@@ -4913,11 +4973,6 @@ function openCS() {
   csTab('board');
 }
 function openCSNotice() { openCS(); }
-function openCSPrivacy() {
-  window._csPrevScreen = null;
-  showOnly('screen-cs');
-  csTab('privacy');
-}
 function openCSRefund()  {
   window._csPrevScreen = null;
   showOnly('screen-cs');
@@ -5161,6 +5216,12 @@ function renderCSPrivacy(){
       <div style="font-size:.7rem;color:var(--text-dim);">새 탭에서 열립니다</div>
     </div>
   `;
+}
+
+function openCSPrivacy() {
+  window._csPrevScreen = null;
+  showOnly('screen-cs');
+  csTab('privacy');
 }
 
 function renderCSRefund() {
@@ -5961,6 +6022,96 @@ window.toggleAuthMode = function() {
         style="flex:1;padding:11px;border-radius:10px;background:linear-gradient(135deg,#a29bfe,#6c5ce7);
         color:#fff;border:none;font-size:.85rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
         예, 결제하기
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     📢 광고 팝업 (일반/맵동가족 5문제마다)
+     ════════════════════════════════════════════ -->
+<div id="ad-overlay" style="display:none;position:fixed;inset:0;
+  background:rgba(10,14,26,.95);backdrop-filter:blur(8px);
+  z-index:95000;align-items:center;justify-content:center;flex-direction:column;">
+  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;
+    max-width:380px;width:90%;padding:24px;text-align:center;
+    box-shadow:0 0 60px rgba(0,212,255,.15);">
+    <div style="font-size:.65rem;color:var(--text-dim);letter-spacing:2px;margin-bottom:10px;">📢 광고</div>
+    <div id="ad-slot-container" style="min-height:250px;background:rgba(255,255,255,.04);
+      border:1px dashed var(--border);border-radius:12px;
+      display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+      <div style="color:var(--text-dim);font-size:.8rem;text-align:center;padding:20px;">
+        <div style="font-size:2rem;margin-bottom:8px;">📋</div>
+        광고 영역<br>
+        <span style="font-size:.68rem;opacity:.6;">AdSense 승인 후 광고가 표시됩니다</span>
+      </div>
+      <!--
+      <ins class="adsbygoogle"
+           style="display:block;width:300px;height:250px;"
+           data-ad-client="ca-pub-8230598534021197"
+           data-ad-slot="YOUR_AD_SLOT_ID"
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      -->
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div style="font-size:.78rem;color:var(--text-dim);">
+        <span id="ad-countdown" style="color:var(--accent);font-weight:700;font-size:1rem;">5</span>초 후 계속
+      </div>
+      <button id="ad-skip-btn" onclick="skipAd()" disabled
+        style="background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;
+        border:none;border-radius:10px;padding:10px 22px;font-size:.88rem;font-weight:700;
+        cursor:not-allowed;opacity:.4;font-family:'Noto Sans KR',sans-serif;transition:all .3s;">
+        퀴즈 계속하기 →
+      </button>
+    </div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+      <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:8px;">
+        💎 프리미엄 회원은 광고 없이 이용 가능합니다
+      </div>
+      <button onclick="document.getElementById('ad-overlay').style.display='none'; openPlanMenu();"
+        style="background:none;border:1px solid var(--gold);color:var(--gold);
+        border-radius:8px;padding:6px 16px;font-size:.75rem;font-weight:700;
+        cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+        🌟 광고 없애기
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 프리미엄 전용 기능 안내 팝업 -->
+<div id="premium-feature-modal" style="display:none;position:fixed;inset:0;
+  background:rgba(10,14,26,.88);backdrop-filter:blur(8px);
+  z-index:95000;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:linear-gradient(135deg,var(--surface),var(--surface2));
+    border:1px solid var(--border);border-radius:20px;max-width:340px;width:100%;
+    padding:28px 24px;text-align:center;box-shadow:0 0 50px rgba(255,215,0,.2);">
+    <div style="font-size:2.5rem;margin-bottom:12px;">🔒</div>
+    <div style="font-size:1rem;font-weight:700;color:var(--text);margin-bottom:8px;">
+      프리미엄 회원 전용 기능
+    </div>
+    <div style="font-size:.82rem;color:var(--text-dim);line-height:1.8;margin-bottom:6px;">
+      이 기능은 <strong style="color:var(--gold);">프리미엄 회원</strong>만 이용 가능합니다.<br>
+      프리미엄 회원으로 업그레이드 하시겠습니까?
+    </div>
+    <div style="font-size:.78rem;color:var(--accent);margin-bottom:20px;">
+      💡 하루 <strong>600원</strong> 수준입니다
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="document.getElementById('premium-feature-modal').style.display='none'"
+        style="flex:1;padding:11px;border-radius:10px;background:var(--surface);
+        border:1px solid var(--border);color:var(--text-dim);font-size:.85rem;
+        font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+        취소
+      </button>
+      <button onclick="document.getElementById('premium-feature-modal').style.display='none'; openPlanMenu();"
+        style="flex:1;padding:11px;border-radius:10px;
+        background:linear-gradient(135deg,var(--gold),#ff8c00);
+        color:#000;border:none;font-size:.85rem;font-weight:700;
+        cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+        🌟 업그레이드
       </button>
     </div>
   </div>
