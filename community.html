@@ -226,11 +226,17 @@ function isActivePremium(){
 function isActiveMapdongFamily(){
   return userProfile?.is_mapdong_family&&userProfile?.mapdong_family_until&&new Date(userProfile.mapdong_family_until)>new Date();
 }
-function canAccess(){return isActivePremium()||isActiveMapdongFamily();}
+function canAccess(){return isAdmin()||isActivePremium()||isActiveMapdongFamily();}
 function isInsuranceCat(){
   return !!CATS.find(c=>c.insuranceOnly&&c.children.some(ch=>ch.id===currentCatId));
 }
+function isAdmin(){
+  return userProfile?.role==='admin'||
+    ['kke320001@gmail.com','test12@gmail.com'].includes(currentUser?.email);
+}
 function canWrite(){
+  if(!currentUser) return false;
+  if(isAdmin()) return true;           // 관리자는 모든 게시판 글쓰기 가능
   if(!canAccess()) return false;
   if(isInsuranceCat()) return userProfile?.job==='보험';
   return true;
@@ -288,7 +294,7 @@ async function renderBoard(){
   document.getElementById('post-write').style.display='none';
   document.getElementById('post-list-view').style.display='block';
   document.getElementById('insurance-notice').style.display=isInsuranceCat()?'block':'none';
-  document.getElementById('btn-write').style.display=canWrite()?'block':'none';
+  document.getElementById('btn-write').style.display=(canWrite()||isAdmin())?'block':'none';
 
   const listEl=document.getElementById('post-list');
   if(!currentCatId){listEl.innerHTML='<div style="color:var(--text-dim);text-align:center;padding:40px">카테고리를 선택하세요</div>';return;}
@@ -344,29 +350,81 @@ function renderPagination(total){
 }
 function goPage(p){currentPage=p;renderBoard();window.scrollTo(0,0);}
 
+let _viewingPostId=null, _viewingPostData=null;
+
 async function viewPost(postId){
   if(!canAccess()){alert('맵동가족 또는 프리미엄 회원만 열람 가능합니다');return;}
   const {data}=await sb.from('community_posts').select('*').eq('id',postId).single();
   if(!data)return;
+  _viewingPostId=postId; _viewingPostData=data;
   await sb.from('community_posts').update({view_count:(data.view_count||0)+1}).eq('id',postId);
   document.getElementById('post-list-view').style.display='none';
   document.getElementById('post-write').style.display='none';
   document.getElementById('post-view').style.display='block';
   document.getElementById('pv-title').textContent=data.title;
-  document.getElementById('pv-meta').textContent=new Date(data.created_at).toLocaleString('ko-KR');
+
+  // 작성자 여부 / 관리자 여부에 따라 수정·삭제 버튼 표시
+  const isOwner = currentUser && data.user_id===currentUser.id;
+  const adminOrOwner = isAdmin()||isOwner;
+  const metaEl = document.getElementById('pv-meta');
+  metaEl.innerHTML = new Date(data.created_at).toLocaleString('ko-KR') +
+    (adminOrOwner ? `
+      <span style="margin-left:12px;">
+        <button onclick="editPost()" style="background:rgba(0,212,255,.1);color:var(--accent);border:1px solid rgba(0,212,255,.3);border-radius:6px;padding:3px 10px;font-size:.7rem;cursor:pointer;margin-right:6px;">✏️ 수정</button>
+        <button onclick="deletePost()" style="background:rgba(255,60,110,.1);color:var(--accent2);border:1px solid rgba(255,60,110,.3);border-radius:6px;padding:3px 10px;font-size:.7rem;cursor:pointer;">🗑 삭제</button>
+      </span>` : '');
+
   const contentEl=document.getElementById('pv-content');
   contentEl.innerHTML=data.content||'';
-  // 이미지 클릭 → 라이트박스
   contentEl.querySelectorAll('img').forEach(img=>{
     img.style.cursor='pointer';
     img.onclick=()=>openLightbox(img.src);
   });
 }
 
+async function deletePost(){
+  if(!_viewingPostId) return;
+  if(!confirm('이 게시글을 삭제하시겠습니까?')) return;
+  const {error}=await sb.from('community_posts')
+    .update({is_deleted:true}).eq('id',_viewingPostId);
+  if(error){alert('삭제 실패: '+error.message);return;}
+  showListView(); renderBoard();
+}
+
+function editPost(){
+  if(!_viewingPostData) return;
+  document.getElementById('post-list-view').style.display='none';
+  document.getElementById('post-view').style.display='none';
+  document.getElementById('post-write').style.display='block';
+  document.getElementById('write-title-input').value=_viewingPostData.title||'';
+  document.getElementById('write-editor').innerHTML=_viewingPostData.content||'';
+  // 등록하기 버튼을 수정 모드로 교체
+  const btn=document.getElementById('btn-submit-post');
+  btn.textContent='수정 완료';
+  btn.onclick=submitEditPost;
+}
+
+async function submitEditPost(){
+  const title=document.getElementById('write-title-input').value.trim();
+  const content=document.getElementById('write-editor').innerHTML.trim();
+  if(!title){alert('제목을 입력하세요');return;}
+  if(!content){alert('내용을 입력하세요');return;}
+  const btn=document.getElementById('btn-submit-post');
+  btn.disabled=true; btn.textContent='수정 중...';
+  const {error}=await sb.from('community_posts')
+    .update({title,content,updated_at:new Date().toISOString()})
+    .eq('id',_viewingPostId);
+  btn.disabled=false; btn.textContent='수정 완료';
+  btn.onclick=submitPost;  // 원래대로 복원
+  if(error){alert('수정 실패: '+error.message);return;}
+  // 수정 후 다시 보기
+  await viewPost(_viewingPostId);
+}
+
 function showWriteForm(){
   if(!canWrite()){
-    if(isInsuranceCat()) alert('보험 게시판은 보험 자격증 보유자만 글쓰기 가능합니다.\n(관리자에게 job=보험 설정 요청)');
-    else alert('맵동가족 또는 프리미엄 회원만 작성 가능합니다');
+    if(isInsuranceCat()&&!isAdmin()) alert('보험 게시판은 보험 자격증 보유자(job=보험)만 글쓰기 가능합니다.');
+    else if(!canAccess()) alert('맵동가족 또는 프리미엄 회원만 작성 가능합니다');
     return;
   }
   document.getElementById('post-list-view').style.display='none';
@@ -445,16 +503,27 @@ function resizeImage(file,maxW,maxH){
   });
 }
 
+// 쿠팡 파트너스 광고 HTML (글 최상단에 삽입)
+const COUPANG_AD_HTML = `
+<div style="margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid var(--border);">
+  <script src="https://ads-partners.coupang.com/g.js"><\/script>
+  <script>
+    new PartnersCoupang.G({"id":975565,"template":"carousel","trackingCode":"AF6035623","width":"700","height":"200","tsource":""});
+  <\/script>
+</div>`;
+
 async function submitPost(){
   const title=document.getElementById('write-title-input').value.trim();
   const editor=document.getElementById('write-editor');
-  const content=editor.innerHTML.trim();
+  const rawContent=editor.innerHTML.trim();
   if(!title){alert('제목을 입력하세요');return;}
-  if(!content||editor.textContent.trim()===''){alert('내용을 입력하세요');return;}
+  if(!rawContent||editor.textContent.trim()===''){alert('내용을 입력하세요');return;}
   if(!currentUser){alert('로그인이 필요합니다');return;}
   if(!currentCatId){alert('카테고리를 선택하세요');return;}
   const btn=document.getElementById('btn-submit-post');
   btn.disabled=true;btn.textContent='등록 중...';
+  // 쿠팡 파트너스 광고를 콘텐츠 최상단에 삽입
+  const content = COUPANG_AD_HTML + rawContent;
   const {error}=await sb.from('community_posts').insert({
     category_id:currentCatId,user_id:currentUser.id,title,content
   });
