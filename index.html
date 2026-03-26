@@ -3902,8 +3902,8 @@ function renderUserChip(){
     badge.textContent   = '프리미엄'; badge.className = 'user-badge premium';
     status.textContent  = `✨ 프리미엄 · ${until}까지`; status.className = 'dd-status premium';
     if(tbar) tbar.classList.add('hidden');
-    if(btnUpg)   btnUpg.style.display   = 'none';
-    if(btnMdUpg) btnMdUpg.style.display = 'none';
+    if(btnUpg)   btnUpg.style.display   = 'flex';   // 프리미엄도 연장/변경 가능
+    if(btnMdUpg) btnMdUpg.style.display = 'none';   // 맵동가족 가입은 숨김
   } else if(isFamily){
     const until = new Date(userProfile.mapdong_family_until).toLocaleDateString('ko-KR');
     badge.textContent   = '맵동가족'; badge.className = 'user-badge mapdong';
