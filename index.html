@@ -850,7 +850,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 #right-side.collapsed { width: 0; border-left: none; }
 
 #right-side-toggle {
-  position: absolute; right: 230px; top: 50%;
+  /* 사이드바 안쪽: 230px - 18px = 212px (왼쪽 사이드바 토글과 동일 방식) */
+  position: absolute; right: 212px; top: 50%;
   transform: translateY(-50%);
   z-index: 700;
   background: var(--surface);
@@ -3662,7 +3663,8 @@ function toast(msg, type=''){
 /* ── 화면 전환 ── */
 const SCREENS = ['screen-login','screen-verify','screen-paywall','start','screen-cs'];
 function showOnly(id){
-  // 오른쪽 사이드바: start 화면에서만 표시 (display로 제어 — visibility:hidden은 검은화면 버그 유발)
+  // 오른쪽 사이드바: start + game(퀴즈중) 화면에서 표시
+  // screen-login, screen-verify, screen-paywall, screen-cs 에서는 숨김
   const showRight = (id === 'start');
   const rightSide   = document.getElementById('right-side');
   const rightToggle = document.getElementById('right-side-toggle');
@@ -4401,6 +4403,10 @@ function toggleRightSide() {
   main.classList.toggle('right-collapsed');
   const btn = document.getElementById('right-side-toggle');
   btn.textContent = main.classList.contains('right-collapsed') ? '◀' : '▶';
+  // 사이드바 접힘/펼침 시 Leaflet 지도 크기 재계산 → 새 영역 타일 즉시 로드
+  if(typeof map !== 'undefined' && map) {
+    setTimeout(() => map.invalidateSize({ animate: false, pan: false }), 260);
+  }
 }
 
 /* 커뮤니티 메뉴 렌더 */
@@ -4593,8 +4599,8 @@ function showMapdongPaywall(){
 function openPlanMenu(){
   closeDropdown();
   const modal = document.getElementById('plan-menu-modal');
-  if(modal.style.display === 'block'){ closePlanMenu(); return; } // 토글
-  modal.style.display = 'block';
+  if(modal.style.display === 'flex'){ closePlanMenu(); return; } // 토글
+  modal.style.display = 'flex';
   renderPlanMenu();
   // 외부 클릭 시 닫기
   setTimeout(()=>{
@@ -5001,6 +5007,11 @@ async function _csReturnWithAuthCheck() {
   // 관리자 / 프리미엄 / 일반 — 모두 퀴즈 화면(start 또는 게임)으로
   if(prev === 'game') {
     // 퀴즈 중이었으면 헤더/main만 보이게 (이미 화면에 있음)
+    // right-side는 반드시 복원 (game화면에서 showOnly 호출 안 하므로 직접 복원)
+    const rightSide   = document.getElementById('right-side');
+    const rightToggle = document.getElementById('right-side-toggle');
+    if(rightSide)   rightSide.style.display   = '';
+    if(rightToggle) rightToggle.style.display = '';
     renderUserChip();
     return;
   }
@@ -5946,14 +5957,16 @@ window.toggleAuthMode = function() {
 <!-- ══════════════════════════════════════════════
      💳 플랜 결제/변경 메뉴 팝업
      ════════════════════════════════════════════ -->
-<div id="plan-menu-modal" style="display:none;position:fixed;top:56px;right:230px;
-  width:320px;max-height:calc(100vh - 76px);overflow-y:auto;
-  background:var(--surface);border:1px solid var(--border);border-radius:14px 0 0 14px;
-  z-index:99999;box-shadow:-6px 8px 30px rgba(0,0,0,.6);">
-  <div style="padding:20px 18px 18px;position:relative;">
-    <button onclick="closePlanMenu()" style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,.08);
-      border:1px solid var(--border);color:var(--text-dim);width:28px;height:28px;border-radius:50%;
-      font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+<div id="plan-menu-modal" style="display:none;position:fixed;inset:0;
+  background:rgba(10,14,26,.88);backdrop-filter:blur(6px);
+  z-index:550;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:linear-gradient(135deg,var(--surface),var(--surface2));
+    border:1px solid var(--border);border-radius:20px;
+    max-width:520px;width:100%;max-height:90vh;overflow-y:auto;
+    position:relative;box-shadow:0 0 60px rgba(0,212,255,.15);padding:24px;">
+    <button onclick="closePlanMenu()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.08);
+      border:1px solid var(--border);color:var(--text-dim);width:32px;height:32px;border-radius:50%;
+      font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
 
     <div style="font-family:'Black Han Sans',sans-serif;font-size:1.2rem;color:var(--text);margin-bottom:4px;">💳 플랜 결제 / 변경</div>
     <div id="plan-menu-current-info" style="font-size:.75rem;color:var(--text-dim);margin-bottom:16px;"></div>
