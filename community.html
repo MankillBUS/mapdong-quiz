@@ -226,13 +226,13 @@ function isActivePremium(){
 function isActiveMapdongFamily(){
   return userProfile?.is_mapdong_family&&userProfile?.mapdong_family_until&&new Date(userProfile.mapdong_family_until)>new Date();
 }
-function canAccess(){return isAdmin()||isActivePremium()||isActiveMapdongFamily();}
-function isInsuranceCat(){
-  return !!CATS.find(c=>c.insuranceOnly&&c.children.some(ch=>ch.id===currentCatId));
-}
 function isAdmin(){
   return userProfile?.role==='admin'||
     ['kke320001@gmail.com','test12@gmail.com'].includes(currentUser?.email);
+}
+function canAccess(){return isAdmin()||isActivePremium()||isActiveMapdongFamily();}
+function isInsuranceCat(){
+  return !!CATS.find(c=>c.insuranceOnly&&c.children.some(ch=>ch.id===currentCatId));
 }
 function canWrite(){
   if(!currentUser) return false;
@@ -242,7 +242,7 @@ function canWrite(){
   return true;
 }
 
-async async function init(){
+async function init(){
   const {data:{session}}=await sb.auth.getSession();
   if(session?.user){
     currentUser=session.user;
@@ -287,7 +287,7 @@ function selectCat(slug,id,name){
   renderSidebar();renderBoard();
 }
 
-async async function renderBoard(){
+async function renderBoard(){
   document.getElementById('board-title').textContent=currentCatName||'게시판';
   document.getElementById('comm-cat-title').textContent=currentCatName||'커뮤니티';
   document.getElementById('post-view').style.display='none';
@@ -352,7 +352,7 @@ function goPage(p){currentPage=p;renderBoard();window.scrollTo(0,0);}
 
 let _viewingPostId=null, _viewingPostData=null;
 
-async async function viewPost(postId){
+async function viewPost(postId){
   if(!canAccess()){alert('맵동가족 또는 프리미엄 회원만 열람 가능합니다');return;}
   const {data}=await sb.from('community_posts').select('*').eq('id',postId).single();
   if(!data)return;
@@ -375,7 +375,12 @@ async async function viewPost(postId){
       </span>` : '');
 
   const contentEl=document.getElementById('pv-content');
-  contentEl.innerHTML=data.content||'';
+  // 저장된 content에서 깨진 script 광고 제거 후 iframe으로 교체
+  let renderContent = (data.content||'').replace(
+    /<div[^>]*>\s*<script[^>]*ads-partners\.coupang[\s\S]*?<\/div>/gi,
+    ''
+  );
+  contentEl.innerHTML = COUPANG_AD_HTML + renderContent;
   contentEl.querySelectorAll('img').forEach(img=>{
     img.style.cursor='pointer';
     img.onclick=()=>openLightbox(img.src);
@@ -503,13 +508,13 @@ function resizeImage(file,maxW,maxH){
   });
 }
 
-// 쿠팡 파트너스 광고 HTML (글 최상단에 삽입)
+// 쿠팡 파트너스 광고 — iframe 방식 (script innerHTML 삽입은 브라우저 보안상 차단됨)
 const COUPANG_AD_HTML = `
-<div style="margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid var(--border);">
-  <script src="https://ads-partners.coupang.com/g.js"><\/script>
-  <script>
-    new PartnersCoupang.G({"id":975565,"template":"carousel","trackingCode":"AF6035623","width":"700","height":"200","tsource":""});
-  <\/script>
+<div style="margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid var(--border);text-align:center;">
+  <iframe src="https://ads-partners.coupang.com/widgets.html?id=975565&template=carousel&trackingCode=AF6035623&subId=&width=700&height=200&tsource="
+    width="700" height="200" frameborder="0" scrolling="no"
+    referrerpolicy="unsafe-url" browsingtopics
+    style="max-width:100%;border:none;display:block;margin:0 auto;"></iframe>
 </div>`;
 
 async function submitPost(){
