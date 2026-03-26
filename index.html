@@ -1408,7 +1408,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <button class="sbtn" onclick="startQuiz()">퀴즈 시작! 🚀</button>
 
   <!-- [4단계] 지도 다운로드 진행률 UI -->
-  <div id="map-dl-bar" style="
+  <div id="map-dl-bar" style="display:none!important;
     display:none;
     align-items:center;
     gap:10px;
@@ -2318,134 +2318,11 @@ const MAP_TILE_THEMES = {
   },
 };
 
-// 한국 전체 타일 (zoom 5~13, 상하좌우 이동 포함)
-function genKoreaTiles(){
-  const tiles = [];
-  // zoom 5~6: 한국 전체 조감
-  [[5,27,12],[5,27,13],[5,28,12],[5,28,13],
-   [6,55,25],[6,55,26],[6,56,25],[6,56,26]].forEach(([z,x,y])=>tiles.push({z,x,y}));
-  // zoom 7~8: 광역 권역
-  for(let x=110;x<=115;x++) for(let y=50;y<=54;y++) tiles.push({z:7,x,y});
-  for(let x=220;x<=229;x++) for(let y=100;y<=107;y++) tiles.push({z:8,x,y});
-  // zoom 9~10: 광역시/도 수준
-  for(let x=440;x<=460;x++) for(let y=200;y<=214;y++) tiles.push({z:9,x,y});
-  for(let x=870;x<=882;x++) for(let y=394;y<=406;y++) tiles.push({z:10,x,y});
-  // zoom 11~12: 시/구 수준 (서울+수도권+주요도시)
-  for(let x=1740;x<=1765;x++) for(let y=788;y<=812;y++) tiles.push({z:11,x,y});
-  for(let x=3480;x<=3510;x++) for(let y=1576;y<=1600;y++) tiles.push({z:12,x,y});
-  // zoom 13: 동 수준 (서울 중심)
-  for(let x=6962;x<=6982;x++) for(let y=3162;y<=3180;y++) tiles.push({z:13,x,y});
-  return tiles;
-}
-const PRELOAD_TILES = genKoreaTiles();
-
-const _tileCache = { dark: false, color: false }; // 완료 플래그
-let   _preloadAborted = false;
-
-/**
- * 타일 URL 빌더 ({s} → 서브도메인, {z}/{x}/{y}/{r} 치환)
- */
-function buildTileUrl(theme, z, x, y) {
-  const cfg  = MAP_TILE_THEMES[theme];
-  const subs = cfg.subdomains.split('');
-  const s    = subs[(x + y) % subs.length];
-  return cfg.url
-    .replace('{s}', s)
-    .replace('{z}', z)
-    .replace('{x}', x)
-    .replace('{y}', y)
-    .replace('{r}', '');
-}
-
-/**
- * 단일 타일 fetch (캐시에 저장됨)
- */
-async function fetchTile(url) {
-  try {
-    const res = await fetch(url, { mode:'cors', credentials:'omit' });
-    return res.ok;
-  } catch(e) { return false; }
-}
-
-/**
- * 한 테마의 대표 타일 전체 preload
- * progressCb(loaded, total) 콜백으로 진행률 전달
- */
-async function preloadThemeTiles(theme, progressCb) {
-  if (_tileCache[theme]) { progressCb && progressCb(PRELOAD_TILES.length, PRELOAD_TILES.length); return; }
-  let loaded = 0;
-  for (const { z, x, y } of PRELOAD_TILES) {
-    if (_preloadAborted) break;
-    const url = buildTileUrl(theme, z, x, y);
-    await fetchTile(url);
-    loaded++;
-    progressCb && progressCb(loaded, PRELOAD_TILES.length);
-    // 브라우저가 숨막히지 않도록 짧은 양보
-    await new Promise(r => setTimeout(r, 18));
-  }
-  _tileCache[theme] = true;
-}
-
-/**
- * [4단계] 선택 화면 하단 진행률 UI 업데이트
- */
-/* 통합 진행률 상태 */
-let _loadProgress = { json: 0, jsonTotal: 1, dark: 0, darkTotal: 1, color: 0, colorTotal: 1 };
-
-function updateMapDownloadUI(phase, loaded, total) {
-  const bar   = document.getElementById('map-dl-bar');
-  const label = document.getElementById('map-dl-label');
-  const fill  = document.getElementById('map-dl-fill');
-  const pct   = document.getElementById('map-dl-pct');
-  if (!bar) return;
-
-  _loadProgress[phase]              = loaded;
-  _loadProgress[phase + 'Total']   = Math.max(1, total);
-
-  // 전체 진행률: JSON 30% + dark 35% + color 35%
-  const jsonPct  = _loadProgress.json  / _loadProgress.jsonTotal;
-  const darkPct  = _loadProgress.dark  / _loadProgress.darkTotal;
-  const colorPct = _loadProgress.color / _loadProgress.colorTotal;
-  const overall  = Math.round((jsonPct * 30 + darkPct * 35 + colorPct * 35));
-
-  if (phase === 'json') {
-    label.textContent = '🗾 지도 데이터 로딩 중... (JSON)';
-  } else {
-    label.textContent = '🖼 지도 배경 캐시화 중...';
-  }
-
-  fill.style.width = overall + '%';
-  pct.textContent  = overall + '%';
-  bar.style.display = 'flex';
-  bar.style.opacity = '1';
-
-  // 전체 완료
-  if (overall >= 100) {
-    label.textContent = '✅ 지도 준비 완료';
-    setTimeout(() => { bar.style.opacity='0'; setTimeout(()=>bar.style.display='none',400); }, 1500);
-  }
-}
-
-/**
- * 퀴즈 선택 화면 진입 시 두 테마 순차 preload
- */
-async function startMapTilePreload() {
-  _preloadAborted = false;
-
-  // JSON 로딩 완료 표시 (이미 완료된 상태로 진입)
-  updateMapDownloadUI('json', 1, 1);
-
-  // 다크 먼저 → 컬러 순차
-  await preloadThemeTiles('dark',  (l, t) => updateMapDownloadUI('dark',  l, t));
-  await preloadThemeTiles('color', (l, t) => updateMapDownloadUI('color', l, t));
-
-  console.log('✅ 지도 배경 캐시화 완료 (전체)');
-}
-
-/* JSON 로딩 시작 시 호출 (buildDBFromCache 전) */
-function notifyJsonLoading(loaded, total) {
-  updateMapDownloadUI('json', loaded, total);
-}
+/* 지도 배경 캐시화 시스템 제거 — tileLayer keepBuffer/tileSize로 대체 */
+let _preloadAborted = false;  // 하위 호환성 유지
+function startMapTilePreload(){ /* noop */ }
+function notifyJsonLoading(){ /* noop */ }
+function updateMapDownloadUI(){ /* noop */ }
 
 // ── [1단계] 지역 그룹 설정 — 배열 수정만으로 그룹 변경 가능 ──────
 // 배열에 없는 도시는 자동으로 '기타 지역' 그룹으로 이동
@@ -2742,7 +2619,7 @@ async function loadPolygonCache() {
     setTimeout(() => FE_VALIDATION.report(), 500);
 
     // [3단계] 폴리곤 캐시 완료 후 지도 타일 preload 시작
-    setTimeout(() => startMapTilePreload(), 200);
+    // 지도 배경 캐시화 제거됨
 
   } catch(e) {
     console.error('⚠️ 폴리곤 캐시 로드 실패:', e);
@@ -2953,11 +2830,16 @@ window.toggleTheme = function(){
   const cfg      = MAP_TILE_THEMES[themeKey];
 
   mapTileLayer = L.tileLayer(cfg.url, {
-    attribution: cfg.attr,
-    subdomains:  cfg.subdomains,
-    maxZoom:     19,
-    minZoom:     8,
-    errorTileUrl: '',
+    attribution:        cfg.attr,
+    subdomains:         cfg.subdomains,
+    maxZoom:            19,
+    minZoom:            8,
+    errorTileUrl:       '',
+    tileSize:           384,          // 기본 256의 1.5배 → 한 타일이 더 넓은 영역 커버
+    zoomOffset:         -1,           // tileSize 변경 시 zoom 보정 필수
+    keepBuffer:         6,            // 화면 밖 6타일 미리 로드
+    updateWhenZooming:  false,        // 줌 중 깜빡임 방지
+    updateWhenIdle:     false,        // 이동 중에도 계속 로드
   }).addTo(map);
 
   document.getElementById('theme-icon').textContent = cfg.icon;
@@ -3010,11 +2892,16 @@ function initMap(){
   const themeKey = isDarkTheme ? 'dark' : 'color';
   const cfg = MAP_TILE_THEMES[themeKey];
   mapTileLayer = L.tileLayer(cfg.url, {
-    attribution: cfg.attr,
-    subdomains:  cfg.subdomains,
-    maxZoom:     19,
-    minZoom:     8,
-    errorTileUrl: '',
+    attribution:        cfg.attr,
+    subdomains:         cfg.subdomains,
+    maxZoom:            19,
+    minZoom:            8,
+    errorTileUrl:       '',
+    tileSize:           384,
+    zoomOffset:         -1,
+    keepBuffer:         6,
+    updateWhenZooming:  false,
+    updateWhenIdle:     false,
   }).addTo(map);
 
   // 테마 아이콘 초기화
@@ -3902,8 +3789,8 @@ function renderUserChip(){
     badge.textContent   = '프리미엄'; badge.className = 'user-badge premium';
     status.textContent  = `✨ 프리미엄 · ${until}까지`; status.className = 'dd-status premium';
     if(tbar) tbar.classList.add('hidden');
-    if(btnUpg)   btnUpg.style.display   = 'flex';   // 프리미엄도 연장/변경 가능
-    if(btnMdUpg) btnMdUpg.style.display = 'none';   // 맵동가족 가입은 숨김
+    if(btnUpg)   btnUpg.style.display   = 'none';
+    if(btnMdUpg) btnMdUpg.style.display = 'none';
   } else if(isFamily){
     const until = new Date(userProfile.mapdong_family_until).toLocaleDateString('ko-KR');
     badge.textContent   = '맵동가족'; badge.className = 'user-badge mapdong';
@@ -4636,11 +4523,24 @@ function showMapdongPaywall(){
 function openPlanMenu(){
   closeDropdown();
   const modal = document.getElementById('plan-menu-modal');
-  modal.style.display = 'flex';
+  if(modal.style.display === 'block'){ closePlanMenu(); return; } // 토글
+  modal.style.display = 'block';
   renderPlanMenu();
+  // 외부 클릭 시 닫기
+  setTimeout(()=>{
+    document.addEventListener('click', _closePlanOnOutside);
+  }, 50);
+}
+function _closePlanOnOutside(e){
+  const modal = document.getElementById('plan-menu-modal');
+  const btn   = document.getElementById('dd-upgrade');
+  if(modal && !modal.contains(e.target) && (!btn || !btn.contains(e.target))){
+    closePlanMenu();
+  }
 }
 function closePlanMenu(){
   document.getElementById('plan-menu-modal').style.display = 'none';
+  document.removeEventListener('click', _closePlanOnOutside);
 }
 
 function renderPlanMenu(){
@@ -5943,14 +5843,14 @@ window.toggleAuthMode = function() {
 <!-- ══════════════════════════════════════════════
      💳 플랜 결제/변경 메뉴 팝업
      ════════════════════════════════════════════ -->
-<div id="plan-menu-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);
-  backdrop-filter:blur(10px);z-index:85000;align-items:center;justify-content:center;padding:16px;">
-  <div style="background:linear-gradient(135deg,var(--surface),var(--surface2));border:1px solid var(--border);
-    border-radius:20px;max-width:520px;width:100%;max-height:92vh;overflow-y:auto;position:relative;
-    box-shadow:0 0 60px rgba(0,212,255,.15);padding:24px;">
-    <button onclick="closePlanMenu()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.08);
-      border:1px solid var(--border);color:var(--text-dim);width:32px;height:32px;border-radius:50%;
-      font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+<div id="plan-menu-modal" style="display:none;position:fixed;top:56px;right:230px;
+  width:320px;max-height:calc(100vh - 76px);overflow-y:auto;
+  background:var(--surface);border:1px solid var(--border);border-radius:14px 0 0 14px;
+  z-index:99999;box-shadow:-6px 8px 30px rgba(0,0,0,.6);">
+  <div style="padding:20px 18px 18px;position:relative;">
+    <button onclick="closePlanMenu()" style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,.08);
+      border:1px solid var(--border);color:var(--text-dim);width:28px;height:28px;border-radius:50%;
+      font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
 
     <div style="font-family:'Black Han Sans',sans-serif;font-size:1.2rem;color:var(--text);margin-bottom:4px;">💳 플랜 결제 / 변경</div>
     <div id="plan-menu-current-info" style="font-size:.75rem;color:var(--text-dim);margin-bottom:16px;"></div>
@@ -5966,9 +5866,11 @@ window.toggleAuthMode = function() {
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
         <div>
           <div style="font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:6px;">990원 <span style="font-size:.72rem;color:var(--text-dim);">/ 월</span></div>
-          <div style="font-size:.72rem;color:var(--text-dim);line-height:1.8;">
+          <div style="font-size:.72rem;color:var(--text-dim);line-height:1.9;">
             <span style="color:#ff6b6b;font-weight:700;">❌ 광고제거 없음</span><br>
+            <span style="color:#ff6b6b;">❌ 모든 정답표시 기능 없음</span><br>
             ✅ 커뮤니티 조회·글쓰기<br>
+            ✅ 모든 나눔 이벤트 자동 응모<br>
             💡 퀴즈 없이 커뮤니티만 원하는 분께 적합<br>
             <span style="font-size:.68rem;opacity:.7;">졸업반·달인·후원자 포지션</span>
           </div>
@@ -5983,9 +5885,11 @@ window.toggleAuthMode = function() {
     <!-- 프리미엄 플랜들 -->
     <div style="font-size:.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:2px;margin:14px 0 8px;">프리미엄 플랜</div>
     <div style="font-size:.72rem;color:var(--text-dim);background:rgba(255,255,255,.04);border:1px solid var(--border);
-      border-radius:8px;padding:8px 12px;margin-bottom:12px;line-height:1.7;">
+      border-radius:8px;padding:8px 12px;margin-bottom:12px;line-height:1.9;">
       ✅ 광고제거 &amp; 퀴즈 무제한 &nbsp;|&nbsp; ✅ 커뮤니티 조회·글쓰기
-      <span style="font-size:.65rem;opacity:.7;">(일부 전문커뮤니티 제외)</span>
+      <span style="font-size:.65rem;opacity:.7;">(일부 전문커뮤니티 제외)</span><br>
+      ✅ 모든정답표시 <span style="font-size:.65rem;opacity:.7;">(랭킹모드 제외)</span>
+      &nbsp;|&nbsp; ✅ 모든 나눔 이벤트 자동 응모
     </div>
 
     <div id="plan-cards-container" style="display:flex;flex-direction:column;gap:10px;"></div>
