@@ -4,9 +4,10 @@
     { "src": "/robots.txt",         "dest": "/robots.txt"         },
     { "src": "/sitemap.xml",        "dest": "/sitemap.xml"        },
     { "src": "/polygon_cache.json", "dest": "/polygon_cache.json" },
-    { "src": "/privacy.html",       "dest": "/privacy.html"       },
+    { "src": "/index.html",         "dest": "/index.html"         },
     { "src": "/community.html",     "dest": "/community.html"     },
     { "src": "/myinfo.html",        "dest": "/myinfo.html"        },
+    { "src": "/privacy.html",       "dest": "/privacy.html"       },
     { "src": "/(.*)",               "dest": "/index.html"         }
   ]
 }
