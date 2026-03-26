@@ -829,6 +829,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 /* ═══════════════════════════════════════════════════════
    오른쪽 사이드바 (커뮤니티 & 메뉴)
    ═══════════════════════════════════════════════════════ */
+/* vuski 출처: 오른쪽 사이드바 열릴 때 위치 조정 */
+#main:not(.right-collapsed) #map-attr-vuski { right: 230px; }
+
 #right-side {
   width: 230px;
   background: var(--surface);
@@ -1619,6 +1622,15 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
         <span style="font-size:.75rem;color:var(--text-dim);">어려움</span>
       </div>
     </div>
+    <!-- 데이터 출처: vuski/admdongkor (OpenStreetMap attribution 바로 위) -->
+    <div id="map-attr-vuski" style="
+      position:absolute;bottom:22px;right:0;z-index:800;
+      background:rgba(255,255,255,.8);color:#333;font-size:10px;
+      padding:2px 6px;line-height:1.5;border-radius:2px 0 0 0;white-space:nowrap;">
+      <a href="https://github.com/vuski/admdongkor" target="_blank" rel="noopener"
+        style="color:#0078a8;text-decoration:none;">행정동 © vuski/admdongkor</a>
+    </div>
+
     <div id="mo">
       <button class="mb" onclick="resetV()">🗺 전체보기</button>
       <button class="mb" onclick="focusA()">🎯 정답위치</button>
@@ -3785,7 +3797,7 @@ function renderUserChip(){
     badge.textContent   = '프리미엄'; badge.className = 'user-badge premium';
     status.textContent  = `✨ 프리미엄 · ${until}까지`; status.className = 'dd-status premium';
     if(tbar) tbar.classList.add('hidden');
-    if(btnUpg)   btnUpg.style.display   = 'none';
+    if(btnUpg)   btnUpg.style.display   = 'flex';   // 프리미엄도 연장/변경 가능
     if(btnMdUpg) btnMdUpg.style.display = 'none';
   } else if(isFamily){
     const until = new Date(userProfile.mapdong_family_until).toLocaleDateString('ko-KR');
