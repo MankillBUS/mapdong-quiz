@@ -1,4 +1,12 @@
 {
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "mapdong.com" }],
+      "destination": "https://www.mapdong.com/$1",
+      "permanent": true
+    }
+  ],
   "routes": [
     { "src": "/ads.txt",            "dest": "/ads.txt"            },
     { "src": "/robots.txt",         "dest": "/robots.txt"         },
