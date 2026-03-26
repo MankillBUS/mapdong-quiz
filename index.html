@@ -2847,7 +2847,7 @@ window.toggleTheme = function(){
     maxZoom:            19,
     minZoom:            8,
     errorTileUrl:       '',
-    keepBuffer:         4,            // 화면 밖 4타일 미리 로드 (기본값 2의 2배)
+    keepBuffer:         8,            // 화면 밖 8타일 미리 로드 (기본값의 4배)            // 화면 밖 4타일 미리 로드 (기본값 2의 2배)
     updateWhenZooming:  false,        // 줌 중 깜빡임 방지
     updateWhenIdle:     false,        // 이동 중에도 계속 로드
   }).addTo(map);
@@ -2907,7 +2907,7 @@ function initMap(){
     maxZoom:            19,
     minZoom:            8,
     errorTileUrl:       '',
-    keepBuffer:         4,
+    keepBuffer:         8,            // 화면 밖 8타일 미리 로드 (기본값의 4배)
     updateWhenZooming:  false,
     updateWhenIdle:     false,
   }).addTo(map);
@@ -4102,18 +4102,25 @@ function applyAllDiscounts() {
 function showPaywall(e) {
   if(e) e.stopPropagation();
   document.getElementById('user-dropdown').classList.remove('show');
-  showOnly('screen-paywall');
+  closePlanMenu();
+  // screen-paywall을 fs-screen 방식이 아닌 중앙 오버레이 방식으로 표시
+  // z-index를 right-side(600)보다 낮게 설정 → 오른쪽 사이드바 유지
+  const pw = document.getElementById('screen-paywall');
+  pw.classList.remove('hidden');
+  pw.style.position  = 'fixed';
+  pw.style.inset     = '0';
+  pw.style.zIndex    = '550';        // right-side(600)보다 낮음 → 사이드바 위에 안 뜸
+  pw.style.background = 'rgba(10,14,26,0.97)';
+  pw.style.display   = 'flex';
+  pw.style.alignItems = 'center';
+  pw.style.justifyContent = 'center';
   setTimeout(initPlanSlider, 50);
 }
 
 function closePaywall() {
-  /* 이전 화면으로 돌아가기: 로그인→start 화면, 게임중→main */
-  const wasInGame = !document.getElementById('main').style.display || document.getElementById('main').style.display !== 'none';
-  if(wasInGame) {
-    document.getElementById('screen-paywall').classList.add('hidden');
-  } else {
-    showOnly('screen-start');
-  }
+  const pw = document.getElementById('screen-paywall');
+  pw.classList.add('hidden');
+  pw.style.display = 'none';
 }
 
 /* ── 환불 모달 ─────────────────────────────────────────────── */
@@ -4342,6 +4349,11 @@ function toggleRightSide() {
   main.classList.toggle('right-collapsed');
   const btn = document.getElementById('right-side-toggle');
   btn.textContent = main.classList.contains('right-collapsed') ? '◀' : '▶';
+  // 사이드바 접힘/펼침 시 Leaflet에 지도 크기 변화 알림
+  // → 새로 드러난 영역 타일 즉시 로드
+  if(typeof map !== 'undefined' && map) {
+    setTimeout(() => map.invalidateSize({ animate: false, pan: false }), 260);
+  }
 }
 
 /* 커뮤니티 메뉴 렌더 */
@@ -4531,8 +4543,8 @@ function showMapdongPaywall(){
 function openPlanMenu(){
   closeDropdown();
   const modal = document.getElementById('plan-menu-modal');
-  if(modal.style.display === 'block'){ closePlanMenu(); return; } // 토글
-  modal.style.display = 'block';
+  if(modal.style.display === 'flex'){ closePlanMenu(); return; } // 토글
+  modal.style.display = 'flex';
   renderPlanMenu();
   // 외부 클릭 시 닫기
   setTimeout(()=>{
@@ -5851,14 +5863,16 @@ window.toggleAuthMode = function() {
 <!-- ══════════════════════════════════════════════
      💳 플랜 결제/변경 메뉴 팝업
      ════════════════════════════════════════════ -->
-<div id="plan-menu-modal" style="display:none;position:fixed;top:56px;right:230px;
-  width:320px;max-height:calc(100vh - 76px);overflow-y:auto;
-  background:var(--surface);border:1px solid var(--border);border-radius:14px 0 0 14px;
-  z-index:99999;box-shadow:-6px 8px 30px rgba(0,0,0,.6);">
-  <div style="padding:20px 18px 18px;position:relative;">
-    <button onclick="closePlanMenu()" style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,.08);
-      border:1px solid var(--border);color:var(--text-dim);width:28px;height:28px;border-radius:50%;
-      font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+<div id="plan-menu-modal" style="display:none;position:fixed;inset:0;
+  background:rgba(10,14,26,.88);backdrop-filter:blur(6px);
+  z-index:550;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:linear-gradient(135deg,var(--surface),var(--surface2));
+    border:1px solid var(--border);border-radius:20px;
+    max-width:520px;width:100%;max-height:90vh;overflow-y:auto;
+    position:relative;box-shadow:0 0 60px rgba(0,212,255,.15);padding:24px;">
+    <button onclick="closePlanMenu()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.08);
+      border:1px solid var(--border);color:var(--text-dim);width:32px;height:32px;border-radius:50%;
+      font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
 
     <div style="font-family:'Black Han Sans',sans-serif;font-size:1.2rem;color:var(--text);margin-bottom:4px;">💳 플랜 결제 / 변경</div>
     <div id="plan-menu-current-info" style="font-size:.75rem;color:var(--text-dim);margin-bottom:16px;"></div>
