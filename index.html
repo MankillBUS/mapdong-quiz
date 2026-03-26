@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MapDong · 수도권 동(洞) 위치 퀴즈</title>
+<!-- Google AdSense -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8230598534021197"
+     crossorigin="anonymous"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&family=Black+Han+Sans&family=Gowun+Dodum&family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2847,7 +2850,7 @@ window.toggleTheme = function(){
     maxZoom:            19,
     minZoom:            8,
     errorTileUrl:       '',
-    keepBuffer:         8,            // 화면 밖 8타일 미리 로드 (기본값의 4배)            // 화면 밖 4타일 미리 로드 (기본값 2의 2배)
+    keepBuffer:         4,            // 화면 밖 4타일 미리 로드 (기본값 2의 2배)
     updateWhenZooming:  false,        // 줌 중 깜빡임 방지
     updateWhenIdle:     false,        // 이동 중에도 계속 로드
   }).addTo(map);
@@ -2907,7 +2910,7 @@ function initMap(){
     maxZoom:            19,
     minZoom:            8,
     errorTileUrl:       '',
-    keepBuffer:         8,            // 화면 밖 8타일 미리 로드 (기본값의 4배)
+    keepBuffer:         4,
     updateWhenZooming:  false,
     updateWhenIdle:     false,
   }).addTo(map);
@@ -3065,16 +3068,77 @@ function showQuestionCard(q) {
   updateMobileQCard(q);
 }
 
+
+/* ═══════════════════════════════════════════════════════
+   📢 광고 시스템 — 일반/맵동가족 5문제마다 광고 표시
+   ═══════════════════════════════════════════════════════ */
+let _adQuizCount    = 0;   // 광고용 문제 카운터
+let _adTimer        = null; // 카운트다운 타이머
+let _adNextFn       = null; // 광고 후 실행할 콜백
+
+const AD_INTERVAL   = 5;   // 5문제마다 광고
+const AD_WAIT_SEC   = 5;   // 광고 표시 최소 대기 시간(초)
+
+/* 광고 대상 여부 */
+function shouldShowAd() {
+  return !isActivePremium(); // 프리미엄만 광고 없음 (맵동가족 포함 광고)
+}
+
+/* 문제 완료 후 광고 여부 판단 → 광고면 표시, 아니면 콜백 즉시 실행 */
+function handleAdGate(nextFn) {
+  if (!shouldShowAd()) { nextFn(); return; }
+
+  _adQuizCount++;
+  if (_adQuizCount % AD_INTERVAL !== 0) { nextFn(); return; }
+
+  // 광고 표시
+  _adNextFn = nextFn;
+  showAdOverlay();
+}
+
+function showAdOverlay() {
+  const overlay = document.getElementById('ad-overlay');
+  overlay.style.display = 'flex';
+
+  // 카운트다운
+  let sec = AD_WAIT_SEC;
+  const cntEl  = document.getElementById('ad-countdown');
+  const skipBtn = document.getElementById('ad-skip-btn');
+  cntEl.textContent = sec;
+  skipBtn.disabled  = true;
+  skipBtn.style.cursor  = 'not-allowed';
+  skipBtn.style.opacity = '.4';
+
+  clearInterval(_adTimer);
+  _adTimer = setInterval(() => {
+    sec--;
+    cntEl.textContent = sec;
+    if (sec <= 0) {
+      clearInterval(_adTimer);
+      skipBtn.disabled  = false;
+      skipBtn.style.cursor  = 'pointer';
+      skipBtn.style.opacity = '1';
+    }
+  }, 1000);
+}
+
+function skipAd() {
+  clearInterval(_adTimer);
+  document.getElementById('ad-overlay').style.display = 'none';
+  if (_adNextFn) { _adNextFn(); _adNextFn = null; }
+}
+
 function closeOkModal(){
-  // 정답 모달 닫고 다음 문제 (폴리곤 & 레이블 유지)
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
-  canAns = true;
 
-  if(!queue.length) reshuffle();
-  cur = queue.pop(); qCnt++;
-  showQuestionCard(cur);
-  updStats();
+  handleAdGate(() => {
+    canAns = true;
+    if(!queue.length) reshuffle();
+    cur = queue.pop(); qCnt++;
+    showQuestionCard(cur);
+    updStats();
+  });
 }
 
 function nextQ(){
@@ -3220,8 +3284,13 @@ window.hideWrongBoundary = function(){
 };
 
 window.toggleShowAll = function(){
+  // 프리미엄 전용
+  if(!isActivePremium()){
+    document.getElementById('premium-feature-modal').style.display = 'flex';
+    return;
+  }
+
   if(allAnswersVisible){
-    // 끄기: allAnswerLayers 제거 (tempL, answerLayers, wrongLayers 제외)
     const keep = new Set([...tempL, ...answerLayers, ...wrongLayers]);
     allAnswerLayers.forEach(l=>{
       if(!keep.has(l)){ try{ map.removeLayer(l); } catch(e){} }
@@ -3503,7 +3572,6 @@ function closeNoModal(){
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
 
-  // ans-bar: _gu/_city 부모 정보 활용
   if(wrongL.length > 0){
     if(isGuQuizMode){
       document.getElementById('ab-label').textContent = '정답 구';
@@ -3516,12 +3584,13 @@ function closeNoModal(){
     document.getElementById('ans-bar').classList.add('show');
   }
 
-  canAns = true;
-
-  if(!queue.length) reshuffle();
-  cur = queue.pop(); qCnt++;
-  showQuestionCard(cur);
-  updStats();
+  handleAdGate(() => {
+    canAns = true;
+    if(!queue.length) reshuffle();
+    cur = queue.pop(); qCnt++;
+    showQuestionCard(cur);
+    updStats();
+  });
 }
 
 window.focusA = function(){if(cur)map.flyTo([cur.lat,cur.lng],14,{duration:1.2});}
@@ -4102,25 +4171,18 @@ function applyAllDiscounts() {
 function showPaywall(e) {
   if(e) e.stopPropagation();
   document.getElementById('user-dropdown').classList.remove('show');
-  closePlanMenu();
-  // screen-paywall을 fs-screen 방식이 아닌 중앙 오버레이 방식으로 표시
-  // z-index를 right-side(600)보다 낮게 설정 → 오른쪽 사이드바 유지
-  const pw = document.getElementById('screen-paywall');
-  pw.classList.remove('hidden');
-  pw.style.position  = 'fixed';
-  pw.style.inset     = '0';
-  pw.style.zIndex    = '550';        // right-side(600)보다 낮음 → 사이드바 위에 안 뜸
-  pw.style.background = 'rgba(10,14,26,0.97)';
-  pw.style.display   = 'flex';
-  pw.style.alignItems = 'center';
-  pw.style.justifyContent = 'center';
+  showOnly('screen-paywall');
   setTimeout(initPlanSlider, 50);
 }
 
 function closePaywall() {
-  const pw = document.getElementById('screen-paywall');
-  pw.classList.add('hidden');
-  pw.style.display = 'none';
+  /* 이전 화면으로 돌아가기: 로그인→start 화면, 게임중→main */
+  const wasInGame = !document.getElementById('main').style.display || document.getElementById('main').style.display !== 'none';
+  if(wasInGame) {
+    document.getElementById('screen-paywall').classList.add('hidden');
+  } else {
+    showOnly('screen-start');
+  }
 }
 
 /* ── 환불 모달 ─────────────────────────────────────────────── */
@@ -4349,11 +4411,6 @@ function toggleRightSide() {
   main.classList.toggle('right-collapsed');
   const btn = document.getElementById('right-side-toggle');
   btn.textContent = main.classList.contains('right-collapsed') ? '◀' : '▶';
-  // 사이드바 접힘/펼침 시 Leaflet에 지도 크기 변화 알림
-  // → 새로 드러난 영역 타일 즉시 로드
-  if(typeof map !== 'undefined' && map) {
-    setTimeout(() => map.invalidateSize({ animate: false, pan: false }), 260);
-  }
 }
 
 /* 커뮤니티 메뉴 렌더 */
@@ -4509,7 +4566,10 @@ function goMyInfo(){
   window.location.href = 'myinfo.html';
 }
 function goRanking(){
-  if(!canAccessCommunity()){ toast('맵동가족 또는 프리미엄 회원만 이용 가능합니다','error'); return; }
+  if(!isActivePremium()){
+    document.getElementById('premium-feature-modal').style.display = 'flex';
+    return;
+  }
   toast('랭킹 페이지 준비 중입니다', 'info');
 }
 function goEvent(){
@@ -4543,8 +4603,8 @@ function showMapdongPaywall(){
 function openPlanMenu(){
   closeDropdown();
   const modal = document.getElementById('plan-menu-modal');
-  if(modal.style.display === 'flex'){ closePlanMenu(); return; } // 토글
-  modal.style.display = 'flex';
+  if(modal.style.display === 'block'){ closePlanMenu(); return; } // 토글
+  modal.style.display = 'block';
   renderPlanMenu();
   // 외부 클릭 시 닫기
   setTimeout(()=>{
@@ -5863,16 +5923,14 @@ window.toggleAuthMode = function() {
 <!-- ══════════════════════════════════════════════
      💳 플랜 결제/변경 메뉴 팝업
      ════════════════════════════════════════════ -->
-<div id="plan-menu-modal" style="display:none;position:fixed;inset:0;
-  background:rgba(10,14,26,.88);backdrop-filter:blur(6px);
-  z-index:550;align-items:center;justify-content:center;padding:16px;">
-  <div style="background:linear-gradient(135deg,var(--surface),var(--surface2));
-    border:1px solid var(--border);border-radius:20px;
-    max-width:520px;width:100%;max-height:90vh;overflow-y:auto;
-    position:relative;box-shadow:0 0 60px rgba(0,212,255,.15);padding:24px;">
-    <button onclick="closePlanMenu()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.08);
-      border:1px solid var(--border);color:var(--text-dim);width:32px;height:32px;border-radius:50%;
-      font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+<div id="plan-menu-modal" style="display:none;position:fixed;top:56px;right:230px;
+  width:320px;max-height:calc(100vh - 76px);overflow-y:auto;
+  background:var(--surface);border:1px solid var(--border);border-radius:14px 0 0 14px;
+  z-index:99999;box-shadow:-6px 8px 30px rgba(0,0,0,.6);">
+  <div style="padding:20px 18px 18px;position:relative;">
+    <button onclick="closePlanMenu()" style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,.08);
+      border:1px solid var(--border);color:var(--text-dim);width:28px;height:28px;border-radius:50%;
+      font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
 
     <div style="font-family:'Black Han Sans',sans-serif;font-size:1.2rem;color:var(--text);margin-bottom:4px;">💳 플랜 결제 / 변경</div>
     <div id="plan-menu-current-info" style="font-size:.75rem;color:var(--text-dim);margin-bottom:16px;"></div>
@@ -5941,6 +5999,107 @@ window.toggleAuthMode = function() {
         style="flex:1;padding:11px;border-radius:10px;background:linear-gradient(135deg,#a29bfe,#6c5ce7);
         color:#fff;border:none;font-size:.85rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
         예, 결제하기
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     📢 광고 팝업 (일반/맵동가족 5문제마다)
+     ════════════════════════════════════════════ -->
+<div id="ad-overlay" style="display:none;position:fixed;inset:0;
+  background:rgba(10,14,26,.95);backdrop-filter:blur(8px);
+  z-index:95000;align-items:center;justify-content:center;flex-direction:column;gap:0;">
+
+  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;
+    max-width:380px;width:90%;padding:24px;text-align:center;
+    box-shadow:0 0 60px rgba(0,212,255,.15);">
+
+    <div style="font-size:.65rem;color:var(--text-dim);letter-spacing:2px;margin-bottom:10px;">📢 광고</div>
+
+    <!-- 애드센스 광고 슬롯 (승인 후 실제 광고 코드로 교체) -->
+    <div id="ad-slot-container" style="min-height:250px;background:rgba(255,255,255,.04);
+      border:1px dashed var(--border);border-radius:12px;
+      display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+      <!-- 애드센스 승인 전 플레이스홀더 -->
+      <div id="ad-placeholder" style="color:var(--text-dim);font-size:.8rem;text-align:center;padding:20px;">
+        <div style="font-size:2rem;margin-bottom:8px;">📋</div>
+        광고 영역<br>
+        <span style="font-size:.68rem;opacity:.6;">AdSense 승인 후 광고가 표시됩니다</span>
+      </div>
+      <!-- 실제 광고 코드 (승인 후 아래 주석 해제) -->
+      <!--
+      <ins class="adsbygoogle"
+           style="display:block;width:300px;height:250px;"
+           data-ad-client="ca-pub-8230598534021197"
+           data-ad-slot="YOUR_AD_SLOT_ID"
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      -->
+    </div>
+
+    <!-- 카운트다운 + 건너뛰기 -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div style="font-size:.78rem;color:var(--text-dim);">
+        <span id="ad-countdown" style="color:var(--accent);font-weight:700;font-size:1rem;">5</span>초 후 계속
+      </div>
+      <button id="ad-skip-btn" onclick="skipAd()" disabled
+        style="background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;
+        border:none;border-radius:10px;padding:10px 22px;font-size:.88rem;font-weight:700;
+        cursor:not-allowed;opacity:.4;font-family:'Noto Sans KR',sans-serif;transition:all .3s;">
+        퀴즈 계속하기 →
+      </button>
+    </div>
+
+    <!-- 프리미엄 업그레이드 유도 -->
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+      <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:8px;">
+        💎 프리미엄 · 맵동가족은 광고 없이 이용 가능합니다 <span style="color:#ff6b6b;">*프리미엄만 광고제거</span>
+      </div>
+      <button onclick="document.getElementById('ad-overlay').style.display='none'; showPaywall();"
+        style="background:none;border:1px solid var(--gold);color:var(--gold);
+        border-radius:8px;padding:6px 16px;font-size:.75rem;font-weight:700;
+        cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+        🌟 광고 없애기
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- 프리미엄 전용 기능 안내 팝업 -->
+<div id="premium-feature-modal" style="display:none;position:fixed;inset:0;
+  background:rgba(10,14,26,.88);backdrop-filter:blur(8px);
+  z-index:95000;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:linear-gradient(135deg,var(--surface),var(--surface2));
+    border:1px solid var(--border);border-radius:20px;max-width:340px;width:100%;
+    padding:28px 24px;text-align:center;box-shadow:0 0 50px rgba(255,215,0,.2);">
+    <div style="font-size:2.5rem;margin-bottom:12px;">🔒</div>
+    <div style="font-size:1rem;font-weight:700;color:var(--text);margin-bottom:8px;">
+      프리미엄 회원 전용 기능
+    </div>
+    <div style="font-size:.82rem;color:var(--text-dim);line-height:1.8;margin-bottom:6px;">
+      이 기능은 <strong style="color:var(--gold);">프리미엄 회원</strong>만 이용 가능합니다.<br>
+      프리미엄 회원으로 업그레이드 하시겠습니까?
+    </div>
+    <div style="font-size:.78rem;color:var(--accent);margin-bottom:20px;">
+      💡 하루 <strong>600원</strong> 수준입니다
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="document.getElementById('premium-feature-modal').style.display='none'"
+        style="flex:1;padding:11px;border-radius:10px;background:var(--surface);
+        border:1px solid var(--border);color:var(--text-dim);font-size:.85rem;
+        font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+        취소
+      </button>
+      <button onclick="document.getElementById('premium-feature-modal').style.display='none'; openPlanMenu();"
+        style="flex:1;padding:11px;border-radius:10px;
+        background:linear-gradient(135deg,var(--gold),#ff8c00);
+        color:#000;border:none;font-size:.85rem;font-weight:700;
+        cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+        🌟 업그레이드
       </button>
     </div>
   </div>
