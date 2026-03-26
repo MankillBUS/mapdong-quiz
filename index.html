@@ -290,6 +290,16 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   .mt{font-size:1.3rem;}
 
   /* 정답바 모바일 */
+  /* 정답인정범위: 불투명도 50%, 위치 살짝 올림 */
+  #range-control{
+    bottom:80px !important;
+    opacity:0.5 !important;
+    left:8px !important;
+    min-width:0 !important;
+    width:calc(100% - 16px) !important;
+  }
+  #range-control:active,#range-control:focus-within{opacity:1 !important;}
+  /* ans-bar: range-control 위에 위치 */
   #ans-bar{left:8px;right:8px;transform:none;bottom:12px;padding:8px 12px;}
 
   /* 선택 화면 그룹 */
@@ -299,6 +309,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 /* 소형 모바일 (480px 이하) */
 @media (max-width:480px){
+  .ab-btn-label{font-size:0;}
+  .ab-btn-label::before{content:'OFF';font-size:.85rem;}
+
   .st{font-size:1.8rem;}
   .ss{font-size:.78rem;}
   #stags-groups{max-height:44vh;}
@@ -586,6 +599,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .signup-label{font-size:.72rem;color:var(--text-dim);margin-bottom:5px;display:flex;align-items:center;gap:5px;}
 .signup-label .req{color:var(--accent2);font-size:.75rem;}
 .signup-input{background:var(--bg);border:1.5px solid var(--border);color:var(--text);border-radius:10px;padding:11px 14px;font-size:.88rem;font-family:'Noto Sans KR',sans-serif;outline:none;transition:border-color .2s;width:100%;}
+.signup-select{background:var(--bg);border:1.5px solid var(--border);color:var(--text);border-radius:10px;padding:11px 14px;font-size:.88rem;font-family:'Noto Sans KR',sans-serif;outline:none;transition:border-color .2s;width:100%;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a9bb5' fill='none' stroke-width='2'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;}
+.signup-select:focus{border-color:var(--accent);}
+.signup-select option{background:var(--surface);color:var(--text);}
 .signup-input:focus{border-color:var(--accent);}
 .signup-input::placeholder{color:var(--text-dim);}
 .signup-input.error{border-color:var(--accent2);}
@@ -1470,7 +1486,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
         <div class="dd-email" id="dd-email">-</div>
         <div class="dd-status trial" id="dd-status">체험판 이용 중</div>
       </div>
-      <button class="dd-btn" id="dd-upgrade" onclick="showPaywall(event)">💳 프리미엄 업그레이드</button>
+      <button class="dd-btn" id="dd-upgrade" onclick="openPlanMenu()">💳 플랜 결제 / 변경</button>
       <button class="dd-btn" id="dd-mapdong-upgrade" onclick="showMapdongPaywall()" style="display:none">💜 맵동가족 가입 990원/월</button>
       <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
       <button class="dd-btn" id="dd-myinfo" onclick="goMyInfo()">✏️ 내정보 수정</button>
@@ -1582,8 +1598,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
         <span style="color:var(--text);font-size:.9rem;flex:1;">
           <span id="ab-label">정답</span>: <strong id="ab-dong-name" style="color:var(--accent);"></strong>
         </span>
-        <button class="ab-btn" onclick="hideCorrectBoundary()" style="background:rgba(57,255,20,0.2);border:1px solid #39ff14;color:#39ff14;padding:6px 12px;border-radius:6px;font-size:.85rem;cursor:pointer;">🟢 정답 경계</button>
-        <button class="ab-btn" onclick="hideWrongBoundary()" style="background:rgba(255,60,110,0.2);border:1px solid #ff3c6e;color:#ff3c6e;padding:6px 12px;border-radius:6px;font-size:.85rem;cursor:pointer;">🔴 틀린 경계</button>
+        <button class="ab-btn" id="btn-hide-correct" onclick="hideCorrectBoundary()" style="background:rgba(57,255,20,0.2);border:1px solid #39ff14;color:#39ff14;padding:6px 12px;border-radius:6px;font-size:.85rem;cursor:pointer;">🟢 <span class="ab-btn-label">정답 경계</span></button>
+        <button class="ab-btn" id="btn-hide-wrong" onclick="hideWrongBoundary()" style="background:rgba(255,60,110,0.2);border:1px solid #ff3c6e;color:#ff3c6e;padding:6px 12px;border-radius:6px;font-size:.85rem;cursor:pointer;">🔴 <span class="ab-btn-label">틀린 경계</span></button>
       </div>
     </div>
   </div>
@@ -2269,17 +2285,26 @@ const MAP_TILE_THEMES = {
   },
 };
 
-// 대표 타일 좌표 (서울 중심 zoom 10 기준)
-const PRELOAD_TILES = [
-  { z:10, x:873,  y:397  },
-  { z:10, x:874,  y:397  },
-  { z:10, x:873,  y:398  },
-  { z:11, x:1747, y:795  },
-  { z:11, x:1748, y:795  },
-  { z:12, x:3495, y:1590 },
-  { z:12, x:3496, y:1590 },
-  { z:13, x:6991, y:3181 },
-];
+// 한국 전체 타일 (zoom 5~13, 상하좌우 이동 포함)
+function genKoreaTiles(){
+  const tiles = [];
+  // zoom 5~6: 한국 전체 조감
+  [[5,27,12],[5,27,13],[5,28,12],[5,28,13],
+   [6,55,25],[6,55,26],[6,56,25],[6,56,26]].forEach(([z,x,y])=>tiles.push({z,x,y}));
+  // zoom 7~8: 광역 권역
+  for(let x=110;x<=115;x++) for(let y=50;y<=54;y++) tiles.push({z:7,x,y});
+  for(let x=220;x<=229;x++) for(let y=100;y<=107;y++) tiles.push({z:8,x,y});
+  // zoom 9~10: 광역시/도 수준
+  for(let x=440;x<=460;x++) for(let y=200;y<=214;y++) tiles.push({z:9,x,y});
+  for(let x=870;x<=882;x++) for(let y=394;y<=406;y++) tiles.push({z:10,x,y});
+  // zoom 11~12: 시/구 수준 (서울+수도권+주요도시)
+  for(let x=1740;x<=1765;x++) for(let y=788;y<=812;y++) tiles.push({z:11,x,y});
+  for(let x=3480;x<=3510;x++) for(let y=1576;y<=1600;y++) tiles.push({z:12,x,y});
+  // zoom 13: 동 수준 (서울 중심)
+  for(let x=6962;x<=6982;x++) for(let y=3162;y<=3180;y++) tiles.push({z:13,x,y});
+  return tiles;
+}
+const PRELOAD_TILES = genKoreaTiles();
 
 const _tileCache = { dark: false, color: false }; // 완료 플래그
 let   _preloadAborted = false;
@@ -2331,35 +2356,40 @@ async function preloadThemeTiles(theme, progressCb) {
 /**
  * [4단계] 선택 화면 하단 진행률 UI 업데이트
  */
-function updateMapDownloadUI(theme, loaded, total) {
+/* 통합 진행률 상태 */
+let _loadProgress = { json: 0, jsonTotal: 1, dark: 0, darkTotal: 1, color: 0, colorTotal: 1 };
+
+function updateMapDownloadUI(phase, loaded, total) {
   const bar   = document.getElementById('map-dl-bar');
   const label = document.getElementById('map-dl-label');
   const fill  = document.getElementById('map-dl-fill');
   const pct   = document.getElementById('map-dl-pct');
   if (!bar) return;
 
-  const themeLabel = MAP_TILE_THEMES[theme]?.label || theme;
-  const percent    = total > 0 ? Math.round(loaded / total * 100) : 0;
-  const blocks     = Math.round(percent / 10);
-  const bar10      = '█'.repeat(blocks) + '░'.repeat(10 - blocks);
+  _loadProgress[phase]              = loaded;
+  _loadProgress[phase + 'Total']   = Math.max(1, total);
 
-  if (loaded >= total) {
-    // 완료 상태
-    label.textContent  = `${MAP_TILE_THEMES[theme]?.icon} ${themeLabel} 캐시 완료`;
-    fill.style.width   = '100%';
-    pct.textContent    = '100%';
-    bar.dataset.done   = (bar.dataset.done || '') + theme + ',';
+  // 전체 진행률: JSON 30% + dark 35% + color 35%
+  const jsonPct  = _loadProgress.json  / _loadProgress.jsonTotal;
+  const darkPct  = _loadProgress.dark  / _loadProgress.darkTotal;
+  const colorPct = _loadProgress.color / _loadProgress.colorTotal;
+  const overall  = Math.round((jsonPct * 30 + darkPct * 35 + colorPct * 35));
 
-    // 양쪽 모두 완료 → UI 숨김 (1.5초 후)
-    if (bar.dataset.done.includes('dark') && bar.dataset.done.includes('color')) {
-      setTimeout(() => { bar.style.opacity = '0'; setTimeout(() => bar.style.display='none', 400); }, 1500);
-    }
+  if (phase === 'json') {
+    label.textContent = '🗾 지도 데이터 로딩 중... (JSON)';
   } else {
-    label.textContent = `🗺 지도 다운로드 중 (${themeLabel})`;
-    fill.style.width  = percent + '%';
-    pct.textContent   = percent + '%';
-    bar.style.display = 'flex';
-    bar.style.opacity = '1';
+    label.textContent = '🖼 지도 배경 캐시화 중...';
+  }
+
+  fill.style.width = overall + '%';
+  pct.textContent  = overall + '%';
+  bar.style.display = 'flex';
+  bar.style.opacity = '1';
+
+  // 전체 완료
+  if (overall >= 100) {
+    label.textContent = '✅ 지도 준비 완료';
+    setTimeout(() => { bar.style.opacity='0'; setTimeout(()=>bar.style.display='none',400); }, 1500);
   }
 }
 
@@ -2369,12 +2399,19 @@ function updateMapDownloadUI(theme, loaded, total) {
 async function startMapTilePreload() {
   _preloadAborted = false;
 
-  // 다크 먼저
+  // JSON 로딩 완료 표시 (이미 완료된 상태로 진입)
+  updateMapDownloadUI('json', 1, 1);
+
+  // 다크 먼저 → 컬러 순차
   await preloadThemeTiles('dark',  (l, t) => updateMapDownloadUI('dark',  l, t));
-  // 컬러
   await preloadThemeTiles('color', (l, t) => updateMapDownloadUI('color', l, t));
 
-  console.log('✅ [3단계] 지도 타일 양쪽 테마 캐시 완료');
+  console.log('✅ 지도 배경 캐시화 완료 (전체)');
+}
+
+/* JSON 로딩 시작 시 호출 (buildDBFromCache 전) */
+function notifyJsonLoading(loaded, total) {
+  updateMapDownloadUI('json', loaded, total);
 }
 
 // ── [1단계] 지역 그룹 설정 — 배열 수정만으로 그룹 변경 가능 ──────
@@ -4559,7 +4596,136 @@ function closeDropdown(){
 /* ── 맵동가족 결제 페이월 ──────────────────────────────── */
 function showMapdongPaywall(){
   closeDropdown();
-  // 맵동가족 전용 결제 시작 (990원 빌링)
+  startPayment('mapdong_family');
+}
+
+/* ── 플랜 메뉴 팝업 ─────────────────────────────────────── */
+function openPlanMenu(){
+  closeDropdown();
+  const modal = document.getElementById('plan-menu-modal');
+  modal.style.display = 'flex';
+  renderPlanMenu();
+}
+function closePlanMenu(){
+  document.getElementById('plan-menu-modal').style.display = 'none';
+}
+
+function renderPlanMenu(){
+  const isPrem   = isActivePremium();
+  const isFamily = isActiveMapdongFamily();
+
+  // 현재 플랜 안내
+  const infoEl = document.getElementById('plan-menu-current-info');
+  if(isPrem){
+    const until   = new Date(userProfile.premium_until);
+    const diffMs  = until - new Date();
+    const diffDays= Math.max(0, Math.ceil(diffMs / 86400000));
+    infoEl.textContent = `현재 플랜: ✨ 프리미엄 · ${until.toLocaleDateString('ko-KR')}까지 (${diffDays}일 남음)`;
+  } else if(isFamily){
+    const until = new Date(userProfile.mapdong_family_until);
+    infoEl.textContent = `현재 플랜: 💜 맵동가족 · ${until.toLocaleDateString('ko-KR')}까지`;
+  } else {
+    infoEl.textContent = '현재 플랜: 체험판';
+  }
+
+  // 잔여 크레딧 계산 (프리미엄 → 다른 플랜 변경 시)
+  const creditBox = document.getElementById('plan-credit-box');
+  let creditAmount = 0;
+  let creditDays   = 0;
+
+  if(isPrem && userProfile.premium_until){
+    const until    = new Date(userProfile.premium_until);
+    const diffMs   = until - new Date();
+    const totalDays= Math.max(0, Math.ceil(diffMs / 86400000));
+    // 현재 플랜 단가 추정 (monthly 기준 12000원 / 30일)
+    const dayRate  = 12000 / 30;
+    creditAmount   = Math.round(totalDays * dayRate * 0.5); // 50% 환산
+    creditDays     = totalDays;
+    if(creditAmount > 0){
+      creditBox.style.display = 'block';
+      creditBox.innerHTML = `
+        🔄 <strong>플랜 변경 할인 적용</strong><br>
+        현재 잔여 ${creditDays}일의 50% = <strong>${creditAmount.toLocaleString()}원</strong>을 새 플랜 금액에서 차감합니다.
+      `;
+    } else {
+      creditBox.style.display = 'none';
+    }
+  } else {
+    creditBox.style.display = 'none';
+  }
+
+  // 프리미엄 플랜 카드 렌더
+  const container = document.getElementById('plan-cards-container');
+  const premPlans = [
+    { key:'monthly',   label:'1개월권',  price:12000, badge:'' },
+    { key:'quarterly', label:'3개월권',  price:28000, badge:'인기' },
+    { key:'halfyear',  label:'6개월권',  price:42000, badge:'' },
+    { key:'yearly',    label:'12개월권', price:80000, badge:'최저단가' },
+  ];
+
+  container.innerHTML = premPlans.map(p => {
+    const discounted = Math.max(0, p.price - creditAmount);
+    const showDisc   = creditAmount > 0 && !isActivePremium() === false; // 프리미엄이면 할인 표시
+    const finalPrice = isPrem && creditAmount > 0 ? discounted : p.price;
+    const badgeHtml  = p.badge ? `<span style="background:var(--accent2);color:#fff;font-size:.6rem;padding:2px 6px;border-radius:6px;font-weight:700;margin-left:6px;">${p.badge}</span>` : '';
+
+    return `
+    <div style="border:1px solid var(--border);border-radius:12px;padding:14px 16px;
+      display:flex;justify-content:space-between;align-items:center;gap:10px;
+      transition:border-color .15s;background:rgba(255,255,255,.02);"
+      onmouseenter="this.style.borderColor='var(--accent)'"
+      onmouseleave="this.style.borderColor='var(--border)'">
+      <div>
+        <div style="font-size:.88rem;font-weight:700;color:var(--text);">${p.label}${badgeHtml}</div>
+        ${isPrem && creditAmount > 0 ? `
+          <div style="font-size:.72rem;color:var(--text-dim);text-decoration:line-through;">${p.price.toLocaleString()}원</div>
+          <div style="font-size:.95rem;font-weight:700;color:var(--accent3);">${finalPrice.toLocaleString()}원 <span style="font-size:.65rem;color:var(--text-dim);">잔여 크레딧 ${creditAmount.toLocaleString()}원 차감</span></div>
+        ` : `
+          <div style="font-size:.95rem;font-weight:700;color:var(--gold);">${p.price.toLocaleString()}원</div>
+        `}
+      </div>
+      <button onclick="handlePlanClick('${p.key}')"
+        style="background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;border:none;
+        border-radius:10px;padding:9px 18px;font-size:.82rem;font-weight:700;cursor:pointer;
+        white-space:nowrap;flex-shrink:0;font-family:'Noto Sans KR',sans-serif;">
+        ${isPrem ? '변경/연장' : '결제하기'}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function handlePlanClick(planKey){
+  if(planKey === 'mapdong_family'){
+    if(isActivePremium()){
+      // 프리미엄 → 맵동가족: 경고 팝업
+      document.getElementById('mapdong-warn-modal').style.display = 'flex';
+      return;
+    }
+    closePlanMenu();
+    startPayment('mapdong_family');
+    return;
+  }
+  // 프리미엄 플랜
+  closePlanMenu();
+  // 잔여 크레딧 있으면 금액 조정
+  if(isActivePremium() && userProfile.premium_until){
+    const diffMs   = new Date(userProfile.premium_until) - new Date();
+    const days     = Math.max(0, Math.ceil(diffMs / 86400000));
+    const credit   = Math.round(days * (12000 / 30) * 0.5);
+    if(credit > 0){
+      const basePrice = PLAN_INFO[planKey]?.base || 0;
+      const final     = Math.max(0, basePrice - credit);
+      // 임시로 금액 오버라이드해서 결제
+      _planCreditOverride = { planKey, finalAmount: final, credit };
+    }
+  }
+  showPaywall(null, planKey);
+}
+
+let _planCreditOverride = null;
+
+function proceedMapdongPayment(){
+  document.getElementById('mapdong-warn-modal').style.display = 'none';
   startPayment('mapdong_family');
 }
 
@@ -5184,6 +5350,8 @@ function openSignupModal() {
   if(errEl){ errEl.textContent=''; errEl.style.display='none'; }
   const badge = document.getElementById('su-verified-badge');
   if(badge) badge.style.display='none';
+  const jobSel = document.getElementById('su-job');
+  if(jobSel) jobSel.value = '';
   document.getElementById('signup-modal').classList.add('show');
 }
 
@@ -5447,6 +5615,7 @@ async function submitSignup() {
   const p1        = document.getElementById('su-phone1').value;
   const p2        = document.getElementById('su-phone2').value;
   const p3        = document.getElementById('su-phone3').value;
+  const job       = document.getElementById('su-job').value;
   const addr      = document.getElementById('su-addr').value.trim();
   const addrDt    = document.getElementById('su-addr-detail').value.trim();
 
@@ -5462,6 +5631,7 @@ async function submitSignup() {
   if(hasSequential)                { suErr('연속된 문자(123, abc 등)는 사용 불가합니다.'); return; }
   if(pw!==pw2)                     { suErr('비밀번호 확인이 일치하지 않습니다.'); return; }
   if(!realName)                    { suErr('실명을 입력해주세요.'); return; }
+  if(!job)                         { suErr('직업을 선택해주세요.'); return; }
   if(!signupPhoneVerified)         { suErr('휴대폰 본인인증을 먼저 완료해주세요.'); return; }
   if(!p1||!p2||!p3)                { suErr('휴대폰 번호를 입력해주세요.'); return; }
 
@@ -5489,6 +5659,7 @@ async function submitSignup() {
         real_name:   realName,          /* 나이스 인증으로 확인된 실명 */
         phone:       phone,
         address:     fullAddr,
+        job:         job,                 /* 직업 */
         is_verified: signupPhoneVerified, /* 인증 완료 시 true */
         is_premium:  false,
         plays_count: 0
@@ -5702,6 +5873,20 @@ window.toggleAuthMode = function() {
       </div>
 
       <div class="signup-field">
+        <div class="signup-label">직업 <span class="req">*</span></div>
+        <select class="signup-select" id="su-job">
+          <option value="">-- 직업을 선택해주세요 --</option>
+          <option value="quick">⚡ 퀵서비스</option>
+          <option value="baemin_coupang">🛵 배민&amp;쿠팡계열</option>
+          <option value="general">🚗 일반대행</option>
+          <option value="taxi">🚕 택시</option>
+          <option value="cargo">🚚 화물</option>
+          <option value="proxy_drive">🌙 대리운전</option>
+        </select>
+        <div class="signup-hint">커뮤니티 게시판 카테고리 추천에 활용됩니다.</div>
+      </div>
+
+      <div class="signup-field">
         <div class="signup-label">주소 <span style="font-size:.68rem;color:var(--text-dim);">(선택 – 이벤트 선물 수령 시 필요)</span></div>
         <div style="display:flex;align-items:flex-start;gap:5px;background:rgba(255,215,0,.07);border:1px solid rgba(255,215,0,.2);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:.71rem;color:var(--gold);line-height:1.6;">
           🎁 각종 이벤트로 선물이 지급될 예정입니다. 선물을 받기 위해 주소를 정확하게 입력하여 주세요.
@@ -5719,6 +5904,87 @@ window.toggleAuthMode = function() {
   </div>
 </div>
 
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     💳 플랜 결제/변경 메뉴 팝업
+     ════════════════════════════════════════════ -->
+<div id="plan-menu-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);
+  backdrop-filter:blur(10px);z-index:85000;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:linear-gradient(135deg,var(--surface),var(--surface2));border:1px solid var(--border);
+    border-radius:20px;max-width:520px;width:100%;max-height:92vh;overflow-y:auto;position:relative;
+    box-shadow:0 0 60px rgba(0,212,255,.15);padding:24px;">
+    <button onclick="closePlanMenu()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.08);
+      border:1px solid var(--border);color:var(--text-dim);width:32px;height:32px;border-radius:50%;
+      font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+
+    <div style="font-family:'Black Han Sans',sans-serif;font-size:1.2rem;color:var(--text);margin-bottom:4px;">💳 플랜 결제 / 변경</div>
+    <div id="plan-menu-current-info" style="font-size:.75rem;color:var(--text-dim);margin-bottom:16px;"></div>
+
+    <!-- 잔여 크레딧 안내 -->
+    <div id="plan-credit-box" style="display:none;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);
+      border-radius:10px;padding:10px 14px;font-size:.78rem;color:var(--accent);margin-bottom:16px;line-height:1.7;">
+    </div>
+
+    <!-- 맵동가족 -->
+    <div style="border:1px solid #a29bfe;border-radius:14px;padding:16px;margin-bottom:12px;position:relative;">
+      <div style="font-size:.55rem;color:#a29bfe;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">맵동가족 · 월정액</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+        <div>
+          <div style="font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:6px;">990원 <span style="font-size:.72rem;color:var(--text-dim);">/ 월</span></div>
+          <div style="font-size:.72rem;color:var(--text-dim);line-height:1.8;">
+            <span style="color:#ff6b6b;font-weight:700;">❌ 광고제거 없음</span><br>
+            ✅ 커뮤니티 조회·글쓰기<br>
+            💡 퀴즈 없이 커뮤니티만 원하는 분께 적합<br>
+            <span style="font-size:.68rem;opacity:.7;">졸업반·달인·후원자 포지션</span>
+          </div>
+        </div>
+        <button id="btn-plan-mapdong" onclick="handlePlanClick('mapdong_family')"
+          style="background:linear-gradient(135deg,#a29bfe,#6c5ce7);color:#fff;border:none;
+          border-radius:10px;padding:10px 18px;font-size:.82rem;font-weight:700;cursor:pointer;
+          white-space:nowrap;flex-shrink:0;font-family:'Noto Sans KR',sans-serif;">가입하기</button>
+      </div>
+    </div>
+
+    <!-- 프리미엄 플랜들 -->
+    <div style="font-size:.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:2px;margin:14px 0 8px;">프리미엄 플랜</div>
+    <div style="font-size:.72rem;color:var(--text-dim);background:rgba(255,255,255,.04);border:1px solid var(--border);
+      border-radius:8px;padding:8px 12px;margin-bottom:12px;line-height:1.7;">
+      ✅ 광고제거 &amp; 퀴즈 무제한 &nbsp;|&nbsp; ✅ 커뮤니티 조회·글쓰기
+      <span style="font-size:.65rem;opacity:.7;">(일부 전문커뮤니티 제외)</span>
+    </div>
+
+    <div id="plan-cards-container" style="display:flex;flex-direction:column;gap:10px;"></div>
+  </div>
+</div>
+
+<!-- 맵동가족 경고 팝업 (프리미엄 → 맵동가족 결제 시) -->
+<div id="mapdong-warn-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);
+  z-index:90000;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:var(--surface2);border:1px solid #a29bfe;border-radius:16px;max-width:360px;
+    width:100%;padding:28px;text-align:center;box-shadow:0 8px 40px rgba(162,155,254,.3);">
+    <div style="font-size:2rem;margin-bottom:12px;">⚠️</div>
+    <div style="font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:10px;">이미 프리미엄 회원입니다</div>
+    <div style="font-size:.8rem;color:var(--text-dim);line-height:1.8;margin-bottom:20px;">
+      프리미엄 회원이 맵동가족 월정액 결제 시<br>
+      <strong style="color:#ff6b6b;">아무런 추가 혜택도 받을 수 없습니다.</strong><br><br>
+      단, 프리미엄 기간 종료 후에도<br>
+      맵동가족 구독 유지 시 커뮤니티 권한은 유지됩니다.
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="document.getElementById('mapdong-warn-modal').style.display='none'"
+        style="flex:1;padding:11px;border-radius:10px;background:var(--surface);border:1px solid var(--border);
+        color:var(--text-dim);font-size:.85rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+        아니요
+      </button>
+      <button onclick="proceedMapdongPayment()"
+        style="flex:1;padding:11px;border-radius:10px;background:linear-gradient(135deg,#a29bfe,#6c5ce7);
+        color:#fff;border:none;font-size:.85rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+        예, 결제하기
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════════
