@@ -3086,10 +3086,14 @@ let _adQuizCount = 0;
 let _adTimer     = null;
 let _adNextFn    = null;
 const AD_INTERVAL  = 5;
-const AD_WAIT_SEC  = 5;
+const AD_WAIT_SEC  = 60;  // 60초 강제 대기
 
 function shouldShowAd() {
-  return !isActivePremium();
+  // 프리미엄 회원, 관리자 → 광고 없음
+  // 일반회원, 맵동가족 → 광고 있음
+  if(isAdmin()) return false;
+  if(isActivePremium()) return false;
+  return true;
 }
 function handleAdGate(nextFn) {
   if(!shouldShowAd()){ nextFn(); return; }
@@ -3101,19 +3105,39 @@ function handleAdGate(nextFn) {
 function showAdOverlay() {
   const overlay  = document.getElementById('ad-overlay');
   if(!overlay){ _adNextFn && _adNextFn(); _adNextFn=null; return; }
-  overlay.style.display = 'flex';
+  overlay.style.display = 'block';
+  // 페이지 최상단으로 스크롤 (광고 보이게)
+  window.scrollTo(0, 0);
+
   let sec = AD_WAIT_SEC;
-  const cntEl   = document.getElementById('ad-countdown');
-  const skipBtn = document.getElementById('ad-skip-btn');
+  const cntEl    = document.getElementById('ad-countdown');
+  const skipBtn  = document.getElementById('ad-skip-btn');
+  const progBar  = document.getElementById('ad-progress-bar');
+
   if(cntEl) cntEl.textContent = sec;
-  if(skipBtn){ skipBtn.disabled=true; skipBtn.style.opacity='.4'; skipBtn.style.cursor='not-allowed'; }
+  if(progBar) progBar.style.width = '100%';
+  if(skipBtn){
+    skipBtn.disabled = true;
+    skipBtn.style.opacity = '.4';
+    skipBtn.style.cursor  = 'not-allowed';
+    skipBtn.textContent   = '✕ 닫기 (대기 중)';
+  }
+
   clearInterval(_adTimer);
   _adTimer = setInterval(() => {
     sec--;
     if(cntEl) cntEl.textContent = sec;
+    // 프로그레스 바 업데이트
+    if(progBar) progBar.style.width = (sec / AD_WAIT_SEC * 100) + '%';
     if(sec <= 0){
       clearInterval(_adTimer);
-      if(skipBtn){ skipBtn.disabled=false; skipBtn.style.opacity='1'; skipBtn.style.cursor='pointer'; }
+      if(skipBtn){
+        skipBtn.disabled      = false;
+        skipBtn.style.opacity = '1';
+        skipBtn.style.cursor  = 'pointer';
+        skipBtn.textContent   = '✕ 닫기';
+      }
+      if(cntEl) cntEl.textContent = '0';
     }
   }, 1000);
 }
@@ -3121,6 +3145,14 @@ function skipAd() {
   clearInterval(_adTimer);
   const overlay = document.getElementById('ad-overlay');
   if(overlay) overlay.style.display = 'none';
+  // 버튼 상태 초기화 (다음 광고를 위해)
+  const skipBtn = document.getElementById('ad-skip-btn');
+  if(skipBtn){
+    skipBtn.disabled = true;
+    skipBtn.style.opacity = '.4';
+    skipBtn.style.cursor  = 'not-allowed';
+    skipBtn.textContent   = '✕ 닫기 (대기 중)';
+  }
   if(_adNextFn){ _adNextFn(); _adNextFn=null; }
 }
 
@@ -6052,56 +6084,116 @@ window.toggleAuthMode = function() {
 
 <!-- ══════════════════════════════════════════════
      📢 광고 팝업 (일반/맵동가족 5문제마다)
+     - 오버레이 없음 (사이드바 가림 방지)
+     - z-index 최상단, 퀴즈 위에 고정
+     - 60초 강제 대기, 건너뛰기 불가
      ════════════════════════════════════════════ -->
-<div id="ad-overlay" style="display:none;position:fixed;inset:0;
-  background:rgba(10,14,26,.95);backdrop-filter:blur(8px);
-  z-index:95000;align-items:center;justify-content:center;flex-direction:column;">
-  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;
-    max-width:380px;width:90%;padding:24px;text-align:center;
-    box-shadow:0 0 60px rgba(0,212,255,.15);">
-    <div style="font-size:.65rem;color:var(--text-dim);letter-spacing:2px;margin-bottom:10px;">📢 광고</div>
-    <div id="ad-slot-container" style="min-height:250px;background:rgba(255,255,255,.04);
-      border:1px dashed var(--border);border-radius:12px;
-      display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
-      <div style="color:var(--text-dim);font-size:.8rem;text-align:center;padding:20px;">
-        <div style="font-size:2rem;margin-bottom:8px;">📋</div>
-        광고 영역<br>
-        <span style="font-size:.68rem;opacity:.6;">AdSense 승인 후 광고가 표시됩니다</span>
-      </div>
-      <!--
-      <ins class="adsbygoogle"
-           style="display:block;width:300px;height:250px;"
-           data-ad-client="ca-pub-8230598534021197"
-           data-ad-slot="YOUR_AD_SLOT_ID"
-           data-ad-format="auto"
-           data-full-width-responsive="true"></ins>
-      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-      -->
-    </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+<div id="ad-overlay" style="
+  display:none;
+  position:fixed;
+  /* 지도 영역 위에 고정 — 헤더 아래, 사이드바 제외 */
+  top:56px; left:0; right:0; bottom:0;
+  z-index:9500;
+  pointer-events:all;
+  overflow-y:auto;
+  background:var(--bg);
+">
+  <!-- 광고 컨테이너: PC/모바일 반응형 -->
+  <div style="
+    display:flex; flex-direction:column; align-items:center;
+    justify-content:flex-start;
+    padding:16px 16px 24px;
+    min-height:100%;
+    box-sizing:border-box;
+  ">
+
+    <!-- 상단 안내 -->
+    <div style="
+      width:100%; max-width:740px;
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:10px;
+    ">
       <div style="font-size:.78rem;color:var(--text-dim);">
-        <span id="ad-countdown" style="color:var(--accent);font-weight:700;font-size:1rem;">5</span>초 후 계속
+        📢 광고 — <span id="ad-countdown" style="color:var(--accent);font-weight:700;font-size:1rem;">60</span>초 후 닫기 가능
       </div>
       <button id="ad-skip-btn" onclick="skipAd()" disabled
-        style="background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;
-        border:none;border-radius:10px;padding:10px 22px;font-size:.88rem;font-weight:700;
-        cursor:not-allowed;opacity:.4;font-family:'Noto Sans KR',sans-serif;transition:all .3s;">
-        퀴즈 계속하기 →
+        style="
+          background:var(--surface2);color:var(--text-dim);
+          border:1px solid var(--border);border-radius:8px;
+          padding:6px 16px;font-size:.78rem;font-weight:700;
+          cursor:not-allowed;opacity:.4;
+          font-family:'Noto Sans KR',sans-serif;transition:all .3s;
+        ">
+        ✕ 닫기 (대기 중)
       </button>
     </div>
-    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
-      <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:8px;">
-        💎 프리미엄 회원은 광고 없이 이용 가능합니다
+
+    <!-- 카운트다운 프로그레스 바 -->
+    <div style="width:100%;max-width:740px;height:4px;background:var(--border);border-radius:2px;margin-bottom:14px;overflow:hidden;">
+      <div id="ad-progress-bar" style="height:100%;width:100%;background:var(--accent);border-radius:2px;transition:width 1s linear;"></div>
+    </div>
+
+    <!-- 광고 박스 (쿠팡 + 애드센스) -->
+    <div style="
+      width:100%; max-width:740px;
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:14px;
+      overflow:hidden;
+      margin-bottom:14px;
+    ">
+      <!-- 쿠팡 파트너스 광고 -->
+      <div style="width:100%;overflow:hidden;line-height:0;">
+        <iframe
+          src="https://ads-partners.coupang.com/widgets.html?id=975723&template=carousel&trackingCode=AF6035623&subId=&width=700&height=600&tsource="
+          style="width:100%;height:clamp(280px,50vw,600px);border:none;display:block;"
+          frameborder="0" scrolling="no"
+          referrerpolicy="unsafe-url" browsingtopics>
+        </iframe>
+      </div>
+      <!-- 구글 애드센스 광고 (쿠팡 아래) -->
+      <div style="padding:10px;background:var(--surface2);border-top:1px solid var(--border);">
+        <div style="font-size:.6rem;color:var(--text-dim);margin-bottom:6px;text-align:center;">Google 광고</div>
+        <ins class="adsbygoogle"
+          style="display:block;width:100%;min-height:90px;"
+          data-ad-client="ca-pub-8230598534021197"
+          data-ad-slot="auto"
+          data-ad-format="auto"
+          data-full-width-responsive="true"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+      </div>
+    </div>
+
+    <!-- 하단: 프리미엄 유도 -->
+    <div style="
+      width:100%; max-width:740px;
+      background:linear-gradient(135deg,var(--surface),var(--surface2));
+      border:1px solid rgba(255,215,0,.3);
+      border-radius:12px;
+      padding:14px 18px;
+      display:flex; align-items:center; justify-content:space-between;
+      flex-wrap:wrap; gap:10px;
+    ">
+      <div>
+        <div style="font-size:.85rem;font-weight:700;color:var(--gold);margin-bottom:3px;">💎 광고 없이 이용하려면?</div>
+        <div style="font-size:.75rem;color:var(--text-dim);">프리미엄 회원은 광고 없이 무제한 퀴즈 이용 가능합니다</div>
+        <div style="font-size:.78rem;color:var(--accent);margin-top:3px;font-weight:700;">💡 하루 <strong>600원</strong> 수준</div>
       </div>
       <button onclick="document.getElementById('ad-overlay').style.display='none'; openPlanMenu();"
-        style="background:none;border:1px solid var(--gold);color:var(--gold);
-        border-radius:8px;padding:6px 16px;font-size:.75rem;font-weight:700;
-        cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
-        🌟 광고 없애기
+        style="
+          background:linear-gradient(135deg,var(--gold),#ff8c00);
+          color:#000;border:none;border-radius:10px;
+          padding:10px 22px;font-size:.85rem;font-weight:700;
+          cursor:pointer;font-family:'Noto Sans KR',sans-serif;
+          white-space:nowrap;
+        ">
+        🌟 광고 제거하기
       </button>
     </div>
+
   </div>
 </div>
+
 
 <!-- 프리미엄 전용 기능 안내 팝업 -->
 <div id="premium-feature-modal" style="display:none;position:fixed;inset:0;
