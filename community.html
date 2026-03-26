@@ -15,8 +15,20 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 #comm-header{height:52px;background:var(--surface);border-bottom:2px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0;position:sticky;top:0;z-index:100;}
 .comm-logo{font-family:'Black Han Sans',sans-serif;font-size:1.2rem;color:var(--accent);letter-spacing:2px;}
 .comm-logo span{color:var(--accent2);}
-#btn-back-quiz{margin-left:auto;background:linear-gradient(135deg,#a29bfe,#6c5ce7);border:none;border-radius:8px;padding:6px 14px;font-size:.82rem;font-weight:700;color:#fff;cursor:pointer;}
+#btn-back-quiz{background:linear-gradient(135deg,#a29bfe,#6c5ce7);border:none;border-radius:8px;padding:6px 14px;font-size:.82rem;font-weight:700;color:#fff;cursor:pointer;}
 .comm-cat-title{font-size:.9rem;color:var(--text-dim);}
+/* ── 유저 칩 드롭다운 ── */
+#comm-user-area{margin-left:auto;display:flex;align-items:center;gap:10px;position:relative;}
+#comm-user-chip{display:none;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px 4px 6px;cursor:pointer;transition:border-color .2s;}
+#comm-user-chip:hover{border-color:var(--accent);}
+#comm-user-chip.visible{display:flex;}
+.comm-user-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:#000;}
+.comm-user-nick{font-size:.75rem;font-weight:600;color:var(--text);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#comm-user-dropdown{position:absolute;top:44px;right:0;background:var(--surface);border:1px solid rgba(0,212,255,.15);border-radius:12px;padding:6px;min-width:180px;z-index:200;display:none;box-shadow:-4px 8px 30px rgba(0,0,0,.5);}
+#comm-user-dropdown.show{display:block;}
+.cdd-btn{display:block;width:100%;text-align:left;background:none;border:none;color:var(--text-dim);padding:9px 12px;border-radius:8px;font-size:.82rem;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .15s;}
+.cdd-btn:hover{background:var(--surface2);color:var(--text);}
+.cdd-sep{height:1px;background:var(--border);margin:4px 0;}
 
 /* ── 레이아웃 ── */
 #comm-body{display:flex;flex:1;min-height:0;overflow:hidden;}
@@ -184,7 +196,41 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 <div id="comm-header">
   <div class="comm-logo">Map<span>Dong</span></div>
   <div class="comm-cat-title" id="comm-cat-title">커뮤니티</div>
-  <button id="btn-back-quiz" onclick="backToQuiz()">🗺 퀴즈로 돌아가기</button>
+  <div id="comm-user-area">
+    <button id="btn-back-quiz" onclick="backToQuiz()">🗺 퀴즈로 돌아가기</button>
+    <!-- 닉네임 드롭다운 -->
+    <div id="comm-user-chip" onclick="toggleCommDD(event)">
+      <div class="comm-user-avatar" id="comm-avatar">?</div>
+      <span class="comm-user-nick" id="comm-nick">-</span>
+      <span style="font-size:.6rem;color:var(--text-dim)">▾</span>
+    </div>
+    <div id="comm-user-dropdown">
+      <button class="cdd-btn" onclick="openMyPage()">📋 내가 쓴 글·댓글</button>
+      <div class="cdd-sep"></div>
+      <button class="cdd-btn" onclick="backToQuiz()">🗺 퀴즈로 돌아가기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 내 커뮤니티 정보 페이지 -->
+<div id="my-page" style="display:none;flex:1;overflow-y:auto;padding:24px;max-width:760px;margin:0 auto;width:100%;box-sizing:border-box;">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+    <button onclick="closeMyPage()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:5px 12px;font-size:.78rem;cursor:pointer;">← 게시판으로</button>
+    <div style="font-size:1rem;font-weight:700;color:var(--text);">📋 내 커뮤니티 활동</div>
+  </div>
+  <!-- 탭 -->
+  <div style="display:flex;border-bottom:1px solid var(--border);margin-bottom:16px;">
+    <div id="my-tab-posts" onclick="switchMyTab('posts')"
+      style="padding:10px 20px;font-size:.82rem;font-weight:700;cursor:pointer;color:var(--accent);border-bottom:2px solid var(--accent);">
+      ✍️ 내가 쓴 글
+    </div>
+    <div id="my-tab-comments" onclick="switchMyTab('comments')"
+      style="padding:10px 20px;font-size:.82rem;font-weight:600;cursor:pointer;color:var(--text-dim);border-bottom:2px solid transparent;">
+      💬 내가 쓴 댓글
+    </div>
+  </div>
+  <div id="my-page-list"></div>
+  <div class="pagination" id="my-pagination"></div>
 </div>
 
 <div id="comm-body">
@@ -375,6 +421,7 @@ async function init(){
   const slug=params.get('cat'),catId=params.get('catId'),catName=params.get('catName')||'게시판';
   if(slug&&catId){currentCatSlug=slug;currentCatId=Number(catId);currentCatName=catName;}
   renderSidebar();renderBoard();
+  renderCommUserChip();
 }
 
 // ── 사이드바 ──
@@ -805,6 +852,119 @@ function openLightbox(src){document.getElementById('lightbox-img').src=src;docum
 function closeLightbox(){document.getElementById('img-lightbox').classList.remove('show');document.getElementById('lightbox-img').src='';}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeLightbox();closeProfile();}});
 document.getElementById('img-lightbox').addEventListener('click',e=>{if(e.target===e.currentTarget)closeLightbox();});
+/* ══ 유저 칩 드롭다운 ══ */
+function renderCommUserChip(){
+  if(!currentUser||!userProfile){
+    document.getElementById('comm-user-chip').classList.remove('visible');
+    return;
+  }
+  const nick = userProfile.nickname || currentUser.email?.split('@')[0] || '?';
+  document.getElementById('comm-nick').textContent = nick;
+  document.getElementById('comm-avatar').textContent = nick[0]?.toUpperCase()||'?';
+  document.getElementById('comm-user-chip').classList.add('visible');
+}
+function toggleCommDD(e){
+  e.stopPropagation();
+  document.getElementById('comm-user-dropdown').classList.toggle('show');
+}
+document.addEventListener('click',()=>{
+  document.getElementById('comm-user-dropdown')?.classList.remove('show');
+});
+
+/* ══ 내 커뮤니티 페이지 ══ */
+let _myTab='posts', _myPage=1;
+const MY_PAGE_SIZE=10;
+
+function openMyPage(){
+  document.getElementById('comm-user-dropdown').classList.remove('show');
+  document.getElementById('comm-body').style.display='none';
+  document.getElementById('my-page').style.display='block';
+  _myTab='posts'; _myPage=1;
+  renderMyTabs();
+  loadMyPage();
+}
+function closeMyPage(){
+  document.getElementById('my-page').style.display='none';
+  document.getElementById('comm-body').style.display='flex';
+}
+function switchMyTab(tab){
+  _myTab=tab; _myPage=1;
+  renderMyTabs();
+  loadMyPage();
+}
+function renderMyTabs(){
+  const tabs={posts:'my-tab-posts',comments:'my-tab-comments'};
+  Object.entries(tabs).forEach(([key,id])=>{
+    const el=document.getElementById(id);
+    const active=key===_myTab;
+    el.style.color=active?'var(--accent)':'var(--text-dim)';
+    el.style.borderBottom=active?'2px solid var(--accent)':'2px solid transparent';
+  });
+}
+
+async function loadMyPage(){
+  if(!currentUser)return;
+  const listEl=document.getElementById('my-page-list');
+  listEl.innerHTML='<div style="color:var(--text-dim);text-align:center;padding:20px">로딩 중...</div>';
+  const from=(_myPage-1)*MY_PAGE_SIZE, to=from+MY_PAGE_SIZE-1;
+
+  if(_myTab==='posts'){
+    const {data,count}=await sb.from('community_posts')
+      .select('id,title,created_at,view_count,like_count,category_id',{count:'exact'})
+      .eq('user_id',currentUser.id).eq('is_deleted',false)
+      .order('created_at',{ascending:false}).range(from,to);
+
+    if(!data?.length){
+      listEl.innerHTML='<div style="color:var(--text-dim);text-align:center;padding:40px">작성한 글이 없습니다</div>';
+      document.getElementById('my-pagination').innerHTML=''; return;
+    }
+    // 카테고리명 조회
+    listEl.innerHTML=data.map(p=>`
+      <div onclick="closeMyPage();viewPost(${p.id})"
+        style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:6px;cursor:pointer;transition:border-color .15s;"
+        onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-size:.88rem;font-weight:600;color:var(--text);margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(p.title)}</div>
+        <div style="display:flex;gap:12px;font-size:.68rem;color:var(--text-dim);">
+          <span>${new Date(p.created_at).toLocaleDateString('ko-KR')}</span>
+          <span>👁 ${p.view_count}</span>
+          <span>❤️ ${p.like_count||0}</span>
+        </div>
+      </div>`).join('');
+    renderMyPagination(count);
+
+  } else {
+    const {data,count}=await sb.from('community_comments')
+      .select('id,content,created_at,post_id',{count:'exact'})
+      .eq('user_id',currentUser.id).eq('is_deleted',false)
+      .order('created_at',{ascending:false}).range(from,to);
+
+    if(!data?.length){
+      listEl.innerHTML='<div style="color:var(--text-dim);text-align:center;padding:40px">작성한 댓글이 없습니다</div>';
+      document.getElementById('my-pagination').innerHTML=''; return;
+    }
+    listEl.innerHTML=data.map(c=>`
+      <div onclick="closeMyPage();viewPost(${c.post_id})"
+        style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:6px;cursor:pointer;transition:border-color .15s;"
+        onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-size:.83rem;color:var(--text);margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(c.content)}</div>
+        <div style="font-size:.68rem;color:var(--text-dim);">${new Date(c.created_at).toLocaleDateString('ko-KR')}</div>
+      </div>`).join('');
+    renderMyPagination(count);
+  }
+}
+
+function renderMyPagination(total){
+  const pages=Math.ceil(total/MY_PAGE_SIZE);
+  const el=document.getElementById('my-pagination');
+  if(pages<=1){el.innerHTML='';return;}
+  let html='';
+  if(_myPage>1)html+=`<button class="pg-btn" onclick="goMyPage(${_myPage-1})">‹</button>`;
+  for(let i=1;i<=pages;i++)html+=`<button class="pg-btn${i===_myPage?' active':''}" onclick="goMyPage(${i})">${i}</button>`;
+  if(_myPage<pages)html+=`<button class="pg-btn" onclick="goMyPage(${_myPage+1})">›</button>`;
+  el.innerHTML=html;
+}
+function goMyPage(p){_myPage=p;loadMyPage();window.scrollTo(0,0);}
+
 function backToQuiz(){window.location.href='index.html';}
 function escHtml(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
