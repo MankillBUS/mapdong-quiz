@@ -833,10 +833,10 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
    오른쪽 사이드바 (커뮤니티 & 메뉴)
    ═══════════════════════════════════════════════════════ */
 /* vuski 출처: 오른쪽 사이드바 열릴 때 위치 조정 */
-#main:not(.right-collapsed) #map-attr-vuski { right: 230px; }
+#main:not(.right-collapsed) #map-attr-vuski { right: 260px; }
 
 #right-side {
-  width: 230px;
+  width: 260px;
   background: var(--surface);
   border-left: 2px solid var(--border);
   display: flex;
@@ -850,15 +850,15 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 #right-side.collapsed { width: 0; border-left: none; }
 
 #right-side-toggle {
-  /* 사이드바 안쪽: 230px - 18px = 212px (왼쪽 사이드바 토글과 동일 방식) */
-  position: absolute; right: 212px; top: 50%;
+  /* 펼쳐진 상태: ▶) 모양 — 오른쪽만 둥글, 왼쪽 직각 */
+  /* 260px(side너비) - 18px(버튼너비) = 242px */
+  position: absolute; right: 242px; top: 50%;
   transform: translateY(-50%);
   z-index: 700;
   background: var(--surface);
   border: 2px solid var(--border);
-  border-right: none;   /* 펼쳐진 상태: 오른쪽 테두리 없음, 왼쪽 있음 */
-  border-left: 2px solid var(--border);
-  border-radius: 8px 0 0 8px;  /* 왼쪽만 둥글 */
+  border-left: none;        /* 왼쪽 테두리 없음 (사이드바에 붙음) */
+  border-radius: 0 8px 8px 0; /* 오른쪽만 둥글 → ▶) */
   width: 18px; height: 56px;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; transition: right .25s, background .2s, border-radius .25s;
@@ -866,7 +866,13 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 }
 #right-side-toggle:hover { background: var(--surface2); color: var(--accent); border-color: var(--accent); }
 #main.right-collapsed #right-side { width: 0; border-left: none; }
-#main.right-collapsed #right-side-toggle { right: 0; border-right: 2px solid var(--border); border-left: none; border-radius: 0 8px 8px 0; }
+#main.right-collapsed #right-side-toggle {
+  /* 접힌 상태: (◀ 모양 — 왼쪽만 둥글, 오른쪽 직각 */
+  right: 0;
+  border-left: 2px solid var(--border);  /* 왼쪽 테두리 생김 */
+  border-right: none;                    /* 오른쪽 없음 */
+  border-radius: 8px 0 0 8px;            /* 왼쪽만 둥글 → (◀ */
+}
 
 /* 오른쪽 사이드바 스크롤 영역 */
 #right-scroll {
