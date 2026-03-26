@@ -1,0 +1,15 @@
+# MapDong robots.txt
+# 모든 크롤러 허용
+User-agent: *
+Allow: /
+
+# Google AdSense 크롤러 명시적 허용
+User-agent: Mediapartners-Google
+Allow: /
+
+# Google 디스플레이 광고 봇 허용
+User-agent: Google-Display-Ads-Bot
+Allow: /
+
+# Sitemap 위치
+Sitemap: https://www.mapdong.com/sitemap.xml
