@@ -2318,7 +2318,7 @@ const MAP_TILE_THEMES = {
   },
 };
 
-/* 지도 배경 캐시화 시스템 제거 — tileLayer keepBuffer/tileSize로 대체 */
+/* 지도 배경 캐시화 시스템 제거 — keepBuffer로 미리 로드 범위 확대 */
 let _preloadAborted = false;  // 하위 호환성 유지
 function startMapTilePreload(){ /* noop */ }
 function notifyJsonLoading(){ /* noop */ }
@@ -2835,9 +2835,7 @@ window.toggleTheme = function(){
     maxZoom:            19,
     minZoom:            8,
     errorTileUrl:       '',
-    tileSize:           384,          // 기본 256의 1.5배 → 한 타일이 더 넓은 영역 커버
-    zoomOffset:         -1,           // tileSize 변경 시 zoom 보정 필수
-    keepBuffer:         6,            // 화면 밖 6타일 미리 로드
+    keepBuffer:         4,            // 화면 밖 4타일 미리 로드 (기본값 2의 2배)
     updateWhenZooming:  false,        // 줌 중 깜빡임 방지
     updateWhenIdle:     false,        // 이동 중에도 계속 로드
   }).addTo(map);
@@ -2897,9 +2895,7 @@ function initMap(){
     maxZoom:            19,
     minZoom:            8,
     errorTileUrl:       '',
-    tileSize:           384,
-    zoomOffset:         -1,
-    keepBuffer:         6,
+    keepBuffer:         4,
     updateWhenZooming:  false,
     updateWhenIdle:     false,
   }).addTo(map);
