@@ -879,7 +879,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 10px 0 10px;
+  padding: 10px 0;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -888,7 +888,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 /* 메뉴 헤더 */
 .rs-header {
-  padding: 8px 12px 6px;
+  padding: 8px 12px 6px 22px;   /* 좌측 22px: 토글버튼(18px) + 여백(4px) */
   font-size: .55rem;
   color: var(--text-dim);
   text-transform: uppercase;
@@ -902,7 +902,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 8px 12px 8px 22px;  /* 좌측 22px: 토글버튼(18px) + 여백(4px) */
   font-size: .78rem;
   color: var(--text-dim);
   cursor: pointer;
@@ -923,7 +923,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 12px;
+  padding: 7px 12px 7px 22px;  /* 좌측 22px: 토글버튼 고려 */
   font-size: .78rem;
   font-weight: 600;
   color: var(--text);
@@ -940,7 +940,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .rs-cat-children.open { display: block; }
 .rs-child-item {
   display: flex; align-items: center; gap: 6px;
-  padding: 6px 12px 6px 28px;
+  padding: 6px 12px 6px 38px;  /* 좌측: 22px(들여쓰기)+16px(계층) */
   font-size: .73rem;
   color: var(--text-dim);
   cursor: pointer;
