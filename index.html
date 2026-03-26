@@ -1448,6 +1448,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div class="cs-pg-tabs">
     <div class="cs-pg-tab active" id="tab-board" onclick="csTab('board')">📋 Q&A게시판</div>
     <div class="cs-pg-tab" id="tab-refund" onclick="csTab('refund')">📄 환불 약관</div>
+    <div class="cs-pg-tab" id="tab-privacy" onclick="csTab('privacy')">🔐 개인정보처리방침</div>
   </div>
   <div class="cs-pg-body" id="cs-body">
     <!-- JS로 채워짐 -->
@@ -3603,16 +3604,17 @@ function toast(msg, type=''){
 /* ── 화면 전환 ── */
 const SCREENS = ['screen-login','screen-verify','screen-paywall','start','screen-cs'];
 function showOnly(id){
-  // 오른쪽 사이드바: 로그인화면에서 숨김, start(지역선택)에서만 표시
-  const rightSide = document.getElementById('right-side');
-  const rightToggle = document.getElementById('right-side-toggle');
-  const showRight = (id === 'start');
-  if(rightSide)   rightSide.style.visibility   = showRight ? 'visible' : 'hidden';
-  if(rightToggle) rightToggle.style.visibility = showRight ? 'visible' : 'hidden';
   SCREENS.forEach(s => {
     const el = document.getElementById(s);
     if(el) el.classList.toggle('hidden', s !== id);
   });
+  // 오른쪽 사이드바: start 화면에서만 표시
+  // visibility 대신 display 제어 — 왼쪽 사이드바와 동일하게 CSS만으로 처리
+  const showRight = (id === 'start');
+  const rightSide   = document.getElementById('right-side');
+  const rightToggle = document.getElementById('right-side-toggle');
+  if(rightSide)   rightSide.style.display   = showRight ? '' : 'none';
+  if(rightToggle) rightToggle.style.display = showRight ? '' : 'none';
 }
 
 /* ── 로그인 ── */
@@ -5141,22 +5143,22 @@ function renderCSPrivacy(){
   const body = document.getElementById('cs-body');
   body.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
-      padding:40px 20px;gap:16px;text-align:center;">
+      padding:48px 20px;gap:18px;text-align:center;">
       <div style="font-size:3rem;">🔐</div>
       <div style="font-size:1rem;font-weight:700;color:var(--text);">개인정보처리방침</div>
-      <div style="font-size:.82rem;color:var(--text-dim);line-height:1.8;max-width:340px;">
-        MapDong의 개인정보 수집·이용·보호에 관한<br>전체 방침을 확인하실 수 있습니다.
+      <div style="font-size:.82rem;color:var(--text-dim);line-height:1.8;max-width:360px;">
+        MapDong의 개인정보 수집·이용·보호에 관한 전체 방침을 확인하실 수 있습니다.<br>
+        아래 버튼을 클릭하면 새 탭에서 전문을 볼 수 있습니다.
       </div>
-      <a href="https://www.mapdong.com/privacy.html" target="_blank" rel="noopener"
+      <a href="/privacy.html" target="_blank" rel="noopener"
         style="display:inline-flex;align-items:center;gap:8px;
         background:linear-gradient(135deg,var(--accent),#0099bb);
         color:#000;border:none;border-radius:12px;padding:14px 28px;
         font-size:.92rem;font-weight:700;text-decoration:none;
-        font-family:'Noto Sans KR',sans-serif;"
-        onmouseenter="this.style.opacity='.85'" onmouseleave="this.style.opacity='1'">
+        font-family:'Noto Sans KR',sans-serif;">
         🔐 개인정보처리방침 전문 보기 →
       </a>
-      <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px;">새 탭에서 열립니다</div>
+      <div style="font-size:.7rem;color:var(--text-dim);">새 탭에서 열립니다</div>
     </div>
   `;
 }
