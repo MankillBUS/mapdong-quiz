@@ -528,7 +528,7 @@ async function submitPost(){
   const btn=document.getElementById('btn-submit-post');
   btn.disabled=true;btn.textContent='등록 중...';
   // 쿠팡 파트너스 광고를 콘텐츠 최상단에 삽입
-  const content = COUPANG_AD_HTML + rawContent;
+  const content = rawContent;  // 광고는 열람 시에만 표시 (DB엔 저장 안 함)
   const {error}=await sb.from('community_posts').insert({
     category_id:currentCatId,user_id:currentUser.id,title,content
   });
