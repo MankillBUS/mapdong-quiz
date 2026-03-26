@@ -4,9 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MapDong · 수도권 동(洞) 위치 퀴즈</title>
-<!-- Google AdSense -->
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8230598534021197"
-     crossorigin="anonymous"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&family=Black+Han+Sans&family=Gowun+Dodum&family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -3068,77 +3065,16 @@ function showQuestionCard(q) {
   updateMobileQCard(q);
 }
 
-
-/* ═══════════════════════════════════════════════════════
-   📢 광고 시스템 — 일반/맵동가족 5문제마다 광고 표시
-   ═══════════════════════════════════════════════════════ */
-let _adQuizCount    = 0;   // 광고용 문제 카운터
-let _adTimer        = null; // 카운트다운 타이머
-let _adNextFn       = null; // 광고 후 실행할 콜백
-
-const AD_INTERVAL   = 5;   // 5문제마다 광고
-const AD_WAIT_SEC   = 5;   // 광고 표시 최소 대기 시간(초)
-
-/* 광고 대상 여부 */
-function shouldShowAd() {
-  return !isActivePremium(); // 프리미엄만 광고 없음 (맵동가족 포함 광고)
-}
-
-/* 문제 완료 후 광고 여부 판단 → 광고면 표시, 아니면 콜백 즉시 실행 */
-function handleAdGate(nextFn) {
-  if (!shouldShowAd()) { nextFn(); return; }
-
-  _adQuizCount++;
-  if (_adQuizCount % AD_INTERVAL !== 0) { nextFn(); return; }
-
-  // 광고 표시
-  _adNextFn = nextFn;
-  showAdOverlay();
-}
-
-function showAdOverlay() {
-  const overlay = document.getElementById('ad-overlay');
-  overlay.style.display = 'flex';
-
-  // 카운트다운
-  let sec = AD_WAIT_SEC;
-  const cntEl  = document.getElementById('ad-countdown');
-  const skipBtn = document.getElementById('ad-skip-btn');
-  cntEl.textContent = sec;
-  skipBtn.disabled  = true;
-  skipBtn.style.cursor  = 'not-allowed';
-  skipBtn.style.opacity = '.4';
-
-  clearInterval(_adTimer);
-  _adTimer = setInterval(() => {
-    sec--;
-    cntEl.textContent = sec;
-    if (sec <= 0) {
-      clearInterval(_adTimer);
-      skipBtn.disabled  = false;
-      skipBtn.style.cursor  = 'pointer';
-      skipBtn.style.opacity = '1';
-    }
-  }, 1000);
-}
-
-function skipAd() {
-  clearInterval(_adTimer);
-  document.getElementById('ad-overlay').style.display = 'none';
-  if (_adNextFn) { _adNextFn(); _adNextFn = null; }
-}
-
 function closeOkModal(){
+  // 정답 모달 닫고 다음 문제 (폴리곤 & 레이블 유지)
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
+  canAns = true;
 
-  handleAdGate(() => {
-    canAns = true;
-    if(!queue.length) reshuffle();
-    cur = queue.pop(); qCnt++;
-    showQuestionCard(cur);
-    updStats();
-  });
+  if(!queue.length) reshuffle();
+  cur = queue.pop(); qCnt++;
+  showQuestionCard(cur);
+  updStats();
 }
 
 function nextQ(){
@@ -3284,13 +3220,8 @@ window.hideWrongBoundary = function(){
 };
 
 window.toggleShowAll = function(){
-  // 프리미엄 전용
-  if(!isActivePremium()){
-    document.getElementById('premium-feature-modal').style.display = 'flex';
-    return;
-  }
-
   if(allAnswersVisible){
+    // 끄기: allAnswerLayers 제거 (tempL, answerLayers, wrongLayers 제외)
     const keep = new Set([...tempL, ...answerLayers, ...wrongLayers]);
     allAnswerLayers.forEach(l=>{
       if(!keep.has(l)){ try{ map.removeLayer(l); } catch(e){} }
@@ -3572,6 +3503,7 @@ function closeNoModal(){
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
 
+  // ans-bar: _gu/_city 부모 정보 활용
   if(wrongL.length > 0){
     if(isGuQuizMode){
       document.getElementById('ab-label').textContent = '정답 구';
@@ -3584,13 +3516,12 @@ function closeNoModal(){
     document.getElementById('ans-bar').classList.add('show');
   }
 
-  handleAdGate(() => {
-    canAns = true;
-    if(!queue.length) reshuffle();
-    cur = queue.pop(); qCnt++;
-    showQuestionCard(cur);
-    updStats();
-  });
+  canAns = true;
+
+  if(!queue.length) reshuffle();
+  cur = queue.pop(); qCnt++;
+  showQuestionCard(cur);
+  updStats();
 }
 
 window.focusA = function(){if(cur)map.flyTo([cur.lat,cur.lng],14,{duration:1.2});}
@@ -4566,10 +4497,7 @@ function goMyInfo(){
   window.location.href = 'myinfo.html';
 }
 function goRanking(){
-  if(!isActivePremium()){
-    document.getElementById('premium-feature-modal').style.display = 'flex';
-    return;
-  }
+  if(!canAccessCommunity()){ toast('맵동가족 또는 프리미엄 회원만 이용 가능합니다','error'); return; }
   toast('랭킹 페이지 준비 중입니다', 'info');
 }
 function goEvent(){
@@ -4983,6 +4911,11 @@ function openCS() {
   csTab('board');
 }
 function openCSNotice() { openCS(); }
+function openCSPrivacy() {
+  window._csPrevScreen = null;
+  showOnly('screen-cs');
+  csTab('privacy');
+}
 function openCSRefund()  {
   window._csPrevScreen = null;
   showOnly('screen-cs');
@@ -5024,8 +4957,11 @@ function csTab(tab) {
   csCurrentTab = tab;
   document.getElementById('tab-board').classList.toggle('active', tab === 'board');
   document.getElementById('tab-refund').classList.toggle('active', tab === 'refund');
-  if(tab === 'board') renderCSBoard();
-  else renderCSRefund();
+  const privTab = document.getElementById('tab-privacy');
+  if(privTab) privTab.classList.toggle('active', tab === 'privacy');
+  if(tab === 'board')        renderCSBoard();
+  else if(tab === 'privacy') renderCSPrivacy();
+  else                       renderCSRefund();
 }
 
 /* ── 관리자 판별 ─────────────────────────────────────────── */
@@ -5201,6 +5137,30 @@ async function csDeletePost(postId) {
 /* ══════════════════════════════════════════════════
    환불 약관 탭
    ══════════════════════════════════════════════ */
+function renderCSPrivacy(){
+  const body = document.getElementById('cs-body');
+  body.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+      padding:40px 20px;gap:16px;text-align:center;">
+      <div style="font-size:3rem;">🔐</div>
+      <div style="font-size:1rem;font-weight:700;color:var(--text);">개인정보처리방침</div>
+      <div style="font-size:.82rem;color:var(--text-dim);line-height:1.8;max-width:340px;">
+        MapDong의 개인정보 수집·이용·보호에 관한<br>전체 방침을 확인하실 수 있습니다.
+      </div>
+      <a href="https://www.mapdong.com/privacy.html" target="_blank" rel="noopener"
+        style="display:inline-flex;align-items:center;gap:8px;
+        background:linear-gradient(135deg,var(--accent),#0099bb);
+        color:#000;border:none;border-radius:12px;padding:14px 28px;
+        font-size:.92rem;font-weight:700;text-decoration:none;
+        font-family:'Noto Sans KR',sans-serif;"
+        onmouseenter="this.style.opacity='.85'" onmouseleave="this.style.opacity='1'">
+        🔐 개인정보처리방침 전문 보기 →
+      </a>
+      <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px;">새 탭에서 열립니다</div>
+    </div>
+  `;
+}
+
 function renderCSRefund() {
   const body = document.getElementById('cs-body');
   // 기존 refund-modal 내용을 그대로 가져와 표시
@@ -5999,107 +5959,6 @@ window.toggleAuthMode = function() {
         style="flex:1;padding:11px;border-radius:10px;background:linear-gradient(135deg,#a29bfe,#6c5ce7);
         color:#fff;border:none;font-size:.85rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
         예, 결제하기
-      </button>
-    </div>
-  </div>
-</div>
-
-
-<!-- ══════════════════════════════════════════════
-     📢 광고 팝업 (일반/맵동가족 5문제마다)
-     ════════════════════════════════════════════ -->
-<div id="ad-overlay" style="display:none;position:fixed;inset:0;
-  background:rgba(10,14,26,.95);backdrop-filter:blur(8px);
-  z-index:95000;align-items:center;justify-content:center;flex-direction:column;gap:0;">
-
-  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;
-    max-width:380px;width:90%;padding:24px;text-align:center;
-    box-shadow:0 0 60px rgba(0,212,255,.15);">
-
-    <div style="font-size:.65rem;color:var(--text-dim);letter-spacing:2px;margin-bottom:10px;">📢 광고</div>
-
-    <!-- 애드센스 광고 슬롯 (승인 후 실제 광고 코드로 교체) -->
-    <div id="ad-slot-container" style="min-height:250px;background:rgba(255,255,255,.04);
-      border:1px dashed var(--border);border-radius:12px;
-      display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
-      <!-- 애드센스 승인 전 플레이스홀더 -->
-      <div id="ad-placeholder" style="color:var(--text-dim);font-size:.8rem;text-align:center;padding:20px;">
-        <div style="font-size:2rem;margin-bottom:8px;">📋</div>
-        광고 영역<br>
-        <span style="font-size:.68rem;opacity:.6;">AdSense 승인 후 광고가 표시됩니다</span>
-      </div>
-      <!-- 실제 광고 코드 (승인 후 아래 주석 해제) -->
-      <!--
-      <ins class="adsbygoogle"
-           style="display:block;width:300px;height:250px;"
-           data-ad-client="ca-pub-8230598534021197"
-           data-ad-slot="YOUR_AD_SLOT_ID"
-           data-ad-format="auto"
-           data-full-width-responsive="true"></ins>
-      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-      -->
-    </div>
-
-    <!-- 카운트다운 + 건너뛰기 -->
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <div style="font-size:.78rem;color:var(--text-dim);">
-        <span id="ad-countdown" style="color:var(--accent);font-weight:700;font-size:1rem;">5</span>초 후 계속
-      </div>
-      <button id="ad-skip-btn" onclick="skipAd()" disabled
-        style="background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;
-        border:none;border-radius:10px;padding:10px 22px;font-size:.88rem;font-weight:700;
-        cursor:not-allowed;opacity:.4;font-family:'Noto Sans KR',sans-serif;transition:all .3s;">
-        퀴즈 계속하기 →
-      </button>
-    </div>
-
-    <!-- 프리미엄 업그레이드 유도 -->
-    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
-      <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:8px;">
-        💎 프리미엄 · 맵동가족은 광고 없이 이용 가능합니다 <span style="color:#ff6b6b;">*프리미엄만 광고제거</span>
-      </div>
-      <button onclick="document.getElementById('ad-overlay').style.display='none'; showPaywall();"
-        style="background:none;border:1px solid var(--gold);color:var(--gold);
-        border-radius:8px;padding:6px 16px;font-size:.75rem;font-weight:700;
-        cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
-        🌟 광고 없애기
-      </button>
-    </div>
-  </div>
-</div>
-
-
-<!-- 프리미엄 전용 기능 안내 팝업 -->
-<div id="premium-feature-modal" style="display:none;position:fixed;inset:0;
-  background:rgba(10,14,26,.88);backdrop-filter:blur(8px);
-  z-index:95000;align-items:center;justify-content:center;padding:16px;">
-  <div style="background:linear-gradient(135deg,var(--surface),var(--surface2));
-    border:1px solid var(--border);border-radius:20px;max-width:340px;width:100%;
-    padding:28px 24px;text-align:center;box-shadow:0 0 50px rgba(255,215,0,.2);">
-    <div style="font-size:2.5rem;margin-bottom:12px;">🔒</div>
-    <div style="font-size:1rem;font-weight:700;color:var(--text);margin-bottom:8px;">
-      프리미엄 회원 전용 기능
-    </div>
-    <div style="font-size:.82rem;color:var(--text-dim);line-height:1.8;margin-bottom:6px;">
-      이 기능은 <strong style="color:var(--gold);">프리미엄 회원</strong>만 이용 가능합니다.<br>
-      프리미엄 회원으로 업그레이드 하시겠습니까?
-    </div>
-    <div style="font-size:.78rem;color:var(--accent);margin-bottom:20px;">
-      💡 하루 <strong>600원</strong> 수준입니다
-    </div>
-    <div style="display:flex;gap:10px;">
-      <button onclick="document.getElementById('premium-feature-modal').style.display='none'"
-        style="flex:1;padding:11px;border-radius:10px;background:var(--surface);
-        border:1px solid var(--border);color:var(--text-dim);font-size:.85rem;
-        font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
-        취소
-      </button>
-      <button onclick="document.getElementById('premium-feature-modal').style.display='none'; openPlanMenu();"
-        style="flex:1;padding:11px;border-radius:10px;
-        background:linear-gradient(135deg,var(--gold),#ff8c00);
-        color:#000;border:none;font-size:.85rem;font-weight:700;
-        cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
-        🌟 업그레이드
       </button>
     </div>
   </div>
