@@ -3691,7 +3691,6 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     persistSession: true,
     detectSessionInUrl: true,
     storageKey: 'mapdong-auth-token',
-    flowType: 'pkce',
   }
 });
 
@@ -3767,8 +3766,21 @@ window.doEmailAuth = async function(){
         errEl.textContent = msg; errEl.className = 'login-err show';
         btn.disabled = false; btn.textContent = '로그인'; return;
       }
-      // 세션 수동 저장
-      await sb.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
+      // 세션 수동 저장 - fetch로 직접 처리 후 페이지 리로드로 세션 복구
+      localStorage.setItem('mapdong-auth-token', JSON.stringify({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        expires_at: data.expires_at,
+        token_type: data.token_type,
+        user: data.user,
+      }));
+      // 세션 저장 후 onAuthStateChange 트리거를 위해 sb.auth.setSession 시도
+      try {
+        await sb.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
+      } catch(e) {
+        // setSession 실패 시 페이지 새로고침으로 세션 복구
+        window.location.reload();
+      }
     } else {
       // 회원가입은 기존 방식 유지
       const res = await sb.auth.signUp({ email, password: pw });
@@ -3859,7 +3871,8 @@ sb.auth.onAuthStateChange(async(event, session) => {
     // 퀴즈 중이면 routeUser 호출 안 함 (페이지 이동 방지)
     if(!quizActive()) routeUser();
     handlePaymentCallback();
-    loadNotices(); // 공지 롤링 시작
+    // 본인인증 완료된 유저만 공지 로드 (미인증 유저가 공지 클릭 → 우회 방지)
+    if(userProfile?.is_verified) loadNotices();
 
   } else if(event === 'SIGNED_OUT') {
     // 명시적 로그아웃만 처리
@@ -5099,7 +5112,13 @@ function _csReturnWithAuthCheck() {
     return;
   }
 
-  // 로그인 상태 → 이전 화면으로
+  // 로그인 상태지만 본인인증 미완료 → 무조건 본인인증 화면
+  if(!userProfile || !userProfile.is_verified) {
+    showOnly('screen-verify');
+    return;
+  }
+
+  // 로그인 + 본인인증 완료 → 이전 화면으로
   if(prev === 'game') {
     const rightSide   = document.getElementById('right-side');
     const rightToggle = document.getElementById('right-side-toggle');
@@ -5108,18 +5127,6 @@ function _csReturnWithAuthCheck() {
     renderUserChip();
     return;
   }
-  if(prev === 'screen-login') {
-    // 로그인 상태인데 이전이 로그인 화면이었다면 → 인증/퀴즈 화면으로
-    if(!userProfile || !userProfile.is_verified) {
-      showOnly('screen-verify');
-    } else {
-      showOnly('start');
-    }
-    renderUserChip();
-    return;
-  }
-  if(prev === 'screen-verify') { showOnly('screen-verify'); return; }
-  if(prev === 'screen-paywall') { showOnly('screen-paywall'); return; }
 
   // 기본: start 화면
   showOnly('start');
