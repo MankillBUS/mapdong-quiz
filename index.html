@@ -3810,7 +3810,13 @@ window.doEmailAuth = async function(){
       }).catch(() => {});
 
       renderUserChip();
+      // 디버그 로그
+      console.log('[로그인] currentUser:', currentUser?.id);
+      console.log('[로그인] userProfile:', userProfile);
+      console.log('[로그인] is_verified:', userProfile?.is_verified);
+      console.log('[로그인] routeUser 호출 시작');
       if(!quizActive()) routeUser();
+      console.log('[로그인] routeUser 완료');
       if(userProfile?.is_verified) loadNotices();
     } else {
       // 회원가입은 기존 방식 유지
