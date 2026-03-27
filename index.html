@@ -3779,6 +3779,7 @@ function quizActive(){
 
 sb.auth.onAuthStateChange(async(event, session) => {
   if(event === 'TOKEN_REFRESHED') return;
+  if(event === 'INITIAL_SESSION') return; // 새로고침 시 초기 세션 복구 무시
 
   if(session?.user){
     currentUser = session.user;
@@ -3822,13 +3823,16 @@ sb.auth.onAuthStateChange(async(event, session) => {
     handlePaymentCallback();
     loadNotices(); // 공지 롤링 시작
 
-  } else {
-    // 로그인 만료
+  } else if(event === 'SIGNED_OUT') {
+    // 명시적 로그아웃만 처리
     currentUser = null; userProfile = null;
     document.getElementById('user-chip').classList.remove('visible');
-
+    showOnly('screen-login');
+  } else if(!session && currentUser) {
+    // 세션 만료 (이미 로그인 상태였을 때만)
+    currentUser = null; userProfile = null;
+    document.getElementById('user-chip').classList.remove('visible');
     if(quizActive()){
-      // 퀴즈 중 → 팝업만 표시, 지도 유지
       if(confirm('⚠️ 로그인이 만료되었습니다.\n다시 로그인하시겠습니까?')){
         showOnly('screen-login');
       }
