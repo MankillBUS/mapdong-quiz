@@ -527,28 +527,52 @@ async function startNiceForPw(){
   btn.disabled=true; btn.textContent='인증창 여는 중...';
 
   try {
-    const { data:{ session } } = await sb.auth.getSession();
-    const token = session?.access_token;
+    // localStorage에서 직접 토큰 읽기 (Lock 충돌 방지 - index.html 방식)
+    let token = SUPABASE_KEY;
+    try {
+      const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+      if(raw) {
+        const parsed = JSON.parse(raw);
+        const t = parsed?.access_token || parsed?.currentSession?.access_token;
+        if(t) token = t;
+      }
+    } catch(e) {}
+    // 폴백: sb.auth.getSession()
+    if(token === SUPABASE_KEY) {
+      try {
+        const { data:{ session } } = await sb.auth.getSession();
+        if(session?.access_token) token = session.access_token;
+      } catch(e) {}
+    }
 
     let res;
     try {
       const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 10000);
+      const timeoutId = setTimeout(() => ctrl.abort(), 10000);
       res = await fetch(`${EDGE}/nice-request`, {
         method:'POST',
         headers:{ 'Authorization':`Bearer ${token}`, 'Content-Type':'application/json' },
-        body: JSON.stringify({ mode: 'pw_change' }),
+        body: JSON.stringify({ mode: 'verify' }),
         signal: ctrl.signal,
       });
+      clearTimeout(timeoutId);
     } catch(fe){
-      showMsg('pw-msg', fe.name==='AbortError' ? '⏱️ 인증 서버 응답 시간 초과' : '🔌 인증 서버 연결 실패', 'err');
+      showMsg('pw-msg', fe.name==='AbortError'
+        ? '⏱️ 인증 서버 응답 시간 초과 (IP 허용 확인 필요)'
+        : '🔌 인증 서버 연결 실패: ' + fe.message, 'err');
       btn.disabled=false; btn.textContent='📲 휴대폰 본인인증 시작'; return;
     }
 
-    if(!res.ok){ showMsg('pw-msg','인증 서버 오류. 잠시 후 다시 시도해주세요.','err'); btn.disabled=false; btn.textContent='📲 휴대폰 본인인증 시작'; return; }
+    if(!res.ok){
+      showMsg('pw-msg','⚙️ 인증 서버 오류. Edge Function 확인 후 다시 시도해주세요.','err');
+      btn.disabled=false; btn.textContent='📲 휴대폰 본인인증 시작'; return;
+    }
 
     const { auth_url, transaction_id, request_no } = await res.json();
-    if(!auth_url){ showMsg('pw-msg','인증 URL 발급 실패.','err'); btn.disabled=false; btn.textContent='📲 휴대폰 본인인증 시작'; return; }
+    if(!auth_url){
+      showMsg('pw-msg','인증 URL 발급 실패.','err');
+      btn.disabled=false; btn.textContent='📲 휴대폰 본인인증 시작'; return;
+    }
 
     _niceTxId  = transaction_id;
     _niceReqNo = request_no;
@@ -559,7 +583,7 @@ async function startNiceForPw(){
       if(!popup || popup.closed){
         clearInterval(timer);
         btn.textContent = '인증 확인 중...';
-        await verifyNiceResult(token);
+        await verifyNiceResult(token, transaction_id, request_no);
         btn.disabled=false; btn.textContent='📲 휴대폰 본인인증 시작';
       }
     }, 500);
@@ -570,17 +594,20 @@ async function startNiceForPw(){
   }
 }
 
-async function verifyNiceResult(token){
+async function verifyNiceResult(token, transaction_id, request_no){
+  // sessionStorage에서 web_transaction_id 읽기 (index.html 방식 동일)
   const webTxId = sessionStorage.getItem('nice_web_transaction_id');
   sessionStorage.removeItem('nice_web_transaction_id');
 
-  if(!webTxId && !_niceTxId){ showMsg('pw-msg','인증을 완료해주세요.','err'); return; }
+  // transaction_id 우선순위: 파라미터 > 저장된 값
+  const txId  = transaction_id || _niceTxId;
+  const reqNo = request_no    || _niceReqNo;
 
   try {
     const r = await fetch(`${EDGE}/nice-result`, {
       method:'POST',
       headers:{ 'Authorization':`Bearer ${token}`, 'Content-Type':'application/json' },
-      body: JSON.stringify({ web_transaction_id: webTxId, transaction_id: _niceTxId, request_no: _niceReqNo }),
+      body: JSON.stringify({ web_transaction_id: webTxId, transaction_id: txId, request_no: reqNo }),
     });
     if(!r.ok){ showMsg('pw-msg','인증 결과 처리 오류.','err'); return; }
 
