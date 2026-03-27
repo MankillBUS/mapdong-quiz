@@ -5914,44 +5914,64 @@ async function submitSignup() {
   btn.disabled=true; btn.textContent='가입 처리 중...';
 
   try {
-    const { data, error } = await sb.auth.signUp({
-      email, password: pw,
-      options: { data: { name: nickname, nickname, real_name: realName, phone, address: fullAddr } }
+    // ① 회원가입 - fetch 직접 호출 (Lock 충돌 방지)
+    const signupRes = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+      body: JSON.stringify({
+        email, password: pw,
+        data: { name: nickname, nickname, real_name: realName, phone, address: fullAddr }
+      }),
     });
-    if(error){
-      const msg = error.message.includes('already registered') ? '이미 가입된 이메일입니다.'
-                : error.message.includes('weak')               ? '비밀번호가 너무 단순합니다.'
-                : error.message;
+    const signupData = await signupRes.json();
+
+    if(!signupRes.ok) {
+      const msg = signupData.msg?.includes('already registered') ? '이미 가입된 이메일입니다.'
+                : signupData.msg?.includes('weak')               ? '비밀번호가 너무 단순합니다.'
+                : signupData.msg || signupData.error_description || '회원가입 실패';
       suErr(msg); btn.disabled=false; btn.textContent='✓ 회원가입 완료하기'; return;
     }
-    if(data?.user?.id){
-      // 트리거가 user_profiles row를 자동 생성하므로, 잠시 후 업데이트
-      const niceData = window._niceResult || {};
-      setTimeout(async () => {
-        await sb.from('user_profiles').update({
-          nickname:    nickname,
-          real_name:   realName,
-          phone:       phone,
-          address:     fullAddr,
-          job:         job,
-          is_verified: signupPhoneVerified,
-          is_premium:  false,
-          plays_count: 0,
-          birth_date:  niceData.birth_date  || null,
-          nice_di:     niceData.nice_di     || null,
-          mobile_co:   niceData.mobile_co   || null,
-          verified_at: signupPhoneVerified ? new Date().toISOString() : null,
-        }).eq('user_id', data.user.id);
-      }, 1500);
-    }
-    // 회원가입 완료 → OTP 발송 후 OTP 입력창 표시
-    window._signupEmail = email;
-    window._signupAccessToken = data.access_token;
-    window._signupRefreshToken = data.refresh_token;
-    window._signupUserId = data.user?.id;
 
-    // OTP 발송 (이메일 인증번호)
-    await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
+    const userId = signupData.id || signupData.user?.id;
+
+    // ② user_profiles 업데이트 - fetch 직접 호출 (RLS 우회)
+    if(userId) {
+      const niceData = window._niceResult || {};
+      const updatePayload = {
+        nickname:    nickname,
+        real_name:   realName,
+        phone:       phone,
+        address:     fullAddr,
+        job:         job,
+        is_verified: signupPhoneVerified,
+        is_premium:  false,
+        plays_count: 0,
+        birth_date:  niceData.birth_date  || null,
+        nice_di:     niceData.nice_di     || null,
+        mobile_co:   niceData.mobile_co   || null,
+        verified_at: signupPhoneVerified ? new Date().toISOString() : null,
+        updated_at:  new Date().toISOString(),
+      };
+      // 트리거가 row 생성 후 업데이트 (2초 대기)
+      setTimeout(async () => {
+        await fetch(`${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${userId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify(updatePayload),
+        });
+      }, 2000);
+    }
+
+    // ③ OTP 발송
+    window._signupEmail = email;
+    window._signupUserId = userId;
+
+    const otpRes = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
       body: JSON.stringify({ email, create_user: false }),
@@ -5960,6 +5980,7 @@ async function submitSignup() {
     closeSignupModal();
     showOtpModal(email);
     toast('📧 이메일로 인증번호가 발송되었습니다!', 'success');
+
   } catch(e){
     suErr('오류가 발생했습니다: '+e.message);
     btn.disabled=false; btn.textContent='✓ 회원가입 완료하기';
