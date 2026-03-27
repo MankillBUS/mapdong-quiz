@@ -447,7 +447,8 @@ function gradeBadge(profile){
 
 // ── 초기화 ──
 async function init(){
-  // localStorage에서 직접 토큰 읽기 (Lock 충돌 방지 - 핵심)
+  // ── index.html 과 동일한 토큰 읽기 방식 ──
+  // 1순위: localStorage 직접 읽기 (Lock 충돌 방지)
   let accessToken = null;
   try {
     const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
@@ -455,49 +456,76 @@ async function init(){
       const parsed = JSON.parse(raw);
       const t = parsed?.access_token || parsed?.currentSession?.access_token;
       const exp = parsed?.expires_at;
-      // 만료 확인
       if(t && (!exp || exp > Math.floor(Date.now()/1000))){
         accessToken = t;
-        // user 정보도 localStorage에서 바로 읽기
         const u = parsed?.user;
         if(u?.id) currentUser = u;
       }
     }
   } catch(e){}
 
-  // localStorage 실패 시 폴백
+  // 2순위: getSession 폴백 + localStorage 재저장
   if(!currentUser){
     try {
       const {data:{session}} = await sb.auth.getSession();
-      if(session?.user){ currentUser=session.user; accessToken=session.access_token; }
+      if(session?.user){
+        currentUser = session.user;
+        accessToken = session.access_token;
+        // 찾은 세션 localStorage에 저장 (다음번엔 1순위로 읽힘)
+        localStorage.setItem('sb-emgsueepzioudqnitkyn-auth-token', JSON.stringify({
+          access_token:  session.access_token,
+          refresh_token: session.refresh_token,
+          expires_at:    session.expires_at,
+          expires_in:    session.expires_in || 3600,
+          token_type:    'bearer',
+          user:          session.user,
+        }));
+      }
     } catch(e){}
   }
 
   if(currentUser && accessToken){
-    // 프로필 로드
+    // 프로필 로드 (index.html loadProfile과 동일 방식)
     try {
       const profRes = await fetch(
         `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${currentUser.id}&select=*&limit=1`,
         { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${accessToken}` } }
       );
-      const rows = await profRes.json();
-      userProfile = rows[0] || null;
+      if(profRes.ok){
+        const rows = await profRes.json();
+        userProfile = rows[0] || null;
+      }
     } catch(e){ userProfile = null; }
+
+    // admin 처리 (index.html과 동일)
+    if(userProfile?.role === 'admin'){
+      userProfile.is_verified   = true;
+      userProfile.is_premium    = true;
+      userProfile.premium_until = '2099-12-31';
+    }
+
     // 좋아요한 게시물 로드
     try {
       const likedRes = await fetch(
         `${SUPABASE_URL}/rest/v1/community_likes?user_id=eq.${currentUser.id}&select=post_id`,
         { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${accessToken}` } }
       );
-      const liked = await likedRes.json();
-      if(liked) liked.forEach(l=>_likedPosts.add(l.post_id));
+      if(likedRes.ok){
+        const liked = await likedRes.json();
+        if(liked) liked.forEach(l=>_likedPosts.add(l.post_id));
+      }
     } catch(e){}
+
+    // 알림 로드
+    await loadNotifications();
+    setInterval(loadNotifications, 30000);
   }
 
   const params=new URLSearchParams(window.location.search);
   const slug=params.get('cat'),catId=params.get('catId'),catName=params.get('catName')||'게시판';
   if(slug&&catId){currentCatSlug=slug;currentCatId=Number(catId);currentCatName=catName;}
-  renderSidebar();renderBoard();
+  renderSidebar();
+  renderBoard();
   renderCommUserChip();
 }
 
@@ -1224,12 +1252,9 @@ function renderCommUserChip(){
   document.getElementById('comm-nick').textContent = nick;
   document.getElementById('comm-avatar').textContent = nick[0]?.toUpperCase()||'?';
   document.getElementById('comm-user-chip').classList.add('visible');
-  // 알림 버튼 표시 + 로드
+  // 알림 버튼 표시 (로드는 init에서 처리)
   const notifBtn = document.getElementById('notif-btn');
   if(notifBtn) notifBtn.style.display = 'flex';
-  await loadNotifications();
-  // 30초마다 알림 갱신
-  setInterval(loadNotifications, 30000);
 }
 function toggleCommDD(e){
   e.stopPropagation();
