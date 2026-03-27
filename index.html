@@ -3870,7 +3870,7 @@ window.doEmailAuth = async function(){
 
       routeUser(); // 로그인 시에는 quizActive 무관하게 항상 routeUser 호출
 
-      if(userProfile?.is_verified) loadNotices();
+      if(isFullyVerified()) loadNotices();
     } else {
       // 회원가입은 기존 방식 유지
       const res = await sb.auth.signUp({ email, password: pw });
@@ -3902,6 +3902,17 @@ async function signOut(){
 
 /* ── 세션 감지 & 라우팅 ── */
 // 퀴즈 진행 중 여부 확인 — 전역 함수
+/* ── 완전 인증 여부 판단 (is_verified=true + nice_di 존재) ── */
+function isFullyVerified(){
+  if(!userProfile) return false;
+  // is_verified가 명확히 true여야 함
+  if(userProfile.is_verified !== true) return false;
+  // nice_di가 null/빈값이 아닌 실제 암호화된 값이 있어야 함
+  const di = userProfile.nice_di;
+  if(!di || typeof di !== 'string' || di.trim().length < 10) return false;
+  return true;
+}
+
 function quizActive(){
   const mapEl = document.getElementById('map');
   if(!mapEl || mapEl.offsetParent === null) return false;
@@ -3969,7 +3980,7 @@ sb.auth.onAuthStateChange(async(event, session) => {
     if(!quizActive()) routeUser();
     handlePaymentCallback();
     // 본인인증 완료된 유저만 공지 로드 (미인증 유저가 공지 클릭 → 우회 방지)
-    if(userProfile?.is_verified) loadNotices();
+    if(isFullyVerified()) loadNotices();
 
   } else if(event === 'SIGNED_OUT') {
     // 명시적 로그아웃만 처리
@@ -4138,13 +4149,11 @@ function routeUser(){
   }
   // 프로필 없음
   if(!userProfile){
-  
-    showOnly('screen-verify');
+    showOnly('screen-login');
     return;
   }
-  // 본인인증 안 됨
-  if(!userProfile.is_verified){
-  
+  // 본인인증 미완료 체크: is_verified=true 이고 nice_di 값이 있어야 완전 인증
+  if(!isFullyVerified()){
     showOnly('screen-verify');
     return;
   }
@@ -4195,6 +4204,12 @@ async function incrementPlays(){
 /* ── 나이스 본인인증 ── */
 async function startNiceAuth(){
   if(!currentUser){ toast('로그인이 필요합니다', 'error'); return; }
+  // 이미 완전 인증된 계정(is_verified=true + nice_di 존재)은 바로 퀴즈로
+  if(isFullyVerified()){
+    toast('✅ 이미 본인인증이 완료된 계정입니다.', 'success');
+    routeUser();
+    return;
+  }
   const btn = document.getElementById('btn-verify');
   btn.disabled = true; btn.textContent = '인증창 여는 중...';
   try {
@@ -5244,8 +5259,13 @@ function _csReturnWithAuthCheck() {
     return;
   }
 
-  // 로그인 상태지만 본인인증 미완료 → 무조건 본인인증 화면
-  if(!userProfile || !userProfile.is_verified) {
+  // 프로필 없으면 로그인 화면
+  if(!userProfile) {
+    showOnly('screen-login');
+    return;
+  }
+  // 본인인증 미완료 체크: is_verified=true 이고 nice_di 값이 있어야 완전 인증
+  if(!isFullyVerified()){
     showOnly('screen-verify');
     return;
   }
