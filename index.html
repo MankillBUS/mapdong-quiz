@@ -5026,47 +5026,48 @@ let csNoticeIdx   = 0;
 let csRollingTimer = null;
 
 /* ── 고객센터 페이지 열기/닫기 ───────────────────────────── */
-function openCS() {
-  // 퀴즈 중인지 확인
+function _detectCurrentScreen() {
+  // 현재 어떤 화면인지 감지
   const mapEl = document.getElementById('map');
   const inGame = mapEl && mapEl.offsetParent !== null;
-  // 이전 화면 기억
-  window._csPrevScreen = inGame ? 'game' : (
-    !document.getElementById('start').classList.contains('hidden') ? 'start' : 'screen-login'
-  );
+  if(inGame) return 'game';
+  if(!document.getElementById('start').classList.contains('hidden')) return 'start';
+  if(!document.getElementById('screen-verify').classList.contains('hidden')) return 'screen-verify';
+  if(!document.getElementById('screen-paywall').classList.contains('hidden')) return 'screen-paywall';
+  return 'screen-login';
+}
+
+function openCS() {
+  window._csPrevScreen = _detectCurrentScreen();
   showOnly('screen-cs');
   csTab('board');
 }
-function openCSNotice() { openCS(); }
-function openCSRefund()  {
-  window._csPrevScreen = null;
+function openCSNotice() {
+  window._csPrevScreen = _detectCurrentScreen();
+  showOnly('screen-cs');
+  csTab('board');
+}
+function openCSRefund() {
+  window._csPrevScreen = _detectCurrentScreen();
   showOnly('screen-cs');
   csTab('refund');
 }
 function closeCS() {
   document.getElementById('screen-cs').classList.add('hidden');
-  // 2. 돌아갈 때 로그인/등급 재확인
   _csReturnWithAuthCheck();
 }
 
-async function _csReturnWithAuthCheck() {
-  // 세션 재확인
-  const { data: { session } } = await sb.auth.getSession();
-  if(!session) { showOnly('screen-login'); return; }
+function _csReturnWithAuthCheck() {
+  const prev = window._csPrevScreen || 'screen-login';
 
-  // 프로필 재로드
-  await loadProfile();
+  // 비로그인 상태 → 무조건 로그인 화면
+  if(!currentUser) {
+    showOnly('screen-login');
+    return;
+  }
 
-  const prev = window._csPrevScreen;
-
-  if(!currentUser) { showOnly('screen-login'); return; }
-  if(!userProfile)  { showOnly('screen-login'); return; }
-  if(!userProfile.is_verified) { showOnly('screen-verify'); return; }
-
-  // 관리자 / 프리미엄 / 일반 — 모두 퀴즈 화면(start 또는 게임)으로
+  // 로그인 상태 → 이전 화면으로
   if(prev === 'game') {
-    // 퀴즈 중이었으면 헤더/main만 보이게 (이미 화면에 있음)
-    // right-side는 반드시 복원 (game화면에서 showOnly 호출 안 하므로 직접 복원)
     const rightSide   = document.getElementById('right-side');
     const rightToggle = document.getElementById('right-side-toggle');
     if(rightSide)   rightSide.style.display   = '';
@@ -5074,9 +5075,20 @@ async function _csReturnWithAuthCheck() {
     renderUserChip();
     return;
   }
-  // 이전 화면이 로그인이었으면 로그인으로
-  if(prev === 'screen-login') { showOnly('screen-login'); return; }
-  // 나머지는 start 화면으로
+  if(prev === 'screen-login') {
+    // 로그인 상태인데 이전이 로그인 화면이었다면 → 인증/퀴즈 화면으로
+    if(!userProfile || !userProfile.is_verified) {
+      showOnly('screen-verify');
+    } else {
+      showOnly('start');
+    }
+    renderUserChip();
+    return;
+  }
+  if(prev === 'screen-verify') { showOnly('screen-verify'); return; }
+  if(prev === 'screen-paywall') { showOnly('screen-paywall'); return; }
+
+  // 기본: start 화면
   showOnly('start');
   renderUserChip();
 }
