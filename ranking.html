@@ -306,7 +306,7 @@ const SUPABASE_URL = 'https://emgsueepzioudqnitkyn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemlvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkwNzQsImV4cCI6MjA4NjU2NTA3NH0.epR1k3MVh0MfZejFh9VflCNOS8Uz8EuCZlez5OBMz3s';
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { autoRefreshToken:true, persistSession:true, storageKey:'mapdong-auth-token' }
+  auth: { autoRefreshToken:true, persistSession:true, storageKey:'sb-emgsueepzioudqnitkyn-auth-token' }
 });
 
 let currentUser = null;
@@ -383,10 +383,31 @@ async function init(){
   buildTierLegend();
   buildGroupTabs();
 
-  const { data:{ session } } = await sb.auth.getSession();
-  if(session?.user){
-    currentUser = session.user;
-    await loadProfile();
+  // index.html 방식과 동일: localStorage 직접 읽기 → getSession 폴백
+  let sessionToken = null;
+  try {
+    const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+    if(raw){
+      const parsed = JSON.parse(raw);
+      const t = parsed?.access_token || parsed?.currentSession?.access_token;
+      const uid = parsed?.user?.id || parsed?.currentSession?.user?.id;
+      if(t && uid){
+        sessionToken = t;
+        currentUser = parsed?.user || parsed?.currentSession?.user;
+      }
+    }
+  } catch(e){}
+
+  // 폴백: SDK getSession
+  if(!currentUser){
+    try {
+      const { data:{ session } } = await sb.auth.getSession();
+      if(session?.user){ currentUser = session.user; sessionToken = session.access_token; }
+    } catch(e){}
+  }
+
+  if(currentUser && sessionToken){
+    await loadProfile(sessionToken);
   }
 
   // 첫 번째 그룹 자동 선택
@@ -433,11 +454,13 @@ function selectGroup(group){
 }
 
 /* ── 프로필 로드 ── */
-async function loadProfile(){
+async function loadProfile(sessionToken){
   try {
+    let token = sessionToken || getToken();
+    if(token === SUPABASE_KEY) return; // anon key면 요청 안 함
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${currentUser.id}&select=*&limit=1`,
-      { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${getToken()}` } }
+      { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${token}` } }
     );
     if(res.ok){ const rows=await res.json(); userProfile=rows[0]||null; }
     if(userProfile?.role==='admin'){
@@ -459,6 +482,10 @@ async function loadRankings(){
 
   try {
     const token = getToken();
+    if(token === SUPABASE_KEY){
+      // 비로그인 상태여도 랭킹은 공개 조회 가능하도록 anon key 허용
+      // (RLS에서 SELECT USING(true) 설정된 경우)
+    }
 
     // 해당 그룹의 최고 기록만 (유저당 1개 — 정답률 높고 시간 짧은 순)
     // ranking_scores에서 group_key로 필터 후 user별 best record
