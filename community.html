@@ -697,7 +697,8 @@ function renderLike(count){
 // 🔔 알림 시스템
 // ══════════════════════════════════════════════
 async function sendNotification(toUserId, type, postId, commentId, message){
-  if(!currentUser || toUserId === currentUser.id) return; // 본인 알림 제외
+  if(!currentUser || !toUserId) return; // 비로그인/대상없음 제외
+  // 본인이 본인 글에 좋아요 누른 경우도 알림 발송 (요청사항)
   try {
     await sb.from('notifications').insert({
       user_id:      toUserId,
