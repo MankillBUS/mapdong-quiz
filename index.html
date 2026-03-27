@@ -3748,19 +3748,46 @@ window.doEmailAuth = async function(){
   }
   const btn = document.getElementById('btn-email-auth');
   btn.disabled = true; btn.textContent = '처리 중...';
-  const res = authMode === 'login'
-    ? await sb.auth.signInWithPassword({ email, password: pw })
-    : await sb.auth.signUp({ email, password: pw });
-  btn.disabled = false; btn.textContent = authMode === 'login' ? '로그인' : '회원가입';
-  if(res.error){
-    const msg = res.error.message.includes('Invalid login') ? '이메일 또는 비밀번호가 틀렸습니다.'
-              : res.error.message.includes('already registered') ? '이미 가입된 이메일입니다.'
-              : res.error.message;
-    errEl.textContent = msg; errEl.className = 'login-err show';
-  } else if(authMode === 'signup' && res.data?.user && !res.data.session){
-    errEl.textContent = '✅ 인증 메일을 발송했습니다. 이메일을 확인해주세요.';
-    errEl.className = 'login-err show ok';
+
+  try {
+    if(authMode === 'login') {
+      // fetch로 직접 로그인 (Lock 충돌 방지)
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_KEY,
+        },
+        body: JSON.stringify({ email, password: pw }),
+      });
+      const data = await res.json();
+      if(!res.ok) {
+        const msg = data.error_description?.includes('Invalid') ? '이메일 또는 비밀번호가 틀렸습니다.'
+                  : data.error_description || data.msg || '로그인 실패';
+        errEl.textContent = msg; errEl.className = 'login-err show';
+        btn.disabled = false; btn.textContent = '로그인'; return;
+      }
+      // 세션 수동 저장
+      await sb.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
+    } else {
+      // 회원가입은 기존 방식 유지
+      const res = await sb.auth.signUp({ email, password: pw });
+      btn.disabled = false; btn.textContent = '회원가입';
+      if(res.error) {
+        const msg = res.error.message.includes('already registered') ? '이미 가입된 이메일입니다.' : res.error.message;
+        errEl.textContent = msg; errEl.className = 'login-err show'; return;
+      }
+      if(res.data?.user && !res.data.session) {
+        errEl.textContent = '✅ 인증 메일을 발송했습니다. 이메일을 확인해주세요.';
+        errEl.className = 'login-err show ok';
+      }
+      return;
+    }
+  } catch(e) {
+    errEl.textContent = '로그인 중 오류가 발생했습니다: ' + e.message;
+    errEl.className = 'login-err show';
   }
+  btn.disabled = false; btn.textContent = '로그인';
 }
 
 async function signOut(){
