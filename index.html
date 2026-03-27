@@ -6475,10 +6475,10 @@ window.toggleAuthMode = function() {
       이메일 인증
     </div>
     <div id="otp-desc" style="font-size:.82rem;color:#7a9bb5;line-height:1.7;margin-bottom:24px;">
-      이메일로 발송된 6자리 인증번호를 입력해주세요.
+      이메일로 발송된 8자리 인증번호를 입력해주세요.
     </div>
-    <input id="otp-input" type="text" maxlength="6" inputmode="numeric"
-      placeholder="인증번호 6자리"
+    <input id="otp-input" type="text" maxlength="8" inputmode="numeric"
+      placeholder="인증번호 8자리"
       style="width:100%;background:#1a2235;border:2px solid #1e3a5f;color:#e8f4fd;
         border-radius:12px;padding:16px;font-size:1.4rem;text-align:center;
         letter-spacing:8px;font-family:'Noto Sans KR',sans-serif;outline:none;
@@ -6509,7 +6509,7 @@ window.toggleAuthMode = function() {
 function showOtpModal(email) {
   const modal = document.getElementById('otp-modal');
   const desc = document.getElementById('otp-desc');
-  desc.textContent = email + ' 로 발송된 6자리 인증번호를 입력해주세요.';
+  desc.textContent = email + ' 로 발송된 8자리 인증번호를 입력해주세요.';
   document.getElementById('otp-input').value = '';
   document.getElementById('otp-err').textContent = '';
   modal.style.display = 'flex';
@@ -6525,8 +6525,8 @@ async function verifyOtp() {
   const errEl = document.getElementById('otp-err');
   const btn = document.getElementById('otp-submit-btn');
 
-  if(otp.length !== 6) {
-    errEl.textContent = '6자리 인증번호를 입력해주세요.';
+  if(otp.length !== 8) {
+    errEl.textContent = '8자리 인증번호를 입력해주세요.';
     return;
   }
 
