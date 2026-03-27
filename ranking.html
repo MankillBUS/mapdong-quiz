@@ -383,28 +383,23 @@ async function init(){
   buildTierLegend();
   buildGroupTabs();
 
-  // index.html 방식과 동일: localStorage 직접 읽기 → getSession 폴백
+  // ✅ 인수인계 문서 규칙: sb.auth.getSession() 직접 사용 금지 → localStorage 직접 읽기
   let sessionToken = null;
   try {
     const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
     if(raw){
       const parsed = JSON.parse(raw);
-      const t = parsed?.access_token || parsed?.currentSession?.access_token;
-      const uid = parsed?.user?.id || parsed?.currentSession?.user?.id;
-      if(t && uid){
+      const t   = parsed?.access_token || parsed?.currentSession?.access_token;
+      const u   = parsed?.user         || parsed?.currentSession?.user;
+      const exp = parsed?.expires_at   || parsed?.currentSession?.expires_at;
+      // 만료 체크 (unix timestamp)
+      const notExpired = !exp || (exp * 1000) > Date.now();
+      if(t && u && notExpired){
         sessionToken = t;
-        currentUser = parsed?.user || parsed?.currentSession?.user;
+        currentUser  = u;
       }
     }
   } catch(e){}
-
-  // 폴백: SDK getSession
-  if(!currentUser){
-    try {
-      const { data:{ session } } = await sb.auth.getSession();
-      if(session?.user){ currentUser = session.user; sessionToken = session.access_token; }
-    } catch(e){}
-  }
 
   if(currentUser && sessionToken){
     await loadProfile(sessionToken);
@@ -696,15 +691,9 @@ function jumpToMyRank(){
 
 /* ══════════════════════════════════════════════
    인증 세션 감지
+   ✅ 인수인계 규칙: onAuthStateChange Lock 충돌 방지
+   → init()에서 localStorage 직접 읽기로만 처리
    ══════════════════════════════════════════════ */
-sb.auth.onAuthStateChange(async(event, session)=>{
-  if(event === 'TOKEN_REFRESHED') return;
-  if(session?.user){
-    currentUser = session.user;
-    await loadProfile();
-    renderMyRankCard();
-  }
-});
 
 /* ── 시작 ── */
 init();
