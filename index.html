@@ -3766,21 +3766,29 @@ window.doEmailAuth = async function(){
         errEl.textContent = msg; errEl.className = 'login-err show';
         btn.disabled = false; btn.textContent = '로그인'; return;
       }
-      // Supabase가 기대하는 정확한 형식으로 세션 저장
+      // Supabase v2 내부 형식으로 정확하게 저장
+      const expiresAt = data.expires_at || Math.floor(Date.now()/1000) + (data.expires_in || 3600);
       const sessionData = {
-        access_token:  data.access_token,
-        refresh_token: data.refresh_token,
-        expires_at:    data.expires_at,
-        expires_in:    data.expires_in,
-        token_type:    data.token_type || 'bearer',
-        user:          data.user,
+        access_token:        data.access_token,
+        refresh_token:       data.refresh_token,
+        expires_at:          expiresAt,
+        expires_in:          data.expires_in || 3600,
+        token_type:          data.token_type || 'bearer',
+        user:                data.user,
+        currentSession: {
+          access_token:  data.access_token,
+          refresh_token: data.refresh_token,
+          expires_at:    expiresAt,
+          expires_in:    data.expires_in || 3600,
+          token_type:    data.token_type || 'bearer',
+          user:          data.user,
+        },
+        expiresAt: expiresAt,
       };
-      // Supabase 내부 스토리지 키 형식으로 저장
       localStorage.setItem(
         'sb-emgsueepzioudqnitkyn-auth-token',
         JSON.stringify(sessionData)
       );
-      // 버튼 복구 후 페이지 새로고침 → Supabase가 localStorage에서 세션 자동 읽기
       btn.disabled = false; btn.textContent = '로그인';
       window.location.reload();
     } else {
@@ -6616,18 +6624,19 @@ async function verifyOtp() {
     };
     localStorage.setItem('sb-emgsueepzioudqnitkyn-auth-token', JSON.stringify(sessionPayload));
 
-    // is_verified = true + job 저장 (회원가입 시 입력한 정보)
-    const userId = data.user?.id;
-    if(userId) {
-      const niceData = window._niceResult || {};
-      const jobVal   = document.getElementById('su-job')?.value || '';
-      const nickname = document.getElementById('su-nickname')?.value.trim() || '';
-      const addr     = document.getElementById('su-addr')?.value.trim() || '';
-      const addrDt   = document.getElementById('su-addr-detail')?.value.trim() || '';
-      const fullAddr = addr ? (addrDt ? addr + ' ' + addrDt : addr) : '';
+    // 모달 닫기 전에 값 먼저 읽기 (모달 닫으면 값 사라짐)
+    const userId   = data.user?.id;
+    const niceData = window._niceResult || {};
+    const jobVal   = document.getElementById('su-job')?.value || '';
+    const nickname = document.getElementById('su-nickname')?.value.trim() || '';
+    const addr     = document.getElementById('su-addr')?.value.trim() || '';
+    const addrDt   = document.getElementById('su-addr-detail')?.value.trim() || '';
+    const fullAddr = addr ? (addrDt ? addr + ' ' + addrDt : addr) : '';
 
+    // is_verified = true + 모든 정보 저장
+    if(userId) {
       try {
-        await fetch(
+        const patchRes = await fetch(
           `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${userId}`,
           {
             method: 'PATCH',
@@ -6650,12 +6659,30 @@ async function verifyOtp() {
             }),
           }
         );
-      } catch(e) { console.warn('OTP 인증 후 DB 업데이트 실패:', e); }
+        if(!patchRes.ok) {
+          const errText = await patchRes.text();
+          console.warn('OTP 인증 후 DB 업데이트 실패:', errText);
+        }
+      } catch(e) { console.warn('OTP 인증 후 DB 업데이트 오류:', e); }
     }
 
-    hideOtpModal();
-    toast('🎉 이메일 인증 완료! 환영합니다.', 'success');
-    window.location.reload();
+    // 팝업 내용을 성공 메시지로 교체 후 1.5초 후 새로고침
+    const otpInner = document.querySelector('#otp-modal > div');
+    if(otpInner) {
+      otpInner.innerHTML = `
+        <div style="font-size:3rem;margin-bottom:16px;">✅</div>
+        <div style="font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:#39ff14;margin-bottom:10px;">
+          이메일 인증 완료!
+        </div>
+        <div style="font-size:.9rem;color:#7a9bb5;">
+          잠시 후 로그인됩니다...
+        </div>
+      `;
+    }
+    setTimeout(() => {
+      hideOtpModal();
+      window.location.reload();
+    }, 1500);
 
   } catch(e) {
     errEl.textContent = '오류가 발생했습니다. 다시 시도해주세요.';
