@@ -4064,14 +4064,15 @@ function updateTrialBar(used){
 }
 
 function routeUser(){
+  console.log('[routeUser] 시작 currentUser:', !!currentUser, 'userProfile:', !!userProfile, 'is_verified:', userProfile?.is_verified, 'quizActive:', quizActive());
   // 사이드바 마지막 선택 복원
   if(userProfile?.last_sidebar_category){
     _lastSidebarSlug = userProfile.last_sidebar_category;
   }
   // 로그인 안 됨
   if(!currentUser){
+    console.log('[routeUser] → currentUser 없음 → 로그인화면');
     if(document.getElementById('start').classList.contains('hidden')){
-      // 퀴즈 중이었다면 팝업만 표시
       if(confirm('로그인이 만료되었습니다. 다시 로그인하시겠습니까?')){
         showOnly('screen-login');
       }
@@ -4080,32 +4081,33 @@ function routeUser(){
     }
     return;
   }
-  
   // 프로필 없음
   if(!userProfile){
+    console.log('[routeUser] → userProfile 없음 → screen-verify');
     showOnly('screen-verify');
     return;
   }
-  
-  // 본인인증 안 됨 → 본인인증 화면
+  // 본인인증 안 됨
   if(!userProfile.is_verified){
+    console.log('[routeUser] → is_verified false → screen-verify');
     showOnly('screen-verify');
     return;
   }
-  
-  // 프리미엄 만료 체크 (백그라운드)
+  // 프리미엄 만료 체크
   const now = new Date();
   const premiumEnd = userProfile.premium_until ? new Date(userProfile.premium_until) : null;
   if(premiumEnd && now > premiumEnd){
-    // 팝업만 표시 (페이지 이동 X)
     const dateStr = premiumEnd.toLocaleDateString('ko-KR');
     toast(`프리미엄 기간이 만료되었습니다 (${dateStr})`, 'error');
   }
-  
-  // 정상 - 시작 화면으로
-  // 퀴즈 진행 중(지도가 보임)이면 이동 안 함
-  if(quizActive()) return;
+  // 퀴즈 중이면 이동 안 함
+  if(quizActive()){
+    console.log('[routeUser] → 퀴즈 중 → 이동 안 함');
+    return;
+  }
+  console.log('[routeUser] → showOnly(start) 실행!');
   showOnly('start');
+  console.log('[routeUser] → 완료!');
 }
 
 function toggleDropdown(){
