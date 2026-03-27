@@ -4176,13 +4176,20 @@ function isActiveMapdongFamily(){
       && new Date(userProfile.mapdong_family_until) > new Date();
 }
 
-/* ── 커뮤니티 접근 권한 (맵동가족 or 프리미엄) ──────────── */
+/* ── 커뮤니티 접근 권한 ────────────────────────────────────
+   진입: 로그인된 모든 회원 허용 (비로그인 불가)
+   내용 열람: 프리미엄/맵동가족/보험등급/관리자만
+   글쓰기/댓글: 프리미엄/맵동가족/보험등급/관리자만
+   ──────────────────────────────────────────────────────── */
 function canAccessCommunity(){
-  return isActivePremium() || isActiveMapdongFamily() || isAdmin();
+  return !!currentUser; // 로그인된 모든 회원 진입 허용
 }
-// 커뮤니티 글 내용 열람 권한 (프리미엄/맵동가족/관리자만)
+// 글 내용 열람 권한 (프리미엄/맵동가족/보험등급/관리자)
 function canReadCommunityContent(){
-  return isActivePremium() || isActiveMapdongFamily() || isAdmin();
+  return isActivePremium() || isActiveMapdongFamily() || isInsuranceUser() || isAdmin();
+}
+function isInsuranceUser(){
+  return userProfile?.job === '보험';
 }
 
 function renderUserChip(){
@@ -4895,8 +4902,9 @@ async function saveSidebarCategory(slug){
 }
 
 function openCommunity(slug, catId, catName){
-  if(!canAccessCommunity()){
-    toast('맵동가족 또는 프리미엄 회원만 이용 가능합니다', 'error');
+  if(!currentUser){
+    toast('로그인 후 이용 가능합니다', 'error');
+    showOnly('screen-login');
     return;
   }
   saveSidebarCategory(slug);
