@@ -5492,6 +5492,8 @@ let signupPhoneVerified = false;
 
 function openSignupModal() {
   signupPhoneVerified = false;
+  nicknameChecked = false;
+  emailChecked = false;
   ['su-nickname','su-email','su-pw','su-pw2','su-realname','su-phone1','su-phone2','su-phone3','su-addr','su-addr-detail'].forEach(id => {
     const el = document.getElementById(id);
     if(el){
@@ -5508,7 +5510,40 @@ function openSignupModal() {
   if(badge) badge.style.display='none';
   const jobSel = document.getElementById('su-job');
   if(jobSel) jobSel.value = '';
+  // 버튼 초기 비활성화
+  const submitBtn = document.getElementById('su-submit');
+  if(submitBtn) submitBtn.disabled = true;
   document.getElementById('signup-modal').classList.add('show');
+  // 입력 감지 시작
+  setTimeout(initSignupValidation, 100);
+}
+
+function initSignupValidation() {
+  const fields = ['su-nickname','su-email','su-pw','su-pw2','su-realname','su-phone1','su-phone2','su-phone3'];
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('input', checkSignupComplete);
+  });
+  const jobSel = document.getElementById('su-job');
+  if(jobSel) jobSel.addEventListener('change', checkSignupComplete);
+}
+
+function checkSignupComplete() {
+  const nickname  = document.getElementById('su-nickname')?.value.trim();
+  const email     = document.getElementById('su-email')?.value.trim();
+  const pw        = document.getElementById('su-pw')?.value;
+  const pw2       = document.getElementById('su-pw2')?.value;
+  const realName  = document.getElementById('su-realname')?.value.trim();
+  const p1        = document.getElementById('su-phone1')?.value;
+  const p2        = document.getElementById('su-phone2')?.value;
+  const p3        = document.getElementById('su-phone3')?.value;
+  const job       = document.getElementById('su-job')?.value;
+
+  const allFilled = nickname && email && pw && pw2 && realName && p1 && p2 && p3 && job
+    && nicknameChecked && emailChecked && signupPhoneVerified;
+
+  const btn = document.getElementById('su-submit');
+  if(btn) btn.disabled = !allFilled;
 }
 
 function closeSignupModal() {
@@ -5717,6 +5752,7 @@ async function startNiceAuthSignup() {
                 }
 
                 signupPhoneVerified = true;
+                checkSignupComplete(); // 버튼 활성화 체크
 
                 /* ✅ 인증 완료 배지 표시 */
                 const badge = document.getElementById('su-verified-badge');
@@ -6218,7 +6254,7 @@ window.toggleAuthMode = function() {
         <input class="signup-input" id="su-addr-detail" type="text" placeholder="상세 주소 입력 (동, 호수 등)" style="margin-top:7px;">
       </div>
 
-      <button class="signup-submit" id="su-submit" onclick="submitSignup()">✓ 회원가입 완료하기</button>
+      <button class="signup-submit" id="su-submit" onclick="submitSignup()" disabled>✓ 회원가입 완료하기</button>
       <div style="text-align:center;font-size:.68rem;color:var(--text-dim);margin-top:10px;padding-bottom:4px;">이미 계정이 있으신가요? <span style="color:var(--accent);cursor:pointer;" onclick="closeSignupModal()">로그인으로 돌아가기</span></div>
     </div>
   </div>
@@ -6569,15 +6605,53 @@ async function verifyOtp() {
       return;
     }
 
-    // 인증 성공 → 세션 저장 후 로그인
-    localStorage.setItem('sb-emgsueepzioudqnitkyn-auth-token', JSON.stringify({
+    // 인증 성공 → 세션 저장
+    const sessionPayload = {
       access_token:  data.access_token,
       refresh_token: data.refresh_token,
       expires_at:    data.expires_at,
       expires_in:    data.expires_in,
       token_type:    data.token_type || 'bearer',
       user:          data.user,
-    }));
+    };
+    localStorage.setItem('sb-emgsueepzioudqnitkyn-auth-token', JSON.stringify(sessionPayload));
+
+    // is_verified = true + job 저장 (회원가입 시 입력한 정보)
+    const userId = data.user?.id;
+    if(userId) {
+      const niceData = window._niceResult || {};
+      const jobVal   = document.getElementById('su-job')?.value || '';
+      const nickname = document.getElementById('su-nickname')?.value.trim() || '';
+      const addr     = document.getElementById('su-addr')?.value.trim() || '';
+      const addrDt   = document.getElementById('su-addr-detail')?.value.trim() || '';
+      const fullAddr = addr ? (addrDt ? addr + ' ' + addrDt : addr) : '';
+
+      try {
+        await fetch(
+          `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${userId}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${data.access_token}`,
+              'Prefer': 'return=minimal',
+            },
+            body: JSON.stringify({
+              is_verified:  true,
+              verified_at:  new Date().toISOString(),
+              job:          jobVal,
+              nickname:     nickname,
+              address:      fullAddr,
+              birth_date:   niceData.birth_date  || null,
+              nice_di:      niceData.nice_di      || null,
+              mobile_co:    niceData.mobile_co    || null,
+              updated_at:   new Date().toISOString(),
+            }),
+          }
+        );
+      } catch(e) { console.warn('OTP 인증 후 DB 업데이트 실패:', e); }
+    }
 
     hideOtpModal();
     toast('🎉 이메일 인증 완료! 환영합니다.', 'success');
