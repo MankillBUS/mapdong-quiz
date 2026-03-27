@@ -3841,11 +3841,13 @@ sb.auth.onAuthStateChange(async(event, session) => {
 // ★ 탭 전환 시 퀴즈 유지 - visibilitychange로 처리
 document.addEventListener('visibilitychange', async () => {
   if(document.visibilityState !== 'visible') return;
-  // 탭으로 돌아왔을 때 퀴즈 중이면 아무것도 하지 않음
   if(quizActive()) return;
-  // 퀴즈 중이 아닐 때만 세션 재확인
+  // 회원가입 모달이 열려있으면 세션 체크 안함
+  const signupModal = document.getElementById('signup-modal');
+  if(signupModal && signupModal.style.display !== 'none' && signupModal.style.display !== '') return;
   const { data: { session } } = await sb.auth.getSession();
-  if(!session) {
+  if(!session && currentUser) {
+    // 이미 로그인된 상태였을 때만 만료 처리
     currentUser = null; userProfile = null;
     document.getElementById('user-chip').classList.remove('visible');
     showOnly('screen-login');
@@ -5676,10 +5678,8 @@ async function startNiceAuthSignup() {
                 toast('인증 결과를 불러오지 못했습니다. 다시 시도해주세요.','error');
               }
             } else {
-              signupPhoneVerified = true;
-              document.getElementById('su-verified-badge').style.display='inline-flex';
-              document.getElementById('su-verified-badge').innerHTML = '✅ 본인인증 완료 (실명 직접 입력 확인 필요)';
-              toast('✅ 인증 창이 닫혔습니다. 실명을 직접 확인해주세요.','');
+              signupPhoneVerified = false;
+              toast('본인인증 결과 확인에 실패했습니다. 다시 시도해주세요.', 'error');
             }
           } else {
             /* web_transaction_id 없음 = 팝업 직접 닫음 */
@@ -5688,9 +5688,8 @@ async function startNiceAuthSignup() {
           }
 
         } catch(resultErr){
-          signupPhoneVerified = true;
-          document.getElementById('su-verified-badge').style.display='inline-flex';
-          toast('인증 완료. 실명 자동입력에 실패했습니다 – 직접 확인해주세요.','');
+          signupPhoneVerified = false;
+          toast('본인인증 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'error');
         }
 
         btn.disabled=false; btn.textContent='📲 본인인증';
@@ -5814,17 +5813,19 @@ async function submitSignup() {
       suErr(msg); btn.disabled=false; btn.textContent='✓ 회원가입 완료하기'; return;
     }
     if(data?.user?.id){
-      await sb.from('user_profiles').upsert({
-        user_id:     data.user.id,
-        nickname:    nickname,
-        real_name:   realName,          /* 나이스 인증으로 확인된 실명 */
-        phone:       phone,
-        address:     fullAddr,
-        job:         job,                 /* 직업 */
-        is_verified: signupPhoneVerified, /* 인증 완료 시 true */
-        is_premium:  false,
-        plays_count: 0
-      },{ onConflict:'user_id' });
+      // 트리거가 user_profiles row를 자동 생성하므로, 잠시 후 업데이트
+      setTimeout(async () => {
+        await sb.from('user_profiles').update({
+          nickname:    nickname,
+          real_name:   realName,
+          phone:       phone,
+          address:     fullAddr,
+          job:         job,
+          is_verified: signupPhoneVerified,
+          is_premium:  false,
+          plays_count: 0
+        }).eq('user_id', data.user.id);
+      }, 1500);
     }
     closeSignupModal();
     const errEl = document.getElementById('login-err');
