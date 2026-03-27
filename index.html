@@ -5793,15 +5793,31 @@ async function checkNickname() {
   if(!nickname) { msgEl.style.color='#ff3c6e'; msgEl.textContent='닉네임을 입력해주세요.'; return; }
   if(nickname.length<2||nickname.length>10) { msgEl.style.color='#ff3c6e'; msgEl.textContent='닉네임은 2~10자로 입력해주세요.'; return; }
   msgEl.style.color='var(--text-dim)'; msgEl.textContent='확인 중...';
-  const { data } = await sb.from('user_profiles').select('user_id').eq('nickname', nickname).maybeSingle();
-  if(data) {
+  try {
+    // fetch 직접 호출로 Lock 충돌 우회
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/user_profiles?select=user_id&nickname=eq.${encodeURIComponent(nickname)}&limit=1`,
+      {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+        }
+      }
+    );
+    const data = await res.json();
+    if(data && data.length > 0) {
+      msgEl.style.color='#ff3c6e';
+      msgEl.textContent='❌ 이미 사용 중인 닉네임입니다.';
+      nicknameChecked = false;
+    } else {
+      msgEl.style.color='var(--accent3)';
+      msgEl.textContent='✅ 사용 가능한 닉네임입니다.';
+      nicknameChecked = true;
+    }
+  } catch(e) {
     msgEl.style.color='#ff3c6e';
-    msgEl.textContent='❌ 이미 사용 중인 닉네임입니다.';
+    msgEl.textContent='확인 중 오류가 발생했습니다. 다시 시도해주세요.';
     nicknameChecked = false;
-  } else {
-    msgEl.style.color='var(--accent3)';
-    msgEl.textContent='✅ 사용 가능한 닉네임입니다.';
-    nicknameChecked = true;
   }
 }
 
