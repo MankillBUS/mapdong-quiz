@@ -1123,7 +1123,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       전화번호는 암호화 저장되며 원문은 보관하지 않습니다.
     </div>
     <button class="btn-verify" id="btn-verify" onclick="startNiceAuth()">📲 휴대폰 본인인증 시작</button>
-    <button class="btn-ghost" onclick="signOut()">다른 계정으로 로그인</button>
+    <button class="btn-ghost" onclick="closeDropdown();signOut()">다른 계정으로 로그인</button>
   </div>
 </div>
 
@@ -1178,8 +1178,13 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
               <li>졸업반 · 달인 · 후원자 포지션</li>
               <li>퀴즈 없이 커뮤니티만 원하는 분</li>
             </ul>
-            <button class="btn-pay" onclick="handlePlanClick('mapdong_family')"
-              style="background:linear-gradient(135deg,#a29bfe,#6c5ce7);">💜 맵동가족 가입하기</button>
+            <button onclick="showMapdongWarning()"
+              style="width:100%;background:linear-gradient(135deg,#a29bfe,#6c5ce7);
+                color:#fff;border:none;border-radius:12px;padding:14px;
+                font-size:.95rem;font-weight:400;font-family:'Noto Sans KR',sans-serif;
+                cursor:pointer;letter-spacing:.5px;">
+              💜 맵동가족 가입하기
+            </button>
             <div class="pay-secure">🔒 토스페이먼츠 안전결제 · 언제든 해지 가능</div>
             <div class="refund-link-row"><button class="refund-link-btn" onclick="openCSRefund()">환불규정 →</button></div>
           </div>
@@ -1216,7 +1221,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
             </ul>
             <!-- 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 -->
             <div id="plan1-discount-info" style="display:none;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.3);border-radius:8px;padding:8px 12px;font-size:.72rem;color:var(--gold);margin-bottom:12px;text-align:center;"></div>
-            <button class="btn-pay" onclick="requestPayment('daily')" id="btn-pay-1">💳 결제하기</button>
+            <button class="btn-pay" onclick="requestPayment('daily')" id="btn-pay-1" style="font-weight:400;font-family:'Noto Sans KR',sans-serif;font-size:.95rem;">💳 결제하기</button>
             <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
             <div class="refund-link-row"><button class="refund-link-btn" onclick="openCSRefund()">환불규정 →</button></div>
           </div>
@@ -1235,7 +1240,12 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
             <div style="text-align:center;margin:18px 0;">
               <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:4px;">1개월 (30일)</div>
               <div style="font-family:'Black Han Sans',sans-serif;font-size:3rem;color:var(--accent);line-height:1;" id="plan2-price-display">12,000<span style="font-size:1rem;color:var(--text-dim);">원</span></div>
-              <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px;">하루 400원 · 일일권 대비 33% 저렴</div>
+              <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px;">하루 400원</div>
+            </div>
+            <div style="background:linear-gradient(135deg,rgba(0,212,255,.12),rgba(0,153,187,.08));border:1px solid rgba(0,212,255,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px;text-align:center;">
+              <div style="font-size:.65rem;color:var(--text-dim);margin-bottom:3px;">💡 일일권(600원×30일) 대비</div>
+              <div style="font-family:'Black Han Sans',sans-serif;font-size:1.1rem;color:var(--accent);">6,000원 절감!</div>
+              <div style="font-size:.7rem;color:var(--accent);font-weight:700;">33% 더 저렴</div>
             </div>
             <ul class="pay-features" style="margin-bottom:18px;">
               <li>30일 무제한 이용</li>
@@ -1245,7 +1255,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
             </ul>
             <!-- 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 -->
             <div id="plan2-discount-info" style="display:none;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.3);border-radius:8px;padding:8px 12px;font-size:.72rem;color:var(--accent);margin-bottom:12px;text-align:center;"></div>
-            <button class="btn-pay" onclick="requestPayment('monthly')" style="background:linear-gradient(135deg,var(--accent),#0099bb);">💳 결제하기</button>
+            <button class="btn-pay" onclick="requestPayment('monthly')" style="background:linear-gradient(135deg,var(--accent),#0099bb);font-weight:400;font-family:'Noto Sans KR',sans-serif;font-size:.95rem;">💳 결제하기</button>
             <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
             <div class="refund-link-row"><button class="refund-link-btn" onclick="openCSRefund()">환불규정 →</button></div>
           </div>
@@ -1264,7 +1274,12 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
             <div style="text-align:center;margin:18px 0;">
               <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:4px;">3개월 (90일)</div>
               <div style="font-family:'Black Han Sans',sans-serif;font-size:3rem;color:#a29bfe;line-height:1;" id="plan3-price-display">28,000<span style="font-size:1rem;color:var(--text-dim);">원</span></div>
-              <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px;">월 약 9,333원 · 월정액 대비 22% 절약</div>
+              <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px;">월 약 9,333원</div>
+            </div>
+            <div style="background:linear-gradient(135deg,rgba(162,155,254,.12),rgba(108,92,231,.08));border:1px solid rgba(162,155,254,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px;text-align:center;">
+              <div style="font-size:.65rem;color:var(--text-dim);margin-bottom:3px;">💡 1개월권(12,000원×3) 대비</div>
+              <div style="font-family:'Black Han Sans',sans-serif;font-size:1.1rem;color:#a29bfe;">8,000원 절감!</div>
+              <div style="font-size:.7rem;color:#a29bfe;font-weight:700;">22% 더 저렴</div>
             </div>
             <ul class="pay-features" style="margin-bottom:18px;">
               <li>90일 무제한 이용</li>
@@ -1274,7 +1289,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
             </ul>
             <!-- 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 -->
             <div id="plan3-discount-info" style="display:none;background:rgba(162,155,254,.08);border:1px solid rgba(162,155,254,.3);border-radius:8px;padding:8px 12px;font-size:.72rem;color:#a29bfe;margin-bottom:12px;text-align:center;"></div>
-            <button class="btn-pay" onclick="requestPayment('quarterly')" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7);">💳 결제하기</button>
+            <button class="btn-pay" onclick="requestPayment('quarterly')" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7);font-weight:400;font-family:'Noto Sans KR',sans-serif;font-size:.95rem;">💳 결제하기</button>
             <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
             <div class="refund-link-row"><button class="refund-link-btn" onclick="openCSRefund()">환불규정 →</button></div>
           </div>
@@ -1293,7 +1308,12 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
             <div style="text-align:center;margin:18px 0;">
               <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:4px;">6개월 (180일)</div>
               <div style="font-family:'Black Han Sans',sans-serif;font-size:3rem;color:var(--accent3);line-height:1;" id="plan4-price-display">42,000<span style="font-size:1rem;color:var(--text-dim);">원</span></div>
-              <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px;">월 약 7,000원 · 월정액 대비 42% 절약</div>
+              <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px;">월 약 7,000원</div>
+            </div>
+            <div style="background:linear-gradient(135deg,rgba(57,255,20,.1),rgba(0,179,0,.06));border:1px solid rgba(57,255,20,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px;text-align:center;">
+              <div style="font-size:.65rem;color:var(--text-dim);margin-bottom:3px;">💡 3개월권(28,000원×2) 대비</div>
+              <div style="font-family:'Black Han Sans',sans-serif;font-size:1.1rem;color:var(--accent3);">14,000원 절감!</div>
+              <div style="font-size:.7rem;color:var(--accent3);font-weight:700;">25% 더 저렴</div>
             </div>
             <ul class="pay-features" style="margin-bottom:18px;">
               <li>180일 무제한 이용</li>
@@ -1304,7 +1324,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
             </ul>
             <!-- 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 -->
             <div id="plan4-discount-info" style="display:none;background:rgba(57,255,20,.06);border:1px solid rgba(57,255,20,.3);border-radius:8px;padding:8px 12px;font-size:.72rem;color:var(--accent3);margin-bottom:12px;text-align:center;"></div>
-            <button class="btn-pay" onclick="requestPayment('halfyear')" style="background:linear-gradient(135deg,var(--accent3),#00b300);">💳 결제하기</button>
+            <button class="btn-pay" onclick="requestPayment('halfyear')" style="background:linear-gradient(135deg,var(--accent3),#00b300);font-weight:400;font-family:'Noto Sans KR',sans-serif;font-size:.95rem;">💳 결제하기</button>
             <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
             <div class="refund-link-row"><button class="refund-link-btn" onclick="openCSRefund()">환불규정 →</button></div>
           </div>
@@ -1325,7 +1345,14 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
             <div style="text-align:center;margin:18px 0;">
               <div style="font-size:.72rem;color:var(--text-dim);margin-bottom:4px;">12개월 (1년 / 365일)</div>
               <div style="font-family:'Black Han Sans',sans-serif;font-size:3rem;color:#ff6b6b;line-height:1;" id="plan5-price-display">80,000<span style="font-size:1rem;color:var(--text-dim);">원</span></div>
-              <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px;">월 약 6,667원 · 월정액 대비 <strong style="color:#ff6b6b;">44% 절약</strong></div>
+              <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px;">월 약 6,667원</div>
+            </div>
+            <div style="background:linear-gradient(135deg,rgba(255,107,107,.15),rgba(238,90,111,.08));border:1px solid rgba(255,107,107,.4);border-radius:10px;padding:10px 14px;margin-bottom:14px;text-align:center;">
+              <div style="font-size:.65rem;color:var(--text-dim);margin-bottom:3px;">💡 6개월권(42,000원×2) 대비</div>
+              <div style="font-family:'Black Han Sans',sans-serif;font-size:1.1rem;color:#ff6b6b;">4,000원 절감!</div>
+              <div style="font-size:.7rem;color:var(--text-dim);margin-bottom:2px;">+ 일일권(600원×365일=219,000원) 대비</div>
+              <div style="font-family:'Black Han Sans',sans-serif;font-size:1.3rem;color:#ff6b6b;">139,000원 절감! 🔥</div>
+              <div style="font-size:.7rem;color:#ff6b6b;font-weight:700;">무려 63% 더 저렴</div>
             </div>
             <ul class="pay-features" style="margin-bottom:18px;">
               <li>365일 무제한 이용</li>
@@ -1337,7 +1364,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
             </ul>
             <!-- 이 부분을 수정하면 할인 가능 ex 10% 할인 하고 싶으면 10 입력 -->
             <div id="plan5-discount-info" style="display:none;background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.3);border-radius:8px;padding:8px 12px;font-size:.72rem;color:#ff6b6b;margin-bottom:12px;text-align:center;"></div>
-            <button class="btn-pay" onclick="requestPayment('yearly')" style="background:linear-gradient(135deg,#ff6b6b,#ee5a6f);">💳 결제하기 (최고 혜택)</button>
+            <button class="btn-pay" onclick="requestPayment('yearly')" style="background:linear-gradient(135deg,#ff6b6b,#ee5a6f);font-weight:400;font-family:'Noto Sans KR',sans-serif;font-size:.95rem;">💳 결제하기 (최고 혜택)</button>
             <div class="pay-secure">🔒 토스페이먼츠 안전결제</div>
             <div class="refund-link-row"><button class="refund-link-btn" onclick="openCSRefund()">환불규정 →</button></div>
           </div>
@@ -1569,7 +1596,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       </button>
 
       <!-- ⑥ 로그아웃 -->
-      <button class="dd-btn danger" onclick="signOut()"
+      <button class="dd-btn danger" onclick="closeDropdown();signOut()"
         style="width:100%;display:flex;align-items:center;gap:9px;padding:9px 12px;">
         <span style="font-size:1rem;flex-shrink:0;">🚪</span>
         <span style="font-size:.82rem;">로그아웃</span>
@@ -3749,8 +3776,8 @@ function showOnly(id){
   if(id === 'screen-paywall'){
     setTimeout(() => { if(typeof initPlanSlider === 'function') initPlanSlider(); }, 50);
   }
-  // 오른쪽 사이드바: start + game(퀴즈중) 화면에서 표시
-  const showRight = (id === 'start');
+  // 오른쪽 사이드바: start + paywall + game(퀴즈중) 화면에서 표시
+  const showRight = (id === 'start' || id === 'screen-paywall');
   const rightSide   = document.getElementById('right-side');
   const rightToggle = document.getElementById('right-side-toggle');
   if(rightSide)   rightSide.style.display   = showRight ? '' : 'none';
@@ -4801,6 +4828,22 @@ function showMapdongPaywall(){
   showOnly('screen-paywall');
   initPlanSlider();
   goToPlan(0);
+}
+
+function showMapdongWarning(){
+  document.getElementById('mapdong-info-modal').style.display = 'flex';
+}
+function closeMapdongInfo(){
+  document.getElementById('mapdong-info-modal').style.display = 'none';
+}
+function proceedMapdongJoin(){
+  closeMapdongInfo();
+  if(isActivePremium()){
+    document.getElementById('mapdong-warn-modal').style.display = 'flex';
+  } else {
+    closePaywall();
+    startPayment('mapdong_family');
+  }
 }
 
 /* ── 플랜 메뉴 → screen-paywall 슬라이드쇼로 이동 ── */
@@ -6737,5 +6780,48 @@ async function resendOtp() {
 </script>
 
 
+
+<!-- 맵동가족 안내 팝업 -->
+<div id="mapdong-info-modal" style="display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.88);backdrop-filter:blur(8px);
+  z-index:90001;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:linear-gradient(135deg,var(--surface),var(--surface2));
+    border:2px solid #a29bfe;border-radius:20px;max-width:380px;width:100%;
+    padding:28px 24px;text-align:center;box-shadow:0 8px 40px rgba(162,155,254,.3);">
+    <div style="font-size:2.5rem;margin-bottom:12px;">💜</div>
+    <div style="font-family:'Black Han Sans',sans-serif;font-size:1.1rem;color:var(--text);margin-bottom:10px;">
+      맵동가족 멤버십 안내
+    </div>
+    <div style="background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);
+      border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:.78rem;
+      color:#ff8a80;line-height:1.8;text-align:left;">
+      ⚠️ <strong>이 상품은 퀴즈 상품이 아닙니다!</strong><br>
+      퀴즈 광고 제거는 아래 상품만 가능합니다:<br>
+      <span style="color:var(--gold);">📌 일일권 · 1개월 · 3개월 · 6개월 · 12개월</span>
+    </div>
+    <div style="font-size:.8rem;color:var(--text-dim);line-height:1.8;margin-bottom:20px;">
+      맵동가족은 <strong style="color:#a29bfe;">커뮤니티 멤버십</strong>입니다.<br>
+      커뮤니티 조회·글쓰기 및 나눔 이벤트 응모 목적에 적합합니다.
+    </div>
+    <div style="font-size:.88rem;color:var(--text);font-weight:700;margin-bottom:16px;">
+      맵동가족에 정말 가입하시겠습니까?
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="closeMapdongInfo()"
+        style="flex:1;padding:12px;border-radius:10px;background:var(--surface);
+          border:1px solid var(--border);color:var(--text-dim);font-size:.88rem;
+          font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+        아니요
+      </button>
+      <button onclick="proceedMapdongJoin()"
+        style="flex:1;padding:12px;border-radius:10px;
+          background:linear-gradient(135deg,#a29bfe,#6c5ce7);
+          color:#fff;border:none;font-size:.88rem;font-weight:700;
+          cursor:pointer;font-family:'Noto Sans KR',sans-serif;">
+        예, 가입합니다
+      </button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
