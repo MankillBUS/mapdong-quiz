@@ -386,15 +386,30 @@ const CATS=[
   ]},
 ];
 
-// ── 권한 ──
+// ══════════════════════════════════════════════════
+// 📋 MapDong 커뮤니티 권한 정책 (2026-03-27 확정)
+// ══════════════════════════════════════════════════
+// ❌ 비로그인      : 커뮤니티 접근 자체 불가
+// 📄 일반회원      : 카테고리 목록 진입 ✅ | 글 제목 열람 ✅ | 글 내용 ❌ | 글쓰기 ❌ | 댓글 ❌
+// 🛡️ 보험등급      : 카테고리 목록 진입 ✅ | 글 제목 ✅ | 글 내용 ❌ | 글쓰기 ✅ | 댓글 ✅
+// 💜 맵동가족      : 카테고리 목록 진입 ✅ | 글 내용 ✅ | 글쓰기 ✅ | 댓글 ✅
+// ✨ 프리미엄      : 카테고리 목록 진입 ✅ | 글 내용 ✅ | 글쓰기 ✅ | 댓글 ✅
+// 👑 관리자        : 모든 권한 ✅
+// ══════════════════════════════════════════════════
+
 function isAdmin(){return userProfile?.role==='admin';}
 function isActivePremium(){return userProfile?.is_premium&&userProfile?.premium_until&&new Date(userProfile.premium_until)>new Date();}
 function isActiveMapdongFamily(){return userProfile?.is_mapdong_family&&userProfile?.mapdong_family_until&&new Date(userProfile.mapdong_family_until)>new Date();}
 function isInsuranceUser(){return userProfile?.job==='보험';}
-// 열람 권한: 관리자, 프리미엄, 맵동가족, 보험자격증
+
+// 글 내용 열람 가능: 맵동가족, 프리미엄, 관리자
+function canReadContent(){return isAdmin()||isActivePremium()||isActiveMapdongFamily();}
+
+// 글쓰기/댓글 가능: 맵동가족, 프리미엄, 보험등급, 관리자 (일반회원 불가)
 function canAccess(){return isAdmin()||isActivePremium()||isActiveMapdongFamily()||isInsuranceUser();}
+
 function isInsuranceCat(){return!!CATS.find(c=>c.insuranceOnly&&c.children.some(ch=>ch.id===currentCatId));}
-// 글쓰기: 보험게시판은 관리자+보험자격증, 나머지는 canAccess()
+
 function canWrite(){
   if(!currentUser)return false;
   if(isAdmin())return true;
@@ -402,7 +417,6 @@ function canWrite(){
   if(isInsuranceCat())return isInsuranceUser();
   return true;
 }
-// 댓글 권한: canAccess()와 동일
 function canComment(){return canAccess();}
 
 // 등급 배지
@@ -554,11 +568,56 @@ async function renderBoard(){
 }
 
 async function renderTitleOnly(listEl){
-  const {data}=await sb.from('community_posts').select('id,title,is_pinned').eq('category_id',currentCatId).eq('is_deleted',false).order('is_pinned',{ascending:false}).order('created_at',{ascending:false}).range(0,29);
-  const locked=`<div class="locked-notice"><div class="lock-icon">🔒</div><h3>멤버 전용 게시판</h3><p>맵동가족·프리미엄·보험자격증 회원만<br>게시글을 열람하고 작성할 수 있습니다.</p><button class="lock-upgrade-btn" onclick="window.location.href='index.html'">← 돌아가서 가입하기</button></div>`;
-  if(!data?.length){listEl.innerHTML=locked;return;}
-  listEl.innerHTML=locked+'<div style="margin-top:12px">'+data.map(p=>`<div class="post-title-only">${p.is_pinned?'<span style="color:var(--gold)">📌</span>':''}<span class="pt-title">${escHtml(p.title)}</span><span style="margin-left:auto;font-size:.65rem;opacity:.5">🔒</span></div>`).join('')+'</div>';
+  // 비로그인은 목록도 불가
+  if(!currentUser){
+    listEl.innerHTML=`<div style="text-align:center;padding:40px;color:var(--text-dim);">
+      <div style="font-size:2rem;margin-bottom:10px;">🔒</div>
+      <div style="font-size:.9rem;color:var(--text);margin-bottom:6px;">로그인이 필요합니다</div>
+      <div style="font-size:.78rem;">커뮤니티 이용을 위해 로그인해주세요.</div>
+    </div>`;
+    document.getElementById('pagination').innerHTML=''; return;
+  }
+  // 일반회원/보험등급: 글 제목 목록만 표시 (내용 클릭 불가)
+  const {data}=await sb.from('community_posts')
+    .select('id,title,is_pinned,created_at,view_count,like_count')
+    .eq('category_id',currentCatId).eq('is_deleted',false)
+    .order('is_pinned',{ascending:false}).order('created_at',{ascending:false}).range(0,29);
+  if(!data?.length){
+    listEl.innerHTML='<div style="color:var(--text-dim);text-align:center;padding:40px">게시글이 없습니다.</div>';
+    document.getElementById('pagination').innerHTML=''; return;
+  }
+  listEl.innerHTML=data.map(p=>`
+    <div class="post-row" onclick="showContentLocked()" style="cursor:pointer;">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          ${p.is_pinned?'<span style="color:var(--gold);font-size:.7rem;">📌</span>':''}
+          <span style="font-size:.88rem;color:var(--text);font-weight:500;">${escHtml(p.title)}</span>
+          <span style="font-size:.65rem;color:var(--text-dim);margin-left:auto;">🔒</span>
+        </div>
+        <div style="font-size:.7rem;color:var(--text-dim);display:flex;gap:10px;">
+          <span>${new Date(p.created_at).toLocaleDateString('ko-KR')}</span>
+          <span>👁 ${p.view_count||0}</span>
+          <span>❤️ ${p.like_count||0}</span>
+        </div>
+      </div>
+    </div>`).join('');
   document.getElementById('pagination').innerHTML='';
+}
+
+function showContentLocked(){
+  const existing=document.getElementById('content-lock-toast');
+  if(existing) existing.remove();
+  const t=document.createElement('div');
+  t.id='content-lock-toast';
+  t.style.cssText=`position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+    background:linear-gradient(135deg,#111827,#1a2235);border:1px solid #1e3a5f;
+    border-radius:14px;padding:16px 24px;text-align:center;z-index:99999;
+    box-shadow:0 8px 32px rgba(0,0,0,.5);min-width:280px;`;
+  t.innerHTML=`<div style="font-size:1.3rem;margin-bottom:6px;">🔒</div>
+    <div style="font-size:.88rem;color:#e8f4fd;font-weight:700;margin-bottom:4px;">멤버 전용 콘텐츠</div>
+    <div style="font-size:.75rem;color:#7a9bb5;line-height:1.6;">글 내용은 맵동가족·프리미엄 회원만<br>열람할 수 있습니다.</div>`;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),2500);
 }
 
 function renderPagination(total){
@@ -575,7 +634,8 @@ function goPage(p){currentPage=p;renderBoard();window.scrollTo(0,0);}
 
 // ── 게시글 보기 ──
 async function viewPost(postId){
-  if(!canAccess()){alert('멤버 전용입니다');return;}
+  // 글 내용 열람: 맵동가족/프리미엄/관리자만 (일반회원/보험등급은 제목만)
+  if(!canReadContent()){showContentLocked();return;}
   const {data}=await sb.from('community_posts').select('*').eq('id',postId).single();
   if(!data)return;
   _viewingPostId=postId;_viewingPostData=data;
@@ -618,8 +678,8 @@ function renderLike(count){
 }
 
 async function toggleLike(){
-  if(!currentUser){alert('로그인 후 이용 가능합니다.');return;}
-  if(!isAdmin() && !isFullyVerified()){alert('본인인증이 완료된 회원만 이용 가능합니다.');return;}
+  if(!currentUser){alert('로그인이 필요합니다.');return;}
+  if(!canAccess()){alert('맵동가족·프리미엄·보험등급 회원만 이용 가능합니다.');return;}
   const liked=_likedPosts.has(_viewingPostId);
   if(liked){
     await sb.from('community_likes').delete().eq('post_id',_viewingPostId).eq('user_id',currentUser.id);
@@ -676,8 +736,8 @@ async function renderComments(postId){
 async function submitComment(){
   const text=document.getElementById('comment-text')?.value.trim();
   if(!text){alert('댓글을 입력하세요');return;}
-  if(!currentUser){alert('로그인이 필요합니다');return;}
-  if(!isAdmin() && !isFullyVerified()){alert('본인인증이 완료된 회원만 댓글을 작성할 수 있습니다.');return;}
+  if(!currentUser){alert('로그인이 필요합니다.');return;}
+  if(!canComment()){alert('맵동가족·프리미엄·보험등급 회원만 댓글을 작성할 수 있습니다.');return;}
   const {error}=await sb.from('community_comments').insert({post_id:_viewingPostId,user_id:currentUser.id,content:text});
   if(error){alert('등록 실패: '+error.message);return;}
   await renderComments(_viewingPostId);
@@ -755,8 +815,8 @@ async function submitPost(){
   const content=editor.innerHTML.trim();
   if(!title){alert('제목을 입력하세요');return;}
   if(!content||editor.textContent.trim()===''){alert('내용을 입력하세요');return;}
-  if(!currentUser){alert('로그인 후 글을 작성할 수 있습니다.');return;}
-  if(!isAdmin() && !isFullyVerified()){alert('본인인증이 완료된 회원만 글을 작성할 수 있습니다.');return;}
+  if(!currentUser){alert('로그인이 필요합니다.');return;}
+  if(!canWrite()){alert('맵동가족·프리미엄·보험등급 회원만 글을 작성할 수 있습니다.');return;}
   if(!currentCatId){alert('카테고리를 선택하세요');return;}
   const btn=document.getElementById('btn-submit-post');
   btn.disabled=true;btn.textContent='등록 중...';
