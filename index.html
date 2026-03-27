@@ -5727,9 +5727,10 @@ async function checkEmail() {
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { msgEl.style.color='#ff3c6e'; msgEl.textContent='올바른 이메일 형식을 입력해주세요.'; return; }
   msgEl.style.color='var(--text-dim)'; msgEl.textContent='확인 중...';
   try {
-    // 비밀번호 찾기 시도 → 가입된 이메일이면 성공, 없으면 에러
-    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
-    if(!error) {
+    // DB 함수로 이메일 존재 여부 확인 (이메일 발송 없음)
+    const { data, error } = await sb.rpc('check_email_exists', { check_email: email });
+    if(error) throw error;
+    if(data === true) {
       msgEl.style.color='#ff3c6e';
       msgEl.textContent='❌ 이미 가입된 이메일입니다.';
       emailChecked = false;
@@ -5739,9 +5740,9 @@ async function checkEmail() {
       emailChecked = true;
     }
   } catch(e) {
-    msgEl.style.color='var(--accent3)';
-    msgEl.textContent='✅ 사용 가능한 이메일입니다.';
-    emailChecked = true;
+    msgEl.style.color='#ff3c6e';
+    msgEl.textContent='확인 중 오류가 발생했습니다. 다시 시도해주세요.';
+    emailChecked = false;
   }
 }
 
