@@ -447,22 +447,53 @@ function gradeBadge(profile){
 
 // ── 초기화 ──
 async function init(){
-  const {data:{session}}=await sb.auth.getSession();
-  if(session?.user){
-    currentUser=session.user;
-    // fetch 직접 호출 (Lock 충돌 방지)
+  // localStorage에서 직접 토큰 읽기 (Lock 충돌 방지 - 핵심)
+  let accessToken = null;
+  try {
+    const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+    if(raw){
+      const parsed = JSON.parse(raw);
+      const t = parsed?.access_token || parsed?.currentSession?.access_token;
+      const exp = parsed?.expires_at;
+      // 만료 확인
+      if(t && (!exp || exp > Math.floor(Date.now()/1000))){
+        accessToken = t;
+        // user 정보도 localStorage에서 바로 읽기
+        const u = parsed?.user;
+        if(u?.id) currentUser = u;
+      }
+    }
+  } catch(e){}
+
+  // localStorage 실패 시 폴백
+  if(!currentUser){
+    try {
+      const {data:{session}} = await sb.auth.getSession();
+      if(session?.user){ currentUser=session.user; accessToken=session.access_token; }
+    } catch(e){}
+  }
+
+  if(currentUser && accessToken){
+    // 프로필 로드
     try {
       const profRes = await fetch(
         `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${currentUser.id}&select=*&limit=1`,
-        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${session.access_token}` } }
+        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${accessToken}` } }
       );
       const rows = await profRes.json();
       userProfile = rows[0] || null;
-    } catch(e) { userProfile = null; }
+    } catch(e){ userProfile = null; }
     // 좋아요한 게시물 로드
-    const {data:liked}=await sb.from('community_likes').select('post_id').eq('user_id',currentUser.id);
-    if(liked)liked.forEach(l=>_likedPosts.add(l.post_id));
+    try {
+      const likedRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/community_likes?user_id=eq.${currentUser.id}&select=post_id`,
+        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${accessToken}` } }
+      );
+      const liked = await likedRes.json();
+      if(liked) liked.forEach(l=>_likedPosts.add(l.post_id));
+    } catch(e){}
   }
+
   const params=new URLSearchParams(window.location.search);
   const slug=params.get('cat'),catId=params.get('catId'),catName=params.get('catName')||'게시판';
   if(slug&&catId){currentCatSlug=slug;currentCatId=Number(catId);currentCatName=catName;}
