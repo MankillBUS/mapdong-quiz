@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&family=Black+Han+Sans&family=Gowun+Dodum&family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2.39.3/dist/umd/supabase.js"></script>
 <script src="https://js.tosspayments.com/v2/standard"></script>
 <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <script>
@@ -3691,6 +3691,10 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     persistSession: true,
     detectSessionInUrl: true,
     storageKey: 'mapdong-auth-token',
+    lock: async (name, acquireTimeout, fn) => {
+      // Lock 충돌 방지: 즉시 실행
+      return fn();
+    },
   }
 });
 
@@ -5756,9 +5760,17 @@ async function checkEmail() {
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { msgEl.style.color='#ff3c6e'; msgEl.textContent='올바른 이메일 형식을 입력해주세요.'; return; }
   msgEl.style.color='var(--text-dim)'; msgEl.textContent='확인 중...';
   try {
-    // DB 함수로 이메일 존재 여부 확인 (이메일 발송 없음)
-    const { data, error } = await sb.rpc('check_email_exists', { check_email: email });
-    if(error) throw error;
+    // fetch로 직접 RPC 호출 (Supabase 클라이언트 Lock 우회)
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_email_exists`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+      },
+      body: JSON.stringify({ check_email: email }),
+    });
+    const data = await res.json();
     if(data === true) {
       msgEl.style.color='#ff3c6e';
       msgEl.textContent='❌ 이미 가입된 이메일입니다.';
