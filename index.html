@@ -3721,8 +3721,8 @@ function toast(msg, type=''){
 /* ── 화면 전환 ── */
 const SCREENS = ['screen-login','screen-verify','screen-paywall','start','screen-cs'];
 function showOnly(id){
+  console.log('[showOnly] 호출됨:', id);
   // 오른쪽 사이드바: start + game(퀴즈중) 화면에서 표시
-  // screen-login, screen-verify, screen-paywall, screen-cs 에서는 숨김
   const showRight = (id === 'start');
   const rightSide   = document.getElementById('right-side');
   const rightToggle = document.getElementById('right-side-toggle');
@@ -3730,7 +3730,12 @@ function showOnly(id){
   if(rightToggle) rightToggle.style.display = showRight ? '' : 'none';
   SCREENS.forEach(s => {
     const el = document.getElementById(s);
-    if(el) el.classList.toggle('hidden', s !== id);
+    if(el) {
+      el.classList.toggle('hidden', s !== id);
+      console.log(`[showOnly] ${s}: hidden=${s !== id}, el존재=${!!el}`);
+    } else {
+      console.warn(`[showOnly] 요소 없음: ${s}`);
+    }
   });
 }
 
