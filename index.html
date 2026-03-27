@@ -5719,6 +5719,32 @@ function suErr(msg) {
 }
 
 let nicknameChecked = false;
+let emailChecked = false;
+
+async function checkEmail() {
+  const email = document.getElementById('su-email').value.trim();
+  const msgEl = document.getElementById('email-check-msg');
+  if(!email) { msgEl.style.color='#ff3c6e'; msgEl.textContent='이메일을 입력해주세요.'; return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { msgEl.style.color='#ff3c6e'; msgEl.textContent='올바른 이메일 형식을 입력해주세요.'; return; }
+  msgEl.style.color='var(--text-dim)'; msgEl.textContent='확인 중...';
+  try {
+    // 비밀번호 찾기 시도 → 가입된 이메일이면 성공, 없으면 에러
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+    if(!error) {
+      msgEl.style.color='#ff3c6e';
+      msgEl.textContent='❌ 이미 가입된 이메일입니다.';
+      emailChecked = false;
+    } else {
+      msgEl.style.color='var(--accent3)';
+      msgEl.textContent='✅ 사용 가능한 이메일입니다.';
+      emailChecked = true;
+    }
+  } catch(e) {
+    msgEl.style.color='var(--accent3)';
+    msgEl.textContent='✅ 사용 가능한 이메일입니다.';
+    emailChecked = true;
+  }
+}
 
 async function checkNickname() {
   const nickname = document.getElementById('su-nickname').value.trim();
@@ -5755,6 +5781,7 @@ async function submitSignup() {
   if(!nickname)                    { suErr('닉네임을 입력해주세요.'); return; }
   if(nickname.length<2||nickname.length>10){ suErr('닉네임은 2~10자로 입력해주세요.'); return; }
   if(!nicknameChecked)             { suErr('닉네임 중복확인을 해주세요.'); return; }
+  if(!emailChecked)                { suErr('이메일 중복확인을 해주세요.'); return; }
   if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ suErr('올바른 이메일을 입력해주세요.'); return; }
   if(!pw)                          { suErr('비밀번호를 입력해주세요.'); return; }
   if(pw.length<8)                  { suErr('비밀번호는 8자 이상이어야 합니다.'); return; }
@@ -5962,7 +5989,11 @@ window.toggleAuthMode = function() {
 
       <div class="signup-field">
         <div class="signup-label">인증할 이메일 <span class="req">*</span></div>
-        <input class="signup-input" id="su-email" type="email" placeholder="example@email.com">
+        <div style="display:flex;gap:8px;">
+          <input class="signup-input" id="su-email" type="email" placeholder="example@email.com" style="flex:1;" oninput="emailChecked=false;document.getElementById('email-check-msg').textContent='';">
+          <button type="button" onclick="checkEmail()" style="background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;border:none;border-radius:10px;padding:0 14px;font-size:.8rem;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;white-space:nowrap;">중복확인</button>
+        </div>
+        <div id="email-check-msg" style="font-size:.75rem;margin-top:4px;"></div>
         <div class="signup-hint">회원가입 후 이메일 인증 링크가 발송됩니다.</div>
       </div>
 
