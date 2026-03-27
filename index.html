@@ -3779,7 +3779,8 @@ function quizActive(){
 
 sb.auth.onAuthStateChange(async(event, session) => {
   if(event === 'TOKEN_REFRESHED') return;
-  if(event === 'INITIAL_SESSION') return; // 새로고침 시 초기 세션 복구 무시
+  // INITIAL_SESSION: 세션 있으면 로그인 처리, 없으면 무시 (로그인 만료 팝업 방지)
+  if(event === 'INITIAL_SESSION' && !session) return;
 
   if(session?.user){
     currentUser = session.user;
@@ -3962,11 +3963,11 @@ function routeUser(){
   
   // 프로필 없음
   if(!userProfile){
-    showOnly('screen-login');
+    showOnly('screen-verify');
     return;
   }
   
-  // 인증 안 됨
+  // 본인인증 안 됨 → 본인인증 화면
   if(!userProfile.is_verified){
     showOnly('screen-verify');
     return;
@@ -5631,8 +5632,28 @@ async function startNiceAuthSignup() {
 
             if(resultRes.ok){
               const resultData = await resultRes.json();
-              const verifiedName  = resultData.name  || '';
-              const verifiedPhone = resultData.phone  || '';
+              const verifiedName    = resultData.name      || '';
+              const verifiedPhone   = resultData.phone     || '';
+              const verifiedBirth   = resultData.birthdate || ''; // yyyymmdd
+              const verifiedGender  = resultData.gender    || ''; // 0:여 1:남
+              const verifiedDi      = resultData.di        || '';
+              const verifiedMobileCo= resultData.mobile_co || '';
+
+              // birth_date 포맷 변환 yyyymmdd → yyyy-mm-dd
+              let birthDateFormatted = null;
+              if(verifiedBirth.length === 8){
+                birthDateFormatted = `${verifiedBirth.slice(0,4)}-${verifiedBirth.slice(4,6)}-${verifiedBirth.slice(6,8)}`;
+              }
+
+              // 나이스 인증 결과 전역 저장 (회원가입 시 DB 저장에 사용)
+              window._niceResult = {
+                real_name:  verifiedName,
+                phone:      verifiedPhone,
+                birth_date: birthDateFormatted,
+                gender:     verifiedGender,
+                nice_di:    verifiedDi,
+                mobile_co:  verifiedMobileCo,
+              };
 
               if(verifiedName){
                 /* ✅ 실명 자동 채우기 */
@@ -5672,10 +5693,14 @@ async function startNiceAuthSignup() {
                 const { data: { session: afterSess } } = await sb.auth.getSession();
                 if(afterSess?.user && !afterSess.user.is_anonymous){
                   await sb.from('user_profiles').upsert({
-                    user_id:    afterSess.user.id,
-                    real_name:  verifiedName,
-                    phone:      verifiedPhone,
-                    is_verified: true
+                    user_id:     afterSess.user.id,
+                    real_name:   verifiedName,
+                    phone:       verifiedPhone,
+                    birth_date:  birthDateFormatted,
+                    nice_di:     verifiedDi,
+                    mobile_co:   verifiedMobileCo,
+                    is_verified: true,
+                    verified_at: new Date().toISOString(),
                   },{ onConflict:'user_id' });
                 }
               } else {
@@ -5819,6 +5844,7 @@ async function submitSignup() {
     }
     if(data?.user?.id){
       // 트리거가 user_profiles row를 자동 생성하므로, 잠시 후 업데이트
+      const niceData = window._niceResult || {};
       setTimeout(async () => {
         await sb.from('user_profiles').update({
           nickname:    nickname,
@@ -5828,7 +5854,11 @@ async function submitSignup() {
           job:         job,
           is_verified: signupPhoneVerified,
           is_premium:  false,
-          plays_count: 0
+          plays_count: 0,
+          birth_date:  niceData.birth_date  || null,
+          nice_di:     niceData.nice_di     || null,
+          mobile_co:   niceData.mobile_co   || null,
+          verified_at: signupPhoneVerified ? new Date().toISOString() : null,
         }).eq('user_id', data.user.id);
       }, 1500);
     }
