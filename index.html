@@ -4504,9 +4504,19 @@ async function loadIndexNotifications(){
   if(!currentUser) return;
   try {
     let token = SUPABASE_KEY;
-    try{const raw=localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');if(raw){const p=JSON.parse(raw);if(p?.access_token)token=p.access_token;}}catch(e){}
-    // anon key면 요청 안 함
+    let tokenExp = 0;
+    try{
+      const raw=localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+      if(raw){
+        const p=JSON.parse(raw);
+        const t=p?.access_token||p?.currentSession?.access_token;
+        const exp=p?.expires_at||p?.currentSession?.expires_at||0;
+        if(t){ token=t; tokenExp=exp; }
+      }
+    }catch(e){}
+    // anon key거나 토큰 만료 임박(30초) → 건너뜀
     if(token === SUPABASE_KEY) return;
+    if(tokenExp && (tokenExp * 1000) < (Date.now() + 30000)) return;
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/notifications?user_id=eq.${currentUser.id}&order=created_at.desc&limit=20`,
       { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${token}` } }
@@ -4626,21 +4636,34 @@ function getRankTierByRate(rate, rankPos) {
 async function fetchMyRankTier(){
   if(!currentUser) return null;
   const now = Date.now();
+  // 캐시 유효하면 즉시 반환 (API 호출 없음)
   if(_myRankTier && (now - _myRankLastFetch) < RANK_FETCH_INTERVAL) return _myRankTier;
 
   try {
     let token = SUPABASE_KEY;
-    try{const raw=localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');if(raw){const p=JSON.parse(raw);if(p?.access_token)token=p.access_token;}}catch(e){}
+    let tokenExp = 0;
+    try{
+      const raw=localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+      if(raw){
+        const p=JSON.parse(raw);
+        const t=p?.access_token||p?.currentSession?.access_token;
+        const exp=p?.expires_at||p?.currentSession?.expires_at||0;
+        if(t){ token=t; tokenExp=exp; }
+      }
+    }catch(e){}
 
-    // anon key면 인증된 요청 불가 → 건너뜀
+    // anon key거나 토큰 만료(30초 여유) → 건너뜀 (401 방지)
     if(token === SUPABASE_KEY) return null;
+    if(tokenExp && (tokenExp * 1000) < (now + 30000)){
+      // 토큰 만료 임박 → SDK가 갱신 중일 수 있음, 이번엔 건너뜀
+      return _myRankTier || null;
+    }
 
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/ranking_scores?user_id=eq.${currentUser.id}&order=rate.desc,elapsed_ms.asc&limit=1`,
       { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${token}` } }
     );
-    // 테이블 없거나 권한 없으면 조용히 종료
-    if(!res.ok) return null;
+    if(!res.ok) return _myRankTier || null; // 실패해도 기존 캐시 반환
     const rows = await res.json();
     if(!rows.length){ _myRankTier = RANK_TIERS[8]; _myRankLastFetch = now; return _myRankTier; }
 
@@ -4649,7 +4672,7 @@ async function fetchMyRankTier(){
     _myRankTier = { ...tier, rate: best.rate, groupKey: best.group_key };
     _myRankLastFetch = now;
     return _myRankTier;
-  } catch(e){ return null; }
+  } catch(e){ return _myRankTier || null; }
 }
 
 async function updateRankIconsEverywhere(){
@@ -4707,10 +4730,19 @@ function renderUserChip(){
   }
   // 오른쪽 사이드바 권한 업데이트
   updateRightSidebarAuth();
-  // 랭킹 아이콘 갱신 (처음 로그인 시 또는 캐시 만료 시)
+  // 랭킹 아이콘: 캐시 없을 때만 fetch (탭 전환 시 반복 호출 방지)
   const chipRankIcon = document.getElementById('chip-rank-icon');
   if(chipRankIcon) chipRankIcon.style.display = 'inline';
-  updateRankIconsEverywhere();
+  // 이미 캐시된 아이콘이 있으면 즉시 적용, 없으면 비동기 fetch
+  if(_myRankTier){
+    document.querySelectorAll('.rank-tier-icon').forEach(el => {
+      el.textContent = _myRankTier.icon;
+      el.title       = `${_myRankTier.name} · 최고 정답률 ${_myRankTier.rate||0}%`;
+      el.style.color = _myRankTier.color;
+    });
+  } else {
+    updateRankIconsEverywhere();
+  }
 }
 
 function updateTrialBar(used){
