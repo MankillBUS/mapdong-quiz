@@ -3819,8 +3819,9 @@ window.doEmailAuth = async function(){
       console.log('[로그인] currentUser:', currentUser?.id);
       console.log('[로그인] userProfile:', userProfile);
       console.log('[로그인] is_verified:', userProfile?.is_verified);
+      console.log('[로그인] quizActive:', quizActive());
       console.log('[로그인] routeUser 호출 시작');
-      if(!quizActive()) routeUser();
+      routeUser(); // 로그인 시에는 quizActive 무관하게 항상 routeUser 호출
       console.log('[로그인] routeUser 완료');
       if(userProfile?.is_verified) loadNotices();
     } else {
