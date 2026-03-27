@@ -3766,31 +3766,42 @@ window.doEmailAuth = async function(){
         errEl.textContent = msg; errEl.className = 'login-err show';
         btn.disabled = false; btn.textContent = '로그인'; return;
       }
-      // Supabase v2 내부 형식으로 정확하게 저장
-      const expiresAt = data.expires_at || Math.floor(Date.now()/1000) + (data.expires_in || 3600);
-      const sessionData = {
-        access_token:        data.access_token,
-        refresh_token:       data.refresh_token,
-        expires_at:          expiresAt,
-        expires_in:          data.expires_in || 3600,
-        token_type:          data.token_type || 'bearer',
-        user:                data.user,
-        currentSession: {
-          access_token:  data.access_token,
-          refresh_token: data.refresh_token,
-          expires_at:    expiresAt,
-          expires_in:    data.expires_in || 3600,
-          token_type:    data.token_type || 'bearer',
-          user:          data.user,
-        },
-        expiresAt: expiresAt,
-      };
-      localStorage.setItem(
-        'sb-emgsueepzioudqnitkyn-auth-token',
-        JSON.stringify(sessionData)
-      );
+      // 로그인 성공 → 직접 처리 (reload 없이)
       btn.disabled = false; btn.textContent = '로그인';
-      window.location.reload();
+      currentUser = data.user;
+
+      // loadProfile 직접 호출 (fetch 방식)
+      try {
+        const profRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${data.user.id}&select=*&limit=1`,
+          {
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${data.access_token}`,
+            }
+          }
+        );
+        if(profRes.ok) {
+          const rows = await profRes.json();
+          userProfile = rows[0] || null;
+        }
+      } catch(e) { userProfile = null; }
+
+      if(userProfile?.role === 'admin'){
+        userProfile.is_verified   = true;
+        userProfile.is_premium    = true;
+        userProfile.premium_until = '2099-12-31';
+      }
+
+      // sb.auth.setSession으로 Supabase 내부 세션 등록
+      sb.auth.setSession({
+        access_token:  data.access_token,
+        refresh_token: data.refresh_token,
+      }).catch(() => {});
+
+      renderUserChip();
+      if(!quizActive()) routeUser();
+      if(userProfile?.is_verified) loadNotices();
     } else {
       // 회원가입은 기존 방식 유지
       const res = await sb.auth.signUp({ email, password: pw });
