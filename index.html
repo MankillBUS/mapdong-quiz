@@ -3869,16 +3869,24 @@ window.doEmailAuth = async function(){
         userProfile.premium_until = '2099-12-31';
       }
 
-      // sb.auth.setSession으로 Supabase 내부 세션 등록
+      // localStorage에 세션 직접 저장 (setSession Lock 충돌 방지)
+      const expiresAt = data.expires_at || Math.floor(Date.now()/1000) + (data.expires_in || 3600);
+      localStorage.setItem('sb-emgsueepzioudqnitkyn-auth-token', JSON.stringify({
+        access_token:  data.access_token,
+        refresh_token: data.refresh_token,
+        expires_at:    expiresAt,
+        expires_in:    data.expires_in || 3600,
+        token_type:    data.token_type || 'bearer',
+        user:          data.user,
+      }));
+      // setSession도 시도 (성공하면 onAuthStateChange 트리거)
       sb.auth.setSession({
         access_token:  data.access_token,
         refresh_token: data.refresh_token,
       }).catch(() => {});
 
       renderUserChip();
-
-      routeUser(); // 로그인 시에는 quizActive 무관하게 항상 routeUser 호출
-
+      routeUser();
       if(isFullyVerified()) loadNotices();
     } else {
       // 회원가입은 기존 방식 유지
@@ -4044,6 +4052,7 @@ async function loadProfile(){
   try {
     // fetch 직접 호출 (Lock 충돌 방지 - 핵심 함수)
     let token = SUPABASE_KEY;
+    // 1순위: localStorage에서 직접 읽기
     try {
       const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
       if(raw) {
@@ -4052,6 +4061,24 @@ async function loadProfile(){
         if(t) token = t;
       }
     } catch(e) {}
+    // 2순위: 토큰 못찾으면 sb.auth.getSession 시도 (폴백)
+    if(token === SUPABASE_KEY && currentUser) {
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        if(session?.access_token) {
+          token = session.access_token;
+          // 찾은 세션을 localStorage에도 저장
+          localStorage.setItem('sb-emgsueepzioudqnitkyn-auth-token', JSON.stringify({
+            access_token:  session.access_token,
+            refresh_token: session.refresh_token,
+            expires_at:    session.expires_at,
+            expires_in:    session.expires_in || 3600,
+            token_type:    'bearer',
+            user:          session.user,
+          }));
+        }
+      } catch(e) {}
+    }
 
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${currentUser.id}&select=*&limit=1`,
