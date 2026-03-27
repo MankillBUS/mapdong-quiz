@@ -217,6 +217,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <!-- 닉네임 드롭다운 -->
     <div id="comm-user-chip" onclick="toggleCommDD(event)">
       <div class="comm-user-avatar" id="comm-avatar">?</div>
+      <span class="rank-tier-icon" id="comm-rank-icon" style="font-size:.85rem;display:none;" title="랭킹 계급"></span>
       <span class="comm-user-nick" id="comm-nick">-</span>
       <span style="font-size:.6rem;color:var(--text-dim)">▾</span>
     </div>
@@ -1243,6 +1244,50 @@ function closeLightbox(){document.getElementById('img-lightbox').classList.remov
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeLightbox();closeProfile();}});
 document.getElementById('img-lightbox').addEventListener('click',e=>{if(e.target===e.currentTarget)closeLightbox();});
 /* ══ 유저 칩 드롭다운 ══ */
+const RANK_TIERS_COMM = [
+  { name:'전설',    icon:'🏆', color:'#ffd700', minRate: 95 },
+  { name:'마스터',  icon:'💎', color:'#00d4ff', minRate: 90 },
+  { name:'다이아',  icon:'🔷', color:'#74b9ff', minRate: 85 },
+  { name:'플래티넘',icon:'🌟', color:'#81ecec', minRate: 80 },
+  { name:'골드',    icon:'🥇', color:'#fdcb6e', minRate: 75 },
+  { name:'실버',    icon:'🥈', color:'#b2bec3', minRate: 70 },
+  { name:'브론즈',  icon:'🥉', color:'#e17055', minRate: 60 },
+  { name:'아이언',  icon:'⚙️', color:'#636e72', minRate: 50 },
+  { name:'언랭',    icon:'🗺️', color:'#4a5568', minRate: 0  },
+];
+let _commRankTier = null, _commRankFetch = 0;
+const COMM_RANK_INTERVAL = 2.5 * 60 * 60 * 1000;
+async function fetchCommRankTier(){
+  if(!currentUser) return null;
+  const now = Date.now();
+  if(_commRankTier && (now - _commRankFetch) < COMM_RANK_INTERVAL) return _commRankTier;
+  try {
+    let token = SUPABASE_KEY;
+    try{const raw=localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');if(raw){const p=JSON.parse(raw);if(p?.access_token)token=p.access_token;}}catch(e){}
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/ranking_scores?user_id=eq.${currentUser.id}&order=rate.desc,elapsed_ms.asc&limit=1`,
+      { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${token}` } }
+    );
+    if(!res.ok) return null;
+    const rows = await res.json();
+    if(!rows.length){ _commRankTier = RANK_TIERS_COMM[8]; _commRankFetch = now; return _commRankTier; }
+    const best = rows[0];
+    const tier = RANK_TIERS_COMM.find(t => best.rate >= t.minRate) || RANK_TIERS_COMM[8];
+    _commRankTier = { ...tier, rate: best.rate }; _commRankFetch = now;
+    return _commRankTier;
+  } catch(e){ return null; }
+}
+async function updateCommRankIcons(){
+  const tier = await fetchCommRankTier();
+  if(!tier) return;
+  document.querySelectorAll('.rank-tier-icon').forEach(el => {
+    el.textContent = tier.icon;
+    el.title = `${tier.name} · 최고 정답률 ${tier.rate||0}%`;
+    el.style.color = tier.color;
+  });
+}
+setInterval(()=>{ if(currentUser) updateCommRankIcons(); }, COMM_RANK_INTERVAL);
+
 function renderCommUserChip(){
   if(!currentUser||!userProfile){
     document.getElementById('comm-user-chip').classList.remove('visible');
@@ -1252,6 +1297,10 @@ function renderCommUserChip(){
   document.getElementById('comm-nick').textContent = nick;
   document.getElementById('comm-avatar').textContent = nick[0]?.toUpperCase()||'?';
   document.getElementById('comm-user-chip').classList.add('visible');
+  // 랭킹 아이콘 표시
+  const rankEl = document.getElementById('comm-rank-icon');
+  if(rankEl) rankEl.style.display = 'inline';
+  updateCommRankIcons();
   // 알림 버튼 표시 (로드는 init에서 처리)
   const notifBtn = document.getElementById('notif-btn');
   if(notifBtn) notifBtn.style.display = 'flex';
