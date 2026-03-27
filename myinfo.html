@@ -194,7 +194,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
               <option value="taxi">🚕 택시</option>
               <option value="cargo">🚚 화물</option>
               <option value="proxy_drive">🌙 대리운전</option>
-              <option value="보험">🛡️ 보험</option>
             </select>
           </div>
           <div class="mi-msg" id="job-msg"></div>
@@ -388,7 +387,7 @@ function renderSummary(){
   const JOB_LABELS = {
     quick:'⚡ 퀵서비스', baemin_coupang:'🛵 배민&쿠팡계열',
     general:'🚗 일반대행', taxi:'🚕 택시',
-    cargo:'🚚 화물', proxy_drive:'🌙 대리운전', '보험':'🛡️ 보험'
+    cargo:'🚚 화물', proxy_drive:'🌙 대리운전'
   };
   const jobVal  = userProfile.job || '';
   const jobText = JOB_LABELS[jobVal] || '미설정';
