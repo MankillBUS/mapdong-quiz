@@ -4097,10 +4097,9 @@ function routeUser(){
     toast(`프리미엄 기간이 만료되었습니다 (${dateStr})`, 'error');
   }
   
-  // 정상 - 시작 화면으로 (이미 퀴즈 중이면 이동 안 함)
-  if(!document.getElementById('start').classList.contains('hidden')){
-    return;  // 퀴즈 진행 중이면 그대로
-  }
+  // 정상 - 시작 화면으로
+  // 퀴즈 진행 중(지도가 보임)이면 이동 안 함
+  if(quizActive()) return;
   showOnly('start');
 }
 
