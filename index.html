@@ -1557,12 +1557,27 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div class="sb"><div class="sl">정답률</div><div class="sv" id="sR">-</div></div>
     <div class="sb"><div class="sl">연속</div><div class="sv" style="color:var(--accent3)" id="sS">0</div></div>
   </div>
-  <div id="user-chip" onclick="toggleDropdown()">
+  <div id="user-chip" onclick="toggleDropdown()" style="position:relative;">
     <div class="user-avatar" id="user-avatar">?</div>
     <span class="user-name" id="user-name">-</span>
     <span class="user-badge trial" id="user-badge">체험판</span>
+    <!-- 🔔 알림 뱃지 -->
+    <span id="index-notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;
+      background:#ff3c6e;color:#fff;border-radius:50%;width:16px;height:16px;
+      font-size:.6rem;font-weight:700;align-items:center;justify-content:center;
+      z-index:10;">0</span>
     <div id="user-dropdown">
 
+      <!-- 🔔 알림 영역 -->
+      <div id="index-notif-area" style="display:none;">
+        <div style="padding:8px 12px;font-size:.78rem;font-weight:700;color:var(--text);
+          border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          🔔 알림
+          <span id="index-notif-unread-count" style="font-size:.68rem;color:var(--accent);"></span>
+        </div>
+        <div id="index-notif-list" style="max-height:200px;overflow-y:auto;"></div>
+        <div style="border-top:1px solid var(--border);padding:4px;"></div>
+      </div>
       <!-- ① 프로필 영역 — 클릭하면 내정보 수정 -->
       <div class="dd-info" id="dd-info-top" onclick="goMyInfo()"
            onmouseenter="this.style.background='var(--surface2)'"
@@ -4078,7 +4093,76 @@ async function loadProfile(){
   }
 
   renderUserChip();
+  // 로그인 후 알림 로드
+  loadIndexNotifications();
 }
+
+/* ══════════════════════════════════════════════
+   🔔 index.html 알림 시스템
+   ══════════════════════════════════════════════ */
+async function loadIndexNotifications(){
+  if(!currentUser) return;
+  try {
+    let token = SUPABASE_KEY;
+    try{const raw=localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');if(raw){const p=JSON.parse(raw);if(p?.access_token)token=p.access_token;}}catch(e){}
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/notifications?user_id=eq.${currentUser.id}&order=created_at.desc&limit=20`,
+      { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${token}` } }
+    );
+    if(!res.ok) return;
+    const notifs = await res.json();
+    window._indexNotifs = notifs;
+    renderIndexNotifBadge(notifs);
+  } catch(e){}
+}
+
+function renderIndexNotifBadge(notifs){
+  const unread = (notifs||[]).filter(n=>!n.is_read).length;
+  const badge = document.getElementById('index-notif-badge');
+  if(badge){ badge.textContent=unread>9?'9+':unread; badge.style.display=unread>0?'flex':'none'; }
+  const area = document.getElementById('index-notif-area');
+  if(area) area.style.display = notifs?.length > 0 ? 'block' : 'none';
+  const unreadEl = document.getElementById('index-notif-unread-count');
+  if(unreadEl) unreadEl.textContent = unread>0 ? `읽지 않은 알림 ${unread}개` : '';
+  renderIndexNotifList(notifs||[]);
+}
+
+function renderIndexNotifList(notifs){
+  const listEl = document.getElementById('index-notif-list');
+  if(!listEl) return;
+  if(!notifs.length){ listEl.innerHTML=''; return; }
+  listEl.innerHTML = notifs.slice(0,5).map(n=>`
+    <div onclick="clickIndexNotif('${n.id}',${n.post_id||'null'})"
+      style="padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer;
+        background:${n.is_read?'transparent':'rgba(0,212,255,.05)'};font-size:.74rem;
+        color:${n.is_read?'var(--text-dim)':'var(--text)'};line-height:1.5;"
+      onmouseover="this.style.background='var(--surface2)'"
+      onmouseout="this.style.background='${n.is_read?'transparent':'rgba(0,212,255,.05)'}'">
+      ${!n.is_read?'<span style="color:var(--accent);font-size:.6rem;">● </span>':''}
+      ${n.message}
+      <div style="font-size:.66rem;color:var(--text-dim);margin-top:2px;">
+        ${new Date(n.created_at).toLocaleString('ko-KR')}
+      </div>
+    </div>`).join('');
+}
+
+async function clickIndexNotif(notifId, postId){
+  let token=SUPABASE_KEY;
+  try{const raw=localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');if(raw){const p=JSON.parse(raw);if(p?.access_token)token=p.access_token;}}catch(e){}
+  await fetch(`${SUPABASE_URL}/rest/v1/notifications?id=eq.${notifId}`,{
+    method:'PATCH',
+    headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${token}`,'Content-Type':'application/json','Prefer':'return=minimal'},
+    body:JSON.stringify({is_read:true})
+  });
+  window._indexNotifs=(window._indexNotifs||[]).map(n=>n.id==notifId?{...n,is_read:true}:n);
+  renderIndexNotifBadge(window._indexNotifs);
+  // 커뮤니티 게시글로 이동
+  if(postId){ openCommunity(null,null,null,postId); }
+  document.getElementById('user-dropdown').classList.remove('show');
+}
+
+// 30초마다 알림 갱신
+setInterval(()=>{ if(currentUser) loadIndexNotifications(); }, 30000);
 
 function isActivePremium(){
   return userProfile?.is_premium && userProfile?.premium_until
