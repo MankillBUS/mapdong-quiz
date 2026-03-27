@@ -1041,14 +1041,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <button class="btn-primary" id="btn-email-auth" onclick="doEmailAuth()">로그인</button>
       <div class="login-switch">계정이 없으신가요? <a onclick="toggleAuthMode()"><span id="switch-link">회원가입</span></a></div>
 
-      <!-- ⚠️ [임시 디버그] 삭제 예정 -->
-      <button onclick="runAuthDebug()"
-        style="margin-top:10px;width:100%;background:rgba(255,165,0,.15);
-          border:1px dashed #ff8c00;color:#ff8c00;border-radius:8px;
-          padding:8px;font-size:.75rem;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">
-        🔧 [임시] 인증상태 디버그
-      </button>
-      <!-- ⚠️ [임시 디버그 끝] -->
 
 
     </div>
@@ -1447,6 +1439,16 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 <!-- 시작 화면 -->
 <div id="start" class="fs-screen hidden">
+  <!-- ⚠️ [임시 디버그] 삭제 예정 -->
+  <div style="position:fixed;bottom:16px;right:16px;z-index:9999;">
+    <button onclick="runAuthDebug()"
+      style="background:rgba(255,165,0,.2);border:1px dashed #ff8c00;
+        color:#ff8c00;border-radius:8px;padding:6px 12px;
+        font-size:.72rem;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">
+      🔧 인증 디버그
+    </button>
+  </div>
+  <!-- ⚠️ [임시 디버그 끝] -->
   <div class="st">🗺 전국<br><span style="color:var(--accent2)">행정구역</span> 위치 퀴즈</div>
   <div class="ss">지도에서 문제의 행정단위 위치를 클릭하세요<br>정답 기준 반경 1.5km · 무한 반복 학습</div>
   <div style="text-align:center;width:100%;max-width:640px;">
