@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MapDong · 랭킹</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&family=Black+Han+Sans&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@supabase/supabase-js@2.39.3/dist/umd/supabase.js"></script>
+<style>
+:root{
+  --bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;
+  --border:#1e3a5f;--accent:#00d4ff;--accent2:#ff3c6e;
+  --accent3:#39ff14;--text:#e8f4fd;--text-dim:#7a9bb5;
+  --gold:#ffd700;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+
+/* ── 헤더 ── */
+.rk-header{
+  background:linear-gradient(135deg,#0d1929,#111827);
+  border-bottom:2px solid var(--border);
+  padding:10px 20px;
+  display:flex;align-items:center;gap:14px;
+  position:relative;flex-shrink:0;
+}
+.rk-header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.rk-logo{font-family:'Black Han Sans',sans-serif;font-size:1.3rem;color:var(--accent);text-shadow:0 0 15px var(--accent);cursor:pointer;}
+.rk-logo span{color:var(--accent2);}
+.rk-back{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:6px 14px;font-size:.8rem;cursor:pointer;transition:all .2s;font-family:'Noto Sans KR',sans-serif;}
+.rk-back:hover{border-color:var(--accent);color:var(--accent);}
+.rk-title{font-family:'Black Han Sans',sans-serif;font-size:1.1rem;color:var(--gold);text-shadow:0 0 10px rgba(255,215,0,.3);}
+
+/* ── 본문 레이아웃 ── */
+.rk-body{flex:1;display:flex;flex-direction:column;overflow-y:auto;}
+.rk-inner{max-width:1000px;width:100%;margin:0 auto;padding:24px 20px 40px;}
+
+/* ── 계급 배너 (내 랭킹) ── */
+.my-rank-card{
+  background:linear-gradient(135deg,rgba(255,215,0,.1),rgba(255,165,0,.06));
+  border:1.5px solid rgba(255,215,0,.4);
+  border-radius:16px;padding:18px 24px;
+  margin-bottom:24px;
+  display:flex;align-items:center;gap:18px;
+  position:relative;overflow:hidden;
+}
+.my-rank-card::before{
+  content:'';position:absolute;top:-40px;right:-40px;
+  width:140px;height:140px;
+  background:radial-gradient(circle,rgba(255,215,0,.08),transparent);
+  pointer-events:none;
+}
+.my-rank-tier-icon{font-size:2.8rem;flex-shrink:0;line-height:1;}
+.my-rank-info{flex:1;}
+.my-rank-label{font-size:.62rem;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;}
+.my-rank-name{font-family:'Black Han Sans',sans-serif;font-size:1.3rem;color:var(--text);margin-bottom:4px;}
+.my-rank-stats{font-size:.76rem;color:var(--text-dim);line-height:1.8;}
+.my-rank-stats strong{color:var(--text);}
+.my-rank-pos{text-align:right;flex-shrink:0;}
+.my-rank-pos-num{font-family:'Black Han Sans',sans-serif;font-size:2rem;color:var(--gold);}
+.my-rank-pos-label{font-size:.68rem;color:var(--text-dim);}
+
+/* ── 그룹 탭 선택 ── */
+.group-tabs-wrap{margin-bottom:20px;}
+.group-tabs-label{font-size:.65rem;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+.group-tabs{display:flex;flex-wrap:wrap;gap:8px;}
+.group-tab{
+  background:var(--surface2);border:1.5px solid var(--border);
+  color:var(--text-dim);border-radius:20px;padding:6px 14px;
+  font-size:.75rem;cursor:pointer;transition:all .2s;
+  font-family:'Noto Sans KR',sans-serif;
+}
+.group-tab:hover{border-color:var(--accent);color:var(--accent);}
+.group-tab.active{
+  background:rgba(255,215,0,.12);border-color:var(--gold);
+  color:var(--gold);font-weight:700;
+}
+
+/* ── 툴바 ── */
+.rk-toolbar{
+  display:flex;align-items:center;gap:10px;
+  margin-bottom:16px;flex-wrap:wrap;
+}
+.rk-search{
+  flex:1;min-width:160px;max-width:280px;
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);border-radius:10px;padding:8px 14px;
+  font-size:.82rem;font-family:'Noto Sans KR',sans-serif;
+  outline:none;transition:border-color .2s;
+}
+.rk-search:focus{border-color:var(--accent);}
+.rk-search::placeholder{color:var(--text-dim);}
+.page-size-btns{display:flex;gap:5px;flex-shrink:0;}
+.ps-btn{
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text-dim);border-radius:8px;padding:6px 11px;
+  font-size:.72rem;cursor:pointer;transition:all .2s;
+  font-family:'Noto Sans KR',sans-serif;
+}
+.ps-btn:hover{border-color:var(--accent);color:var(--accent);}
+.ps-btn.active{background:rgba(0,212,255,.12);border-color:var(--accent);color:var(--accent);font-weight:700;}
+.my-rank-btn{
+  background:rgba(255,215,0,.12);border:1.5px solid rgba(255,215,0,.5);
+  color:var(--gold);border-radius:10px;padding:7px 14px;
+  font-size:.76rem;font-weight:700;cursor:pointer;transition:all .2s;
+  font-family:'Noto Sans KR',sans-serif;white-space:nowrap;
+}
+.my-rank-btn:hover{background:rgba(255,215,0,.22);border-color:var(--gold);}
+
+/* ── 테이블 ── */
+.rk-table-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:var(--surface2);}
+th{
+  padding:10px 12px;text-align:left;font-size:.65rem;
+  color:var(--text-dim);text-transform:uppercase;letter-spacing:1.5px;
+  border-bottom:1px solid var(--border);white-space:nowrap;
+}
+th.center{text-align:center;}
+tbody tr{
+  border-bottom:1px solid rgba(30,58,95,.5);
+  transition:background .15s;
+}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:rgba(0,212,255,.04);}
+tbody tr.my-row{background:rgba(255,215,0,.06);border-left:3px solid var(--gold);}
+td{padding:10px 12px;font-size:.78rem;vertical-align:middle;}
+td.center{text-align:center;}
+.rank-num{font-family:'Black Han Sans',sans-serif;font-size:1rem;text-align:center;}
+.rank-1{color:var(--gold);}
+.rank-2{color:#b2bec3;}
+.rank-3{color:#e17055;}
+.tier-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:700;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+  white-space:nowrap;
+}
+.nick-cell{display:flex;align-items:center;gap:7px;}
+.nick-avatar{
+  width:26px;height:26px;border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-size:.72rem;font-weight:700;color:#000;flex-shrink:0;
+}
+.nick-name{font-weight:600;color:var(--text);}
+.stat-ok{color:#39ff14;font-weight:700;}
+.stat-no{color:#ff3c6e;font-weight:700;}
+.stat-rate{font-weight:700;}
+.stat-rate.high{color:#39ff14;}
+.stat-rate.mid{color:var(--gold);}
+.stat-rate.low{color:#ff3c6e;}
+.time-cell{color:var(--text-dim);font-size:.73rem;white-space:nowrap;}
+.region-cell{font-size:.7rem;color:var(--text-dim);white-space:nowrap;}
+
+/* ── 빈 상태 ── */
+.rk-empty{
+  text-align:center;padding:60px 20px;
+  color:var(--text-dim);
+}
+.rk-empty .e-icon{font-size:3rem;margin-bottom:12px;}
+.rk-empty .e-msg{font-size:.9rem;}
+
+/* ── 페이지네이션 ── */
+.rk-pagination{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  margin-top:20px;flex-wrap:wrap;
+}
+.pg-btn{
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text-dim);border-radius:8px;padding:7px 13px;
+  font-size:.75rem;cursor:pointer;transition:all .2s;min-width:36px;text-align:center;
+}
+.pg-btn:hover{border-color:var(--accent);color:var(--accent);}
+.pg-btn.active{background:rgba(0,212,255,.12);border-color:var(--accent);color:var(--accent);font-weight:700;}
+.pg-btn:disabled{opacity:.3;cursor:not-allowed;}
+.pg-info{font-size:.72rem;color:var(--text-dim);padding:0 6px;}
+
+/* ── 계급 범례 ── */
+.tier-legend{
+  display:flex;flex-wrap:wrap;gap:8px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:14px 16px;margin-bottom:20px;
+}
+.tier-legend-item{
+  display:flex;align-items:center;gap:5px;font-size:.7rem;
+  background:var(--surface2);border-radius:8px;padding:4px 10px;
+  border:1px solid rgba(255,255,255,.05);
+}
+.tier-legend-label{color:var(--text-dim);}
+
+/* ── 로딩 스피너 ── */
+.rk-loading{
+  display:flex;align-items:center;justify-content:center;
+  padding:60px 20px;
+}
+.spin{
+  width:36px;height:36px;border:3px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── 토스트 ── */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 22px;font-size:.82rem;color:var(--text);box-shadow:0 8px 30px rgba(0,0,0,.5);transition:transform .3s ease;white-space:nowrap;pointer-events:none;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+#toast.success{border-color:var(--accent3);color:var(--accent3);}
+#toast.error{border-color:var(--accent2);color:var(--accent2);}
+
+/* ── 반응형 ── */
+@media(max-width:680px){
+  .rk-inner{padding:16px 12px 30px;}
+  .my-rank-card{flex-direction:column;text-align:center;gap:10px;}
+  .my-rank-pos{display:flex;align-items:center;gap:8px;}
+  th,td{padding:8px 8px;font-size:.7rem;}
+  .nick-avatar{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<div class="rk-header">
+  <div class="rk-logo" onclick="location.href='index.html'">Map<span>Dong</span></div>
+  <button class="rk-back" onclick="history.back()">← 돌아가기</button>
+  <div class="rk-title">🏆 랭킹</div>
+</div>
+
+<!-- 본문 -->
+<div class="rk-body">
+<div class="rk-inner">
+
+  <!-- 내 랭킹 카드 -->
+  <div id="my-rank-card" class="my-rank-card" style="display:none;">
+    <div class="my-rank-tier-icon" id="my-tier-icon">🗺️</div>
+    <div class="my-rank-info">
+      <div class="my-rank-label">내 계급</div>
+      <div class="my-rank-name" id="my-tier-name">언랭</div>
+      <div class="my-rank-stats" id="my-rank-stats">랭킹 정보 로딩 중...</div>
+    </div>
+    <div class="my-rank-pos">
+      <div class="my-rank-pos-num" id="my-rank-pos">-</div>
+      <div class="my-rank-pos-label">위 (현재 그룹)</div>
+    </div>
+  </div>
+
+  <!-- 계급 범례 -->
+  <div class="tier-legend" id="tier-legend"></div>
+
+  <!-- 그룹 탭 -->
+  <div class="group-tabs-wrap">
+    <div class="group-tabs-label">📍 지역 카테고리</div>
+    <div class="group-tabs" id="group-tabs">
+      <div class="rk-loading"><div class="spin"></div></div>
+    </div>
+  </div>
+
+  <!-- 툴바 -->
+  <div class="rk-toolbar">
+    <input class="rk-search" id="search-input" type="text" placeholder="🔍 닉네임 검색..."
+      oninput="onSearchInput()" maxlength="20">
+    <div class="page-size-btns">
+      <button class="ps-btn" data-size="10" onclick="setPageSize(10)">10개</button>
+      <button class="ps-btn" data-size="20" onclick="setPageSize(20)">20개</button>
+      <button class="ps-btn" data-size="30" onclick="setPageSize(30)">30개</button>
+      <button class="ps-btn" data-size="50" onclick="setPageSize(50)">50개</button>
+    </div>
+    <button class="my-rank-btn" onclick="jumpToMyRank()">👤 내 랭킹 보기</button>
+  </div>
+
+  <!-- 테이블 -->
+  <div class="rk-table-wrap">
+    <table id="rk-table">
+      <thead>
+        <tr>
+          <th class="center" style="width:48px;">순위</th>
+          <th class="center" style="width:52px;">계급</th>
+          <th>닉네임</th>
+          <th class="center">정답</th>
+          <th class="center">오답</th>
+          <th class="center">정답률</th>
+          <th class="center">연속최고</th>
+          <th class="center">소요시간</th>
+          <th>지역</th>
+        </tr>
+      </thead>
+      <tbody id="rk-tbody">
+        <tr><td colspan="9"><div class="rk-loading"><div class="spin"></div></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 페이지네이션 -->
+  <div class="rk-pagination" id="rk-pagination"></div>
+
+</div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════
+   설정
+   ══════════════════════════════════════════════ */
+const SUPABASE_URL = 'https://emgsueepzioudqnitkyn.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemlvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkwNzQsImV4cCI6MjA4NjU2NTA3NH0.epR1k3MVh0MfZejFh9VflCNOS8Uz8EuCZlez5OBMz3s';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { autoRefreshToken:true, persistSession:true, storageKey:'mapdong-auth-token' }
+});
+
+let currentUser = null;
+let userProfile  = null;
+let toastTimer;
+
+/* ── 계급 정의 ── */
+const RANK_TIERS = [
+  { name:'전설',    icon:'🏆', color:'#ffd700', minRate: 95 },
+  { name:'마스터',  icon:'💎', color:'#00d4ff', minRate: 90 },
+  { name:'다이아',  icon:'🔷', color:'#74b9ff', minRate: 85 },
+  { name:'플래티넘',icon:'🌟', color:'#81ecec', minRate: 80 },
+  { name:'골드',    icon:'🥇', color:'#fdcb6e', minRate: 75 },
+  { name:'실버',    icon:'🥈', color:'#b2bec3', minRate: 70 },
+  { name:'브론즈',  icon:'🥉', color:'#e17055', minRate: 60 },
+  { name:'아이언',  icon:'⚙️', color:'#636e72', minRate: 50 },
+  { name:'언랭',    icon:'🗺️', color:'#4a5568', minRate: 0  },
+];
+
+function getTier(rate){
+  if(rate === undefined || rate === null) return RANK_TIERS[8];
+  for(const t of RANK_TIERS){ if(rate >= t.minRate) return t; }
+  return RANK_TIERS[8];
+}
+
+/* ── 지역 그룹 목록 (index.html과 동일) ── */
+const CITY_GROUPS_KEYS = [
+  "🏙 서울","🌊 인천","🏙 경기 서부·남부","🏙 경기 동부·북부","🏙 경기 외곽",
+  "⛰ 강원도","🌾 충청북도","🌾 충청남도","🌻 세종",
+  "🌿 전북","🌿 전라남도","🌆 광주","🌆 대전",
+  "🏔 경상북도","🏔 경상남도","🌆 부산","🌆 대구","🌆 울산",
+  "🌴 제주도",
+];
+
+/* ── 상태 ── */
+let currentGroup  = null;
+let currentPage   = 1;
+let pageSize      = 10;
+let searchQuery   = '';
+let allScores     = [];   // 현재 그룹의 전체 랭킹 (DB에서 로드)
+let filteredScores= [];   // 검색 필터 적용 후
+let searchTimer   = null;
+
+/* ── 유틸 ── */
+function toast(msg, type=''){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'show'+(type?' '+type:'');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.className='', 3200);
+}
+
+function fmtMs(ms){
+  const s = Math.floor(ms/1000);
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const sec = s%60;
+  if(h>0) return `${h}시간 ${m}분 ${sec}초`;
+  if(m>0) return `${m}분 ${sec}초`;
+  return `${sec}초`;
+}
+
+function getToken(){
+  try{
+    const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+    if(raw){const p=JSON.parse(raw);const t=p?.access_token||p?.currentSession?.access_token;if(t)return t;}
+  }catch(e){}
+  return SUPABASE_KEY;
+}
+
+/* ══════════════════════════════════════════════
+   초기화
+   ══════════════════════════════════════════════ */
+async function init(){
+  buildTierLegend();
+  buildGroupTabs();
+
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session?.user){
+    currentUser = session.user;
+    await loadProfile();
+  }
+
+  // 첫 번째 그룹 자동 선택
+  if(CITY_GROUPS_KEYS.length){
+    selectGroup(CITY_GROUPS_KEYS[0]);
+  }
+
+  setPageSize(10);
+}
+
+/* ── 계급 범례 ── */
+function buildTierLegend(){
+  const el = document.getElementById('tier-legend');
+  el.innerHTML = RANK_TIERS.map(t =>
+    `<div class="tier-legend-item">
+      <span style="font-size:.9rem;">${t.icon}</span>
+      <span style="color:${t.color};font-weight:700;">${t.name}</span>
+      <span class="tier-legend-label">${t.minRate === 0 ? '미등록' : t.minRate+'%~'}</span>
+    </div>`
+  ).join('');
+}
+
+/* ── 그룹 탭 ── */
+function buildGroupTabs(){
+  const el = document.getElementById('group-tabs');
+  el.innerHTML = CITY_GROUPS_KEYS.map(g =>
+    `<div class="group-tab" data-group="${g}" onclick="selectGroup('${g.replace(/'/g,"\\'")}')">
+      ${g}
+    </div>`
+  ).join('');
+}
+
+function selectGroup(group){
+  currentGroup = group;
+  currentPage  = 1;
+  searchQuery  = '';
+  document.getElementById('search-input').value = '';
+
+  document.querySelectorAll('.group-tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.group === group);
+  });
+
+  loadRankings();
+}
+
+/* ── 프로필 로드 ── */
+async function loadProfile(){
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${currentUser.id}&select=*&limit=1`,
+      { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${getToken()}` } }
+    );
+    if(res.ok){ const rows=await res.json(); userProfile=rows[0]||null; }
+    if(userProfile?.role==='admin'){
+      userProfile.is_premium=true; userProfile.premium_until='2099-12-31';
+    }
+  }catch(e){ userProfile=null; }
+}
+
+/* ══════════════════════════════════════════════
+   랭킹 데이터 로드
+   ══════════════════════════════════════════════ */
+async function loadRankings(){
+  if(!currentGroup) return;
+
+  // 로딩 표시
+  document.getElementById('rk-tbody').innerHTML =
+    `<tr><td colspan="9"><div class="rk-loading"><div class="spin"></div></div></td></tr>`;
+  document.getElementById('rk-pagination').innerHTML = '';
+
+  try {
+    const token = getToken();
+
+    // 해당 그룹의 최고 기록만 (유저당 1개 — 정답률 높고 시간 짧은 순)
+    // ranking_scores에서 group_key로 필터 후 user별 best record
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/ranking_scores?group_key=eq.${encodeURIComponent(currentGroup)}&order=rate.desc,elapsed_ms.asc`,
+      { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${token}` } }
+    );
+
+    if(!res.ok) throw new Error('DB 조회 실패');
+    const rows = await res.json();
+
+    // 유저별 최고 기록만 남기기 (정답률 높고 시간 짧은 순)
+    const userBest = new Map();
+    rows.forEach(r => {
+      if(!userBest.has(r.user_id)){
+        userBest.set(r.user_id, r);
+      } else {
+        const prev = userBest.get(r.user_id);
+        if(r.rate > prev.rate || (r.rate === prev.rate && r.elapsed_ms < prev.elapsed_ms)){
+          userBest.set(r.user_id, r);
+        }
+      }
+    });
+
+    // 정답률 50% 미만 제외 후 정렬
+    allScores = [...userBest.values()]
+      .filter(r => r.rate >= 50)
+      .sort((a,b) => b.rate - a.rate || a.elapsed_ms - b.elapsed_ms);
+
+    applySearch();
+    renderMyRankCard();
+
+  } catch(e){
+    console.error(e);
+    document.getElementById('rk-tbody').innerHTML =
+      `<tr><td colspan="9"><div class="rk-empty"><div class="e-icon">⚠️</div><div class="e-msg">데이터를 불러오지 못했습니다.</div></div></td></tr>`;
+  }
+}
+
+/* ── 검색 적용 ── */
+function applySearch(){
+  if(searchQuery.trim()){
+    const q = searchQuery.trim().toLowerCase();
+    filteredScores = allScores.filter(r =>
+      (r.nickname||'').toLowerCase().includes(q)
+    );
+  } else {
+    filteredScores = [...allScores];
+  }
+  currentPage = 1;
+  renderTable();
+  renderPagination();
+}
+
+/* ── 검색 입력 ── */
+function onSearchInput(){
+  const val = document.getElementById('search-input').value;
+  searchQuery = val;
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(applySearch, 300);
+}
+
+/* ── 페이지 크기 ── */
+function setPageSize(n){
+  pageSize = n;
+  currentPage = 1;
+  document.querySelectorAll('.ps-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.size) === n);
+  });
+  renderTable();
+  renderPagination();
+}
+
+/* ══════════════════════════════════════════════
+   테이블 렌더링
+   ══════════════════════════════════════════════ */
+function renderTable(){
+  const tbody = document.getElementById('rk-tbody');
+  const start = (currentPage - 1) * pageSize;
+  const slice = filteredScores.slice(start, start + pageSize);
+
+  if(!filteredScores.length){
+    tbody.innerHTML = `
+      <tr><td colspan="9">
+        <div class="rk-empty">
+          <div class="e-icon">🏆</div>
+          <div class="e-msg">${searchQuery ? '검색 결과가 없습니다.' : '아직 이 지역의 랭킹이 없습니다.'}<br>
+          <span style="font-size:.78rem;color:var(--text-dim);margin-top:6px;display:block;">
+            ${searchQuery ? '' : '랭킹 모드를 완주하면 자동 등록됩니다!'}
+          </span></div>
+        </div>
+      </td></tr>`;
+    return;
+  }
+
+  const myId = currentUser?.id;
+  tbody.innerHTML = slice.map((r, i) => {
+    const absRank = start + i + 1;
+    const isMe    = r.user_id === myId;
+    const tier    = getTier(r.rate);
+    const nick    = r.nickname || '익명';
+    const rateColor = r.rate >= 90 ? 'high' : r.rate >= 70 ? 'mid' : 'low';
+    const rankClass = absRank === 1 ? 'rank-1' : absRank === 2 ? 'rank-2' : absRank === 3 ? 'rank-3' : '';
+
+    return `<tr class="${isMe ? 'my-row' : ''}">
+      <td class="center rank-num ${rankClass}">
+        ${absRank <= 3 ? ['🥇','🥈','🥉'][absRank-1] : absRank}
+      </td>
+      <td class="center">
+        <span class="tier-badge" style="border-color:${tier.color};color:${tier.color};">
+          ${tier.icon} ${tier.name}
+        </span>
+      </td>
+      <td>
+        <div class="nick-cell">
+          <div class="nick-avatar">${nick[0]?.toUpperCase()||'?'}</div>
+          <span class="nick-name">${escHtml(nick)}${isMe ? ' <span style="font-size:.62rem;color:var(--gold);">★나</span>' : ''}</span>
+        </div>
+      </td>
+      <td class="center stat-ok">${r.correct ?? '-'}</td>
+      <td class="center stat-no">${r.wrong ?? '-'}</td>
+      <td class="center stat-rate ${rateColor}">${r.rate ?? '-'}%</td>
+      <td class="center" style="color:var(--accent3);">${r.max_streak ?? '-'}</td>
+      <td class="center time-cell">${r.elapsed_ms ? fmtMs(r.elapsed_ms) : '-'}</td>
+      <td class="region-cell">${escHtml(r.group_key || currentGroup)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function escHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── 페이지네이션 ── */
+function renderPagination(){
+  const el   = document.getElementById('rk-pagination');
+  const total= Math.ceil(filteredScores.length / pageSize);
+  if(total <= 1){ el.innerHTML=''; return; }
+
+  let html = `<button class="pg-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>◀</button>`;
+
+  const range = 2;
+  for(let p = 1; p <= total; p++){
+    if(p === 1 || p === total || (p >= currentPage-range && p <= currentPage+range)){
+      html += `<button class="pg-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
+    } else if(p === currentPage-range-1 || p === currentPage+range+1){
+      html += `<span class="pg-info">…</span>`;
+    }
+  }
+
+  html += `<button class="pg-btn" onclick="goPage(${currentPage+1})" ${currentPage===total?'disabled':''}>▶</button>`;
+  html += `<span class="pg-info">${filteredScores.length}명 중 ${(currentPage-1)*pageSize+1}~${Math.min(currentPage*pageSize,filteredScores.length)}</span>`;
+  el.innerHTML = html;
+}
+
+function goPage(p){
+  const total = Math.ceil(filteredScores.length / pageSize);
+  if(p < 1 || p > total) return;
+  currentPage = p;
+  renderTable();
+  renderPagination();
+  document.querySelector('.rk-table-wrap')?.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+/* ══════════════════════════════════════════════
+   내 랭킹 카드
+   ══════════════════════════════════════════════ */
+function renderMyRankCard(){
+  if(!currentUser) return;
+  const myScore = allScores.find(r => r.user_id === currentUser.id);
+  const card    = document.getElementById('my-rank-card');
+
+  if(!myScore){
+    card.style.display = 'none'; return;
+  }
+
+  const rank = allScores.findIndex(r => r.user_id === currentUser.id) + 1;
+  const tier = getTier(myScore.rate);
+
+  document.getElementById('my-tier-icon').textContent  = tier.icon;
+  document.getElementById('my-tier-name').textContent  = tier.name;
+  document.getElementById('my-tier-name').style.color  = tier.color;
+  document.getElementById('my-rank-pos').textContent   = rank + '위';
+  document.getElementById('my-rank-stats').innerHTML =
+    `지역: <strong>${escHtml(currentGroup)}</strong><br>` +
+    `정답 <strong class="stat-ok">${myScore.correct}</strong> · ` +
+    `오답 <strong class="stat-no">${myScore.wrong}</strong> · ` +
+    `정답률 <strong style="color:${tier.color}">${myScore.rate}%</strong><br>` +
+    `소요시간: <strong>${fmtMs(myScore.elapsed_ms)}</strong> · ` +
+    `최고연속: <strong style="color:var(--accent3);">${myScore.max_streak}개</strong>`;
+
+  card.style.display = 'flex';
+}
+
+/* ── 내 랭킹으로 점프 ── */
+function jumpToMyRank(){
+  if(!currentUser){ toast('로그인이 필요합니다.','error'); return; }
+  const idx = filteredScores.findIndex(r => r.user_id === currentUser.id);
+  if(idx < 0){ toast('현재 그룹에서 기록이 없습니다.','info'); return; }
+  const page = Math.floor(idx / pageSize) + 1;
+  goPage(page);
+  // 내 행 하이라이트
+  setTimeout(()=>{
+    const myRow = document.querySelector('tr.my-row');
+    if(myRow) myRow.scrollIntoView({behavior:'smooth', block:'center'});
+  }, 200);
+}
+
+/* ══════════════════════════════════════════════
+   인증 세션 감지
+   ══════════════════════════════════════════════ */
+sb.auth.onAuthStateChange(async(event, session)=>{
+  if(event === 'TOKEN_REFRESHED') return;
+  if(session?.user){
+    currentUser = session.user;
+    await loadProfile();
+    renderMyRankCard();
+  }
+});
+
+/* ── 시작 ── */
+init();
+</script>
+</body>
+</html>
