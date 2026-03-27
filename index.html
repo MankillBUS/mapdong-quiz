@@ -1491,7 +1491,29 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     </div>
   </div>
   
-  <button class="sbtn" onclick="startQuiz()">퀴즈 시작! 🚀</button>
+  <!-- 랭킹 모드 안내 박스 -->
+  <div id="ranking-mode-info" style="display:none;width:100%;max-width:480px;margin-bottom:8px;">
+    <div style="background:linear-gradient(135deg,rgba(255,215,0,.12),rgba(255,165,0,.08));border:2px solid var(--gold);border-radius:14px;padding:14px 18px;text-align:center;">
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:1rem;color:var(--gold);margin-bottom:6px;">🏆 랭킹 모드 활성화</div>
+      <div id="ranking-mode-desc" style="font-size:.76rem;color:#c8a000;line-height:1.7;"></div>
+      <div style="margin-top:8px;font-size:.68rem;color:var(--text-dim);">❌ 건너뛰기 · 모든정답표시 · 정답위치보기 비활성</div>
+    </div>
+  </div>
+  <!-- 랭킹 모드 불가 안내 -->
+  <div id="ranking-mode-blocked" style="display:none;width:100%;max-width:480px;margin-bottom:8px;">
+    <div style="background:rgba(255,60,110,.08);border:1.5px solid rgba(255,60,110,.35);border-radius:12px;padding:12px 16px;text-align:center;font-size:.74rem;color:#ff8080;line-height:1.7;">
+      <strong style="color:#ff3c6e;">⚠️ 랭킹 모드 불가</strong><br>
+      <span id="ranking-blocked-reason"></span>
+    </div>
+  </div>
+
+  <!-- 퀴즈 시작 버튼 영역 -->
+  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;">
+    <button class="sbtn" onclick="startQuiz()">퀴즈 시작! 🚀</button>
+    <button id="btn-ranking-start" class="sbtn" onclick="startRankingMode()"
+      style="background:linear-gradient(135deg,var(--gold),#e6a800);color:#000;opacity:.4;cursor:not-allowed;"
+      disabled>🏆 랭킹 시작</button>
+  </div>
 
   <!-- [4단계] 지도 다운로드 진행률 UI -->
   <div id="map-dl-bar" style="display:none!important;
@@ -1559,6 +1581,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   </div>
   <div id="user-chip" onclick="toggleDropdown()" style="position:relative;">
     <div class="user-avatar" id="user-avatar">?</div>
+    <span class="rank-tier-icon" id="chip-rank-icon" style="font-size:.9rem;flex-shrink:0;display:none;" title="랭킹 계급"></span>
     <span class="user-name" id="user-name">-</span>
     <span class="user-badge trial" id="user-badge">체험판</span>
     <!-- 🔔 알림 뱃지 -->
@@ -1804,9 +1827,15 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 <script>
 const DB={};  // 동적 로드 (polygon_cache.json)
 
-// ─── 상태 ─────────────────────────────────────────────
+// ─── 랭킹 모드 상태 ────────────────────────────────────────
+let isRankingMode = false;        // 랭킹 모드 여부
+let rankingGroupKey = null;       // 선택된 큰 카테고리 키 (예: "🏙 서울")
+let rankingStartTime = null;      // 랭킹 시작 시각
+let rankingAnswered = new Set();  // 이미 정답/오답 처리된 동 키
+let rankingResults = [];          // [{dong, correct, time}]
+let rankingTotalDongs = 0;        // 총 동 개수
+
 let map, allDongs=[], queue=[], cur=null, canAns=true;
-let totC=0,totW=0,streak=0,qCnt=0,sessAns=0;
 let isGuQuizMode = false; // 구 퀴즈 모드
 let POLY_CACHE = null; // 폴리곤 캐시
 let answerLayer = null; // 정답 폴리곤 레이어 (최신)
@@ -2670,6 +2699,91 @@ function updateCnt() {
   selected.forEach(t => { if (DB[t.dataset.r]) n += DB[t.dataset.r].dongs.length; });
   const el = document.getElementById('scnt');
   if (el) el.textContent = n;
+  // 랭킹 모드 가능 여부 체크
+  checkRankingEligibility();
+}
+
+// ── 랭킹 모드 가능 여부 판단 ─────────────────────────────────────
+function checkRankingEligibility() {
+  const btn       = document.getElementById('btn-ranking-start');
+  const infoBox   = document.getElementById('ranking-mode-info');
+  const blockedBox= document.getElementById('ranking-mode-blocked');
+  const reasonEl  = document.getElementById('ranking-blocked-reason');
+  const descEl    = document.getElementById('ranking-mode-desc');
+  if (!btn) return;
+
+  const selected = [...document.querySelectorAll('.stag.sel')];
+  const selectedKeys = selected.map(t => t.dataset.r);
+
+  // 선택 없으면 비활성
+  if (!selectedKeys.length) {
+    btn.disabled = true; btn.style.opacity = '.4'; btn.style.cursor = 'not-allowed';
+    if (infoBox) infoBox.style.display = 'none';
+    if (blockedBox) blockedBox.style.display = 'none';
+    return;
+  }
+
+  // CITY_GROUPS에서 각 큰 카테고리와 선택된 도시 비교
+  const groupEntries = Object.entries(CITY_GROUPS);
+  let matchedGroup = null;
+  let blockReason  = '';
+
+  // 선택된 도시들의 name 목록 (DB key → name)
+  const selectedNames = selectedKeys.map(k => {
+    const m = CITY_META_V4.find(c => c.key === k);
+    return m ? m.name : null;
+  }).filter(Boolean);
+
+  // 1) 오직 하나의 큰 카테고리에만 속하는지 확인
+  const belongingGroups = groupEntries.filter(([, cities]) =>
+    selectedNames.some(n => cities.includes(n))
+  ).map(([label]) => label);
+
+  if (belongingGroups.length > 1) {
+    blockReason = `여러 카테고리가 섞여 있습니다.<br>하나의 카테고리만 전체 선택해야 합니다.`;
+  } else if (belongingGroups.length === 1) {
+    const groupLabel  = belongingGroups[0];
+    const groupCities = CITY_GROUPS[groupLabel];
+    // 2) 해당 카테고리의 모든 도시가 선택되어 있는지 확인
+    const groupCityKeys = groupCities
+      .map(name => { const m = CITY_META_V4.find(c => c.name === name); return m?.key; })
+      .filter(Boolean);
+    const allSelected = groupCityKeys.every(k => selectedKeys.includes(k));
+    const extraKeys   = selectedKeys.filter(k => !groupCityKeys.includes(k));
+
+    if (extraKeys.length > 0) {
+      blockReason = `선택한 지역이 카테고리 범위를 벗어납니다.<br>${groupLabel} 전체 선택만 가능합니다.`;
+    } else if (!allSelected) {
+      const missingCount = groupCityKeys.length - selectedKeys.filter(k => groupCityKeys.includes(k)).length;
+      blockReason = `${groupLabel}에서 ${missingCount}개 지역이 빠져 있습니다.<br>카테고리 내 전체 선택이 필요합니다.`;
+    } else {
+      matchedGroup = groupLabel;
+    }
+  } else {
+    blockReason = '기타 지역은 랭킹 모드를 지원하지 않습니다.';
+  }
+
+  if (matchedGroup) {
+    btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+    if (infoBox) {
+      infoBox.style.display = 'block';
+      const totalDongs = selectedKeys.reduce((s,k) => s + (DB[k]?.dongs.length||0), 0);
+      if (descEl) descEl.innerHTML = `<strong style="color:var(--gold);">${matchedGroup}</strong> · 총 ${totalDongs}개 동 완주<br>정답률 50% 이상만 랭킹 등록`;
+    }
+    if (blockedBox) blockedBox.style.display = 'none';
+    // 랭킹 그룹 키 저장
+    rankingGroupKey = matchedGroup;
+  } else {
+    btn.disabled = true; btn.style.opacity = '.4'; btn.style.cursor = 'not-allowed';
+    if (infoBox) infoBox.style.display = 'none';
+    if (blockedBox && selectedKeys.length > 0) {
+      blockedBox.style.display = 'block';
+      if (reasonEl) reasonEl.innerHTML = blockReason;
+    } else if (blockedBox) {
+      blockedBox.style.display = 'none';
+    }
+    rankingGroupKey = null;
+  }
 }
 
 // ── 퀴즈 모드 자동 결정 ─────────────────────────────────────────
@@ -2755,7 +2869,176 @@ document.getElementById('gu-quiz-mode').addEventListener('change', function(e){
     : '동 이름을 보고 위치 찾기';
 });
 
-window.startQuiz = function(){
+// ─── 랭킹 모드 시작 ──────────────────────────────────────────────
+window.startRankingMode = function(){
+  if(!currentUser){ toast('로그인이 필요합니다','error'); return; }
+  const s = document.querySelectorAll('.stag.sel');
+  if(!s.length){ toast('지역을 선택하세요!','error'); return; }
+  if(!rankingGroupKey){ toast('랭킹 모드 조건이 맞지 않습니다.','error'); return; }
+
+  // 랭킹 모드 상태 초기화
+  isRankingMode      = true;
+  rankingStartTime   = Date.now();
+  rankingAnswered    = new Set();
+  rankingResults     = [];
+
+  // 일반 퀴즈와 동일하게 시작 (이후 랭킹 모드 플래그로 제어)
+  saveQuizSelection();
+  answerLayers=[]; wrongLayers=[]; tempL=[]; wrongL=[]; answerLayer=null;
+
+  allDongs = [];
+  s.forEach(t => {
+    const r = t.dataset.r;
+    if(DB[r]) DB[r].dongs.forEach(d => allDongs.push({...d, rk:r, rn:DB[r].name}));
+  });
+  rankingTotalDongs = allDongs.length;
+
+  if(!allDongs.length){
+    toast('선택한 지역에 출제 가능한 단위가 없습니다.','error');
+    isRankingMode = false; return;
+  }
+
+  // 구 퀴즈 모드는 랭킹 모드에서 비활성 (동 퀴즈만)
+  const guToggle = document.getElementById('gu-quiz-mode');
+  if(guToggle){ guToggle.checked = false; }
+  isGuQuizMode = false;
+
+  document.getElementById('start').classList.add('hidden');
+  isDarkTheme = _savedTheme;
+  initMap(); buildFilter(); reshuffleRanking(); nextQ();
+  document.getElementById('range-control').style.display = 'block';
+
+  // 랭킹 모드 헤더 표시
+  showRankingModeHeader();
+  toast('🏆 랭킹 모드 시작! 모든 동을 1회씩 풀어주세요.', 'success');
+};
+
+// 랭킹 모드용 reshuffle — 각 동을 정확히 1번씩 출제 (완주 감지용)
+function reshuffleRanking(){
+  // 완주 기준: 모든 동을 1번씩 정답 OR 오답 처리
+  rankingAnswered = new Set();
+  rankingResults  = [];
+  queue = [...allDongs].sort(() => Math.random() - .5);
+  sessAns = 0; updPrg();
+}
+
+// 랭킹 모드 헤더 배너
+function showRankingModeHeader(){
+  const existing = document.getElementById('ranking-mode-header');
+  if(existing) existing.remove();
+  const div = document.createElement('div');
+  div.id = 'ranking-mode-header';
+  div.style.cssText = `position:fixed;top:0;left:0;right:0;z-index:10000;
+    background:linear-gradient(135deg,rgba(255,215,0,.2),rgba(255,165,0,.15));
+    border-bottom:2px solid var(--gold);
+    padding:4px 16px;display:flex;align-items:center;justify-content:space-between;
+    font-size:.72rem;color:var(--gold);font-weight:700;pointer-events:none;`;
+  div.innerHTML = `<span>🏆 랭킹 모드 진행 중 · ${rankingGroupKey}</span>
+    <span id="ranking-progress-header">0 / ${rankingTotalDongs}</span>`;
+  document.body.appendChild(div);
+}
+
+function updateRankingHeader(){
+  const el = document.getElementById('ranking-progress-header');
+  if(el) el.textContent = `${rankingAnswered.size} / ${rankingTotalDongs}`;
+}
+
+// 랭킹 모드 완료 감지 (doOk/doNo 내에서 호출)
+async function checkRankingCompletion(){
+  if(!isRankingMode) return;
+  updateRankingHeader();
+  // 모든 동 완료 여부 확인
+  if(rankingAnswered.size < rankingTotalDongs) return;
+
+  // 완료!
+  const elapsed = Date.now() - rankingStartTime; // ms
+  const correct = rankingResults.filter(r => r.ok).length;
+  const wrong   = rankingResults.filter(r => !r.ok).length;
+  const rate    = rankingTotalDongs > 0 ? Math.round(correct / rankingTotalDongs * 100) : 0;
+
+  // 랭킹 모드 종료
+  isRankingMode = false;
+  canAns = false;
+  const header = document.getElementById('ranking-mode-header');
+  if(header) header.remove();
+
+  // 정답률 50% 미만이면 저장 안 함
+  if(rate < 50){
+    toast(`완주! 정답률 ${rate}% · 50% 미만으로 랭킹 미등록`, 'info');
+    setTimeout(()=>{ if(confirm('랭킹 등록은 정답률 50% 이상이 필요합니다.\n처음으로 돌아가시겠습니까?')) goHome(); }, 1500);
+    return;
+  }
+
+  // DB 저장
+  toast(`🏆 완주! 정답률 ${rate}% · 랭킹 등록 중...`, 'success');
+  await saveRankingScore(elapsed, correct, wrong, rate);
+}
+
+async function saveRankingScore(elapsedMs, correct, wrong, rate){
+  if(!currentUser || !userProfile) return;
+  try{
+    let token = SUPABASE_KEY;
+    try{const raw=localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');if(raw){const p=JSON.parse(raw);if(p?.access_token)token=p.access_token;}}catch(e){}
+
+    const nickname = userProfile.nickname || currentUser.email?.split('@')[0] || '익명';
+    // 연속 최대값 계산
+    let maxStreak = 0, curStreak = 0;
+    rankingResults.forEach(r => {
+      if(r.ok){ curStreak++; if(curStreak>maxStreak) maxStreak=curStreak; }
+      else curStreak=0;
+    });
+
+    const payload = {
+      user_id:      currentUser.id,
+      nickname,
+      group_key:    rankingGroupKey,
+      total_dongs:  rankingTotalDongs,
+      correct,
+      wrong,
+      rate,
+      max_streak:   maxStreak,
+      elapsed_ms:   elapsedMs,
+      played_at:    new Date().toISOString(),
+    };
+
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/ranking_scores`, {
+      method: 'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'apikey':SUPABASE_KEY,
+        'Authorization':`Bearer ${token}`,
+        'Prefer':'return=minimal'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if(res.ok){
+      toast(`🏆 랭킹 등록 완료! 정답률 ${rate}% · 소요 ${fmtMs(elapsedMs)}`, 'success');
+      setTimeout(()=>{ if(confirm('랭킹이 등록되었습니다!\n랭킹 페이지로 이동하시겠습니까?')){
+        window.location.href = 'ranking.html';
+      } else { goHome(); }}, 1800);
+    } else {
+      const txt = await res.text();
+      console.warn('랭킹 저장 실패:', txt);
+      toast('랭킹 저장 중 오류가 발생했습니다.','error');
+    }
+  }catch(e){
+    console.error('랭킹 저장 오류:', e);
+    toast('랭킹 저장 중 오류가 발생했습니다.','error');
+  }
+}
+
+function fmtMs(ms){
+  const s = Math.floor(ms/1000);
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const sec = s%60;
+  if(h>0) return `${h}시간 ${m}분 ${sec}초`;
+  if(m>0) return `${m}분 ${sec}초`;
+  return `${sec}초`;
+}
+
+
   const s = document.querySelectorAll('.stag.sel');
   if(!s.length){ toast('지역을 선택하세요!','error'); return; }
 
@@ -2899,6 +3182,17 @@ window.goHome = function(){
   if(confirm('퀴즈를 종료하고 처음으로 돌아가시겠습니까?')){
     // [수정4] 현재 테마 상태 저장 (goHome 후 복원용)
     _savedTheme = isDarkTheme;
+
+    // 랭킹 모드 초기화
+    if(isRankingMode){
+      isRankingMode = false;
+      rankingGroupKey = null;
+      rankingStartTime = null;
+      rankingAnswered = new Set();
+      rankingResults = [];
+      const rankHeader = document.getElementById('ranking-mode-header');
+      if(rankHeader) rankHeader.remove();
+    }
 
     // 퀴즈 완전 중단: 레이어/큐 초기화
     canAns = false;
@@ -3119,7 +3413,20 @@ function getActive(){
 }
 
 function reshuffle(){
-  queue=[...getActive()].sort(()=>Math.random()-.5);
+  if(isRankingMode){
+    // 랭킹 모드: 아직 안 푼 동만 큐에 넣기 (각 동 1회씩)
+    const remaining = allDongs.filter(d => {
+      const dk = d.rn+'|'+d.gu+'|'+d.d;
+      return !rankingAnswered.has(dk);
+    });
+    queue = [...remaining].sort(() => Math.random() - .5);
+    if(!queue.length){
+      // 모두 완료 — checkRankingCompletion이 처리
+      return;
+    }
+  } else {
+    queue=[...getActive()].sort(()=>Math.random()-.5);
+  }
   sessAns=0; updPrg();
 }
 
@@ -3401,6 +3708,7 @@ window.hideWrongBoundary = function(){
 };
 
 window.toggleShowAll = function(){
+  if(isRankingMode){ toast('🏆 랭킹 모드에서는 모든 정답 표시를 사용할 수 없습니다.','error'); return; }
   if(!isActivePremium()){
     showShowAllLockedPopup();
     return;
@@ -3525,6 +3833,14 @@ function clearAnsMarkers(){
 
 function doOk(dist, clickLat, clickLng){
   totC++;streak++;sessAns++;
+  // 랭킹 모드: 동 완료 기록
+  if(isRankingMode && cur){
+    const dk = cur.rn+'|'+cur.gu+'|'+cur.d;
+    if(!rankingAnswered.has(dk)){
+      rankingAnswered.add(dk);
+      rankingResults.push({dong:cur.d, ok:true});
+    }
+  }
   addR(true,cur);updStats();updPrg();
 
   // 마커 위치: 구 문제 ON → 구 중심(구 없는 도시는 동 중심) / OFF → 단위 중심
@@ -3594,10 +3910,20 @@ function doOk(dist, clickLat, clickLng){
       `<br>클릭 위치 기준 <strong>${dist.toFixed(2)}km</strong> · ${answerRange.toFixed(1)}km 이내`;
   }
   ov.classList.add('show');
+  // 랭킹 모드 완주 감지
+  if(isRankingMode) checkRankingCompletion();
 }
 
 function doNo(dist, clickLat, clickLng){
   totW++;streak=0;sessAns++;
+  // 랭킹 모드: 동 완료 기록
+  if(isRankingMode && cur){
+    const dk = cur.rn+'|'+cur.gu+'|'+cur.d;
+    if(!rankingAnswered.has(dk)){
+      rankingAnswered.add(dk);
+      rankingResults.push({dong:cur.d, ok:false});
+    }
+  }
   addR(false,cur);updStats();updPrg();
 
   // ★ cur을 지금 캡처 - setTimeout 내부에서 cur이 바뀌면 잘못된 위치에 마커 찍힘
@@ -3682,9 +4008,9 @@ function doNo(dist, clickLat, clickLng){
       `<br>클릭 위치에서 <strong>${dist.toFixed(2)}km</strong> 거리`;
   }
   ov.classList.add('show');
+  // 랭킹 모드 완주 감지
+  if(isRankingMode) setTimeout(()=>checkRankingCompletion(), 500);
 }
-
-function closeNoModal(){
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
 
@@ -3710,9 +4036,13 @@ function closeNoModal(){
   });
 }
 
-window.focusA = function(){if(cur)map.flyTo([cur.lat,cur.lng],14,{duration:1.2});}
+window.focusA = function(){
+  if(isRankingMode){ toast('🏆 랭킹 모드에서는 정답위치 보기를 사용할 수 없습니다.','error'); return; }
+  if(cur)map.flyTo([cur.lat,cur.lng],14,{duration:1.2});
+}
 window.resetV = function(){map.flyTo([37.55,127.00],10,{duration:1});}
 window.skipQ = function(){
+  if(isRankingMode){ toast('🏆 랭킹 모드에서는 건너뛰기를 사용할 수 없습니다.','error'); return; }
   if(cur){addR(false,cur,true);totW++;streak=0;sessAns++;updStats();updPrg();}
   nextQ();
 }
@@ -4192,6 +4522,75 @@ function isInsuranceUser(){
   return userProfile?.job === '보험';
 }
 
+/* ══════════════════════════════════════════════════════════════
+   🏆 랭킹 계급 시스템
+   — 2~3시간마다 한 번씩 현재 랭킹을 조회 후 계급 이미지 업데이트
+   ══════════════════════════════════════════════════════════════ */
+const RANK_TIERS = [
+  { name:'전설',    icon:'🏆', color:'#ffd700', minRate: 95, maxRank: 3    },
+  { name:'마스터',  icon:'💎', color:'#00d4ff', minRate: 90, maxRank: 10   },
+  { name:'다이아',  icon:'🔷', color:'#74b9ff', minRate: 85, maxRank: 30   },
+  { name:'플래티넘',icon:'🌟', color:'#81ecec', minRate: 80, maxRank: 100  },
+  { name:'골드',    icon:'🥇', color:'#fdcb6e', minRate: 75, maxRank: 300  },
+  { name:'실버',    icon:'🥈', color:'#b2bec3', minRate: 70, maxRank: 1000 },
+  { name:'브론즈',  icon:'🥉', color:'#e17055', minRate: 60, maxRank: 9999 },
+  { name:'아이언',  icon:'⚙️', color:'#636e72', minRate: 50, maxRank: 9999 },
+  { name:'언랭',    icon:'🗺️', color:'var(--text-dim)', minRate: 0, maxRank: 9999 },
+];
+
+// 현재 유저의 계급 정보 캐시
+let _myRankTier = null;
+let _myRankLastFetch = 0;
+const RANK_FETCH_INTERVAL = 2.5 * 60 * 60 * 1000; // 2.5시간(ms)
+
+function getRankTierByRate(rate, rankPos) {
+  if(rate < 50) return RANK_TIERS[8]; // 언랭
+  for(const tier of RANK_TIERS){
+    if(rate >= tier.minRate) return tier;
+  }
+  return RANK_TIERS[8];
+}
+
+async function fetchMyRankTier(){
+  if(!currentUser) return null;
+  const now = Date.now();
+  if(_myRankTier && (now - _myRankLastFetch) < RANK_FETCH_INTERVAL) return _myRankTier;
+
+  try {
+    let token = SUPABASE_KEY;
+    try{const raw=localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');if(raw){const p=JSON.parse(raw);if(p?.access_token)token=p.access_token;}}catch(e){}
+
+    // 최고 기록(rate 기준) 조회
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/ranking_scores?user_id=eq.${currentUser.id}&order=rate.desc,elapsed_ms.asc&limit=1`,
+      { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${token}` } }
+    );
+    if(!res.ok) return null;
+    const rows = await res.json();
+    if(!rows.length){ _myRankTier = RANK_TIERS[8]; _myRankLastFetch = now; return _myRankTier; }
+
+    const best = rows[0];
+    const tier = getRankTierByRate(best.rate, 9999);
+    _myRankTier = { ...tier, rate: best.rate, groupKey: best.group_key };
+    _myRankLastFetch = now;
+    return _myRankTier;
+  } catch(e){ return null; }
+}
+
+async function updateRankIconsEverywhere(){
+  const tier = await fetchMyRankTier();
+  if(!tier) return;
+  // 모든 랭킹 아이콘 업데이트
+  document.querySelectorAll('.rank-tier-icon').forEach(el => {
+    el.textContent  = tier.icon;
+    el.title        = `${tier.name} · 최고 정답률 ${tier.rate || 0}%`;
+    el.style.color  = tier.color;
+  });
+}
+
+// 2.5시간마다 자동 갱신
+setInterval(()=>{ if(currentUser) updateRankIconsEverywhere(); }, RANK_FETCH_INTERVAL);
+
 function renderUserChip(){
   if(!currentUser) return;
   const email   = currentUser.email || '';
@@ -4233,6 +4632,10 @@ function renderUserChip(){
   }
   // 오른쪽 사이드바 권한 업데이트
   updateRightSidebarAuth();
+  // 랭킹 아이콘 갱신 (처음 로그인 시 또는 캐시 만료 시)
+  const chipRankIcon = document.getElementById('chip-rank-icon');
+  if(chipRankIcon) chipRankIcon.style.display = 'inline';
+  updateRankIconsEverywhere();
 }
 
 function updateTrialBar(used){
@@ -4926,11 +5329,8 @@ function goMyInfo(){
   window.location.href = 'myinfo.html';
 }
 function goRanking(){
-  if(!isActivePremium()){
-    showShowAllLockedPopup();
-    return;
-  }
-  toast('랭킹 페이지 준비 중입니다', 'info');
+  if(!currentUser){ toast('로그인이 필요합니다','error'); return; }
+  window.location.href = 'ranking.html';
 }
 function goEvent(){
   if(!canAccessCommunity()){ toast('맵동가족 또는 프리미엄 회원만 이용 가능합니다','error'); return; }
