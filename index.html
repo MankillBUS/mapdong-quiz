@@ -4749,15 +4749,16 @@ function renderCommunityMenu(){
     </div>
     <div class="rs-cat-children" id="rschildren-${cat.slug}">`;
     cat.children.forEach(ch => {
-      // 로그인된 유저면 진입 허용 (글 내용은 openCommunity 안에서 체크)
+      // ❌ 비로그인: 커뮤니티 진입 불가 (MapDong 방침)
+      // ✅ 로그인 유저: 진입 허용 (글 내용은 community.html > viewPost에서 권한별 체크)
       if(currentUser){
         html += `<div class="rs-child-item" id="rsch-${ch.slug}"
           onclick="openCommunity('${ch.slug}','${ch.id}','${ch.name}')">
           ㄴ ${ch.name}
         </div>`;
       } else {
-        html += `<div class="rs-child-item locked">
-          ㄴ ${ch.name}
+        html += `<div class="rs-child-item locked" onclick="showOnly('screen-login')" style="cursor:pointer;" title="로그인 후 이용 가능">
+          ㄴ ${ch.name} <span style="font-size:.6rem;opacity:.5;">🔒</span>
         </div>`;
       }
     });
