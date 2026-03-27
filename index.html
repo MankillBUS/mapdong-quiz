@@ -3975,38 +3975,6 @@ sb.auth.onAuthStateChange(async(event, session) => {
   if(session?.user){
     currentUser = session.user;
 
-    // ╔═══════════════════════════════════════════════════════╗
-    // ║  🚧 임시 슈퍼패스 — 나이스 API 승인 완료 후 삭제 예정  ║
-    // ║                                                         ║
-    // ║  삭제 시점: 나이스 본인인증 정식 승인 후                 ║
-    // ║  삭제 방법: 이 if 블록 전체(╔~╝ 주석 포함) 제거         ║
-    // ║                                                         ║
-    // ║  존재 이유:                                              ║
-    // ║    - 나이스 미승인 기간 중 관리자 계정 로그인 보장        ║
-    // ║    - user_profiles row 없어도 동작                      ║
-    // ║    - DB role 컬럼 방식과 병행 운영 (이중 안전망)          ║
-    // ╚═══════════════════════════════════════════════════════╝
-    const TEMP_SUPERPASS_EMAILS = [
-      'kke320001@gmail.com',  // 운영 관리자 — 나이스 승인 후 삭제
-      'test12@gmail.com',     // 테스트 관리자 — 나이스 승인 후 삭제
-    ];
-    if(TEMP_SUPERPASS_EMAILS.includes(currentUser.email)){
-      userProfile = {
-        user_id:       currentUser.id,
-        email:         currentUser.email,
-        role:          'admin',        // DB role 방식과 통일
-        is_verified:   true,
-        is_premium:    true,
-        premium_until: '2099-12-31',
-        plays_count:   0,
-      };
-      renderUserChip();
-      showOnly('start');
-      handlePaymentCallback();
-      loadNotices();
-      return;
-    }
-    // ↑ 슈퍼패스 끝 ─────────────────────────────────────────────
     
     await loadProfile();
     // 퀴즈 중이면 routeUser 호출 안 함 (페이지 이동 방지)
@@ -4126,7 +4094,11 @@ function isActiveMapdongFamily(){
 
 /* ── 커뮤니티 접근 권한 (맵동가족 or 프리미엄) ──────────── */
 function canAccessCommunity(){
-  return isActivePremium() || isActiveMapdongFamily();
+  return isActivePremium() || isActiveMapdongFamily() || isAdmin();
+}
+// 커뮤니티 글 내용 열람 권한 (프리미엄/맵동가족/관리자만)
+function canReadCommunityContent(){
+  return isActivePremium() || isActiveMapdongFamily() || isAdmin();
 }
 
 function renderUserChip(){
@@ -4777,14 +4749,15 @@ function renderCommunityMenu(){
     </div>
     <div class="rs-cat-children" id="rschildren-${cat.slug}">`;
     cat.children.forEach(ch => {
-      if(canAccess){
+      // 로그인된 유저면 진입 허용 (글 내용은 openCommunity 안에서 체크)
+      if(currentUser){
         html += `<div class="rs-child-item" id="rsch-${ch.slug}"
           onclick="openCommunity('${ch.slug}','${ch.id}','${ch.name}')">
           ㄴ ${ch.name}
         </div>`;
       } else {
         html += `<div class="rs-child-item locked">
-          ㄴ ${ch.name} <span class="rs-lock">🔒</span>
+          ㄴ ${ch.name}
         </div>`;
       }
     });
@@ -5351,8 +5324,7 @@ function csTab(tab) {
 
 /* ── 관리자 판별 ─────────────────────────────────────────── */
 function isAdmin() {
-  return userProfile?.role === 'admin' ||
-    ['kke320001@gmail.com','test12@gmail.com'].includes(currentUser?.email);
+  return userProfile?.role === 'admin';
 }
 
 /* ══════════════════════════════════════════════════
@@ -5525,20 +5497,12 @@ function renderCSPrivacy(){
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
       padding:48px 20px;gap:18px;text-align:center;">
       <div style="font-size:3rem;">🔐</div>
-      <div style="font-size:1rem;font-weight:700;color:var(--text);">개인정보처리방침</div>
-      <div style="font-size:.82rem;color:var(--text-dim);line-height:1.8;max-width:360px;">
-        MapDong의 개인정보 수집·이용·보호에 관한 전체 방침을 확인하실 수 있습니다.<br>
-        아래 버튼을 클릭하면 새 탭에서 전문을 볼 수 있습니다.
-      </div>
-      <a href="/privacy.html" target="_blank" rel="noopener"
-        style="display:inline-flex;align-items:center;gap:8px;
-        background:linear-gradient(135deg,var(--accent),#0099bb);
-        color:#000;border:none;border-radius:12px;padding:14px 28px;
-        font-size:.92rem;font-weight:700;text-decoration:none;
-        font-family:'Noto Sans KR',sans-serif;">
-        🔐 개인정보처리방침 전문 보기 →
-      </a>
-      <div style="font-size:.7rem;color:var(--text-dim);">새 탭에서 열립니다</div>
+      <div style="font-size:1rem;font-weight:700;color:var(--text);margin-bottom:12px;">🔐 개인정보처리방침</div>
+      <iframe src="/privacy.html"
+        style="width:100%;height:calc(100vh - 220px);min-height:400px;
+          border:1px solid var(--border);border-radius:12px;background:var(--bg);"
+        title="개인정보처리방침">
+      </iframe>
     </div>
   `;
 }
