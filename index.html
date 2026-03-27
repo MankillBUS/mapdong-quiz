@@ -3766,21 +3766,23 @@ window.doEmailAuth = async function(){
         errEl.textContent = msg; errEl.className = 'login-err show';
         btn.disabled = false; btn.textContent = '로그인'; return;
       }
-      // 세션 수동 저장 - fetch로 직접 처리 후 페이지 리로드로 세션 복구
-      localStorage.setItem('mapdong-auth-token', JSON.stringify({
-        access_token: data.access_token,
+      // Supabase가 기대하는 정확한 형식으로 세션 저장
+      const sessionData = {
+        access_token:  data.access_token,
         refresh_token: data.refresh_token,
-        expires_at: data.expires_at,
-        token_type: data.token_type,
-        user: data.user,
-      }));
-      // 세션 저장 후 onAuthStateChange 트리거를 위해 sb.auth.setSession 시도
-      try {
-        await sb.auth.setSession({ access_token: data.access_token, refresh_token: data.refresh_token });
-      } catch(e) {
-        // setSession 실패 시 페이지 새로고침으로 세션 복구
-        window.location.reload();
-      }
+        expires_at:    data.expires_at,
+        expires_in:    data.expires_in,
+        token_type:    data.token_type || 'bearer',
+        user:          data.user,
+      };
+      // Supabase 내부 스토리지 키 형식으로 저장
+      localStorage.setItem(
+        'sb-emgsueepzioudqnitkyn-auth-token',
+        JSON.stringify(sessionData)
+      );
+      // 버튼 복구 후 페이지 새로고침 → Supabase가 localStorage에서 세션 자동 읽기
+      btn.disabled = false; btn.textContent = '로그인';
+      window.location.reload();
     } else {
       // 회원가입은 기존 방식 유지
       const res = await sb.auth.signUp({ email, password: pw });
@@ -5942,11 +5944,22 @@ async function submitSignup() {
         }).eq('user_id', data.user.id);
       }, 1500);
     }
+    // 회원가입 완료 → OTP 발송 후 OTP 입력창 표시
+    window._signupEmail = email;
+    window._signupAccessToken = data.access_token;
+    window._signupRefreshToken = data.refresh_token;
+    window._signupUserId = data.user?.id;
+
+    // OTP 발송 (이메일 인증번호)
+    await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+      body: JSON.stringify({ email, create_user: false }),
+    });
+
     closeSignupModal();
-    const errEl = document.getElementById('login-err');
-    errEl.textContent='✅ 인증 메일이 발송되었습니다! 이메일을 확인한 뒤 로그인해주세요.';
-    errEl.className='login-err show ok';
-    toast('🎉 회원가입 완료! 이메일 인증 후 로그인해주세요.','success');
+    showOtpModal(email);
+    toast('📧 이메일로 인증번호가 발송되었습니다!', 'success');
   } catch(e){
     suErr('오류가 발생했습니다: '+e.message);
     btn.disabled=false; btn.textContent='✓ 회원가입 완료하기';
@@ -6450,5 +6463,127 @@ window.toggleAuthMode = function() {
     </button>
   </div>
 </div>
+
+<!-- ── OTP 이메일 인증 모달 ── -->
+<div id="otp-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);
+  backdrop-filter:blur(10px);z-index:90000;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:linear-gradient(135deg,#111827,#1a2235);border:1px solid #1e3a5f;
+    border-radius:20px;padding:36px 40px;max-width:420px;width:100%;text-align:center;
+    box-shadow:0 0 60px rgba(0,212,255,.1);">
+    <div style="font-size:2.5rem;margin-bottom:10px;">📧</div>
+    <div style="font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:#e8f4fd;margin-bottom:8px;">
+      이메일 인증
+    </div>
+    <div id="otp-desc" style="font-size:.82rem;color:#7a9bb5;line-height:1.7;margin-bottom:24px;">
+      이메일로 발송된 6자리 인증번호를 입력해주세요.
+    </div>
+    <input id="otp-input" type="text" maxlength="6" inputmode="numeric"
+      placeholder="인증번호 6자리"
+      style="width:100%;background:#1a2235;border:2px solid #1e3a5f;color:#e8f4fd;
+        border-radius:12px;padding:16px;font-size:1.4rem;text-align:center;
+        letter-spacing:8px;font-family:'Noto Sans KR',sans-serif;outline:none;
+        transition:border-color .2s;margin-bottom:8px;"
+      oninput="this.value=this.value.replace(/[^0-9]/g,'')"
+      onfocus="this.style.borderColor='#00d4ff'"
+      onblur="this.style.borderColor='#1e3a5f'"
+      onkeydown="if(event.key==='Enter')verifyOtp()">
+    <div id="otp-err" style="font-size:.78rem;color:#ff3c6e;margin-bottom:12px;min-height:20px;"></div>
+    <button onclick="verifyOtp()" id="otp-submit-btn"
+      style="width:100%;background:linear-gradient(135deg,#00d4ff,#0099bb);color:#000;
+        border:none;border-radius:12px;padding:14px;font-size:1rem;font-weight:700;
+        font-family:'Noto Sans KR',sans-serif;cursor:pointer;margin-bottom:12px;">
+      ✓ 인증번호 확인
+    </button>
+    <button onclick="resendOtp()"
+      style="width:100%;background:transparent;border:1px solid #1e3a5f;color:#7a9bb5;
+        border-radius:10px;padding:10px;font-size:.82rem;font-family:'Noto Sans KR',sans-serif;
+        cursor:pointer;transition:all .2s;"
+      onmouseover="this.style.borderColor='#00d4ff';this.style.color='#00d4ff'"
+      onmouseout="this.style.borderColor='#1e3a5f';this.style.color='#7a9bb5'">
+      📨 인증번호 재발송
+    </button>
+  </div>
+</div>
+
+<script>
+function showOtpModal(email) {
+  const modal = document.getElementById('otp-modal');
+  const desc = document.getElementById('otp-desc');
+  desc.textContent = email + ' 로 발송된 6자리 인증번호를 입력해주세요.';
+  document.getElementById('otp-input').value = '';
+  document.getElementById('otp-err').textContent = '';
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('otp-input').focus(), 300);
+}
+
+function hideOtpModal() {
+  document.getElementById('otp-modal').style.display = 'none';
+}
+
+async function verifyOtp() {
+  const otp = document.getElementById('otp-input').value.trim();
+  const errEl = document.getElementById('otp-err');
+  const btn = document.getElementById('otp-submit-btn');
+
+  if(otp.length !== 6) {
+    errEl.textContent = '6자리 인증번호를 입력해주세요.';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = '확인 중...';
+  errEl.textContent = '';
+
+  try {
+    const email = window._signupEmail;
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+      body: JSON.stringify({ email, token: otp, type: 'email' }),
+    });
+    const data = await res.json();
+
+    if(!res.ok) {
+      errEl.textContent = '인증번호가 올바르지 않습니다. 다시 확인해주세요.';
+      btn.disabled = false; btn.textContent = '✓ 인증번호 확인';
+      return;
+    }
+
+    // 인증 성공 → 세션 저장 후 로그인
+    localStorage.setItem('sb-emgsueepzioudqnitkyn-auth-token', JSON.stringify({
+      access_token:  data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at:    data.expires_at,
+      expires_in:    data.expires_in,
+      token_type:    data.token_type || 'bearer',
+      user:          data.user,
+    }));
+
+    hideOtpModal();
+    toast('🎉 이메일 인증 완료! 환영합니다.', 'success');
+    window.location.reload();
+
+  } catch(e) {
+    errEl.textContent = '오류가 발생했습니다. 다시 시도해주세요.';
+    btn.disabled = false; btn.textContent = '✓ 인증번호 확인';
+  }
+}
+
+async function resendOtp() {
+  const email = window._signupEmail;
+  if(!email) return;
+  try {
+    await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+      body: JSON.stringify({ email, create_user: false }),
+    });
+    toast('📧 인증번호를 재발송했습니다.', 'success');
+    document.getElementById('otp-input').value = '';
+    document.getElementById('otp-err').textContent = '';
+  } catch(e) {
+    toast('재발송 실패. 잠시 후 다시 시도해주세요.', 'error');
+  }
+}
+</script>
 </body>
 </html>
