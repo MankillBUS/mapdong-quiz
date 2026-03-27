@@ -1040,6 +1040,16 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <div class="login-err" id="login-err"></div>
       <button class="btn-primary" id="btn-email-auth" onclick="doEmailAuth()">로그인</button>
       <div class="login-switch">계정이 없으신가요? <a onclick="toggleAuthMode()"><span id="switch-link">회원가입</span></a></div>
+
+      <!-- ⚠️ [임시 디버그 버튼] 테스트 완료 후 삭제할 것 ⚠️ -->
+      <button onclick="runLoginDebug()"
+        style="margin-top:10px;width:100%;background:rgba(255,165,0,.15);
+          border:1px dashed #ff8c00;color:#ff8c00;border-radius:8px;
+          padding:8px;font-size:.75rem;font-family:'Noto Sans KR',sans-serif;
+          cursor:pointer;">
+        🔧 [임시] 로그인 디버그
+      </button>
+      <!-- ⚠️ [임시 디버그 버튼 끝] ⚠️ -->
     </div>
   </div>
   <!-- ✦ 프리미엄 배너 (창 안) -->
@@ -6746,5 +6756,277 @@ async function resendOtp() {
   }
 }
 </script>
+
+<!-- ⚠️ [임시 디버그 모달] 테스트 완료 후 삭제할 것 ⚠️ -->
+<div id="debug-modal" style="display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.92);backdrop-filter:blur(8px);
+  z-index:99999;align-items:flex-start;justify-content:center;
+  padding:20px;overflow-y:auto;">
+  <div style="background:#0d1117;border:1px solid #ff8c00;border-radius:16px;
+    max-width:780px;width:100%;padding:24px;margin:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:1.2rem;color:#ff8c00;">
+        🔧 로그인 디버그 리포트
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="copyDebugLog()"
+          style="background:#ff8c00;color:#000;border:none;border-radius:8px;
+            padding:6px 14px;font-size:.78rem;font-weight:700;cursor:pointer;
+            font-family:'Noto Sans KR',sans-serif;">
+          📋 복사
+        </button>
+        <button onclick="document.getElementById('debug-modal').style.display='none'"
+          style="background:rgba(255,255,255,.1);color:#aaa;border:1px solid #333;
+            border-radius:8px;padding:6px 14px;font-size:.78rem;cursor:pointer;
+            font-family:'Noto Sans KR',sans-serif;">
+          ✕ 닫기
+        </button>
+      </div>
+    </div>
+    <div id="debug-content" style="font-family:monospace;font-size:.75rem;
+      color:#e8f4fd;line-height:1.8;white-space:pre-wrap;word-break:break-all;">
+      분석 중...
+    </div>
+  </div>
+</div>
+
+<script>
+/* ⚠️ [임시 디버그 함수] 테스트 완료 후 삭제할 것 ⚠️ */
+async function runLoginDebug() {
+  const email = document.getElementById('inp-email').value.trim();
+  if(!email) { alert('이메일을 먼저 입력해주세요!'); return; }
+
+  const modal = document.getElementById('debug-modal');
+  const content = document.getElementById('debug-content');
+  modal.style.display = 'flex';
+  content.textContent = '🔄 분석 중...';
+
+  let log = '';
+  const line = (txt) => { log += txt + '\n'; };
+  const ok  = (label, val) => line(`  ✅ ${label}: ${val}`);
+  const ng  = (label, val, expect) => line(`  ❌ ${label}: ${val}  ← 기대값: ${expect}`);
+  const info= (label, val) => line(`  ℹ️  ${label}: ${val}`);
+  const sep = () => line('─'.repeat(60));
+
+  line('━'.repeat(60));
+  line(`🔧 디버그 시작: ${new Date().toLocaleString('ko-KR')}`);
+  line(`📧 입력 이메일: ${email}`);
+  sep();
+
+  // ── STEP 1: Auth API 로그인 시도 ──────────────────────────
+  line('\n[STEP 1] Supabase Auth 로그인 시도');
+  let authData = null;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+      body: JSON.stringify({ email, password: document.getElementById('inp-pw').value }),
+    });
+    authData = await res.json();
+    if(res.ok) {
+      ok('HTTP 상태', res.status + ' OK');
+      ok('access_token', authData.access_token ? '있음 (' + authData.access_token.substring(0,20) + '...)' : '없음');
+      ok('refresh_token', authData.refresh_token ? '있음' : '없음');
+      ok('user.id', authData.user?.id || '없음');
+      ok('user.email', authData.user?.email || '없음');
+      info('token_type', authData.token_type || '없음');
+      info('expires_in', authData.expires_in + '초');
+    } else {
+      ng('HTTP 상태', res.status, '200');
+      ng('오류', authData.error_description || authData.msg || JSON.stringify(authData), '없음');
+    }
+  } catch(e) {
+    ng('Auth 요청', '예외 발생: ' + e.message, '정상 응답');
+  }
+  sep();
+
+  // ── STEP 2: user_profiles 조회 ────────────────────────────
+  line('\n[STEP 2] user_profiles DB 조회');
+  let profile = null;
+  if(authData?.access_token && authData?.user?.id) {
+    try {
+      const profRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${authData.user.id}&select=*&limit=1`,
+        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${authData.access_token}` } }
+      );
+      const rows = await profRes.json();
+      profile = rows[0] || null;
+      if(profRes.ok && profile) {
+        ok('DB 조회', '성공');
+        sep();
+        line('\n[STEP 3] 컬럼별 상세 분석 (DB값 vs 로그인 요구값)');
+        sep();
+
+        // 로그인 통과 조건 체크
+        const checks = [
+          {
+            col: 'is_verified',
+            val: profile.is_verified,
+            type: typeof profile.is_verified,
+            dbType: 'boolean',
+            required: true,
+            pass: profile.is_verified === true,
+            desc: '본인인증 완료 여부 (true여야 로그인 가능)'
+          },
+          {
+            col: 'user_id',
+            val: profile.user_id,
+            type: typeof profile.user_id,
+            dbType: 'uuid',
+            required: true,
+            pass: !!profile.user_id,
+            desc: '유저 ID'
+          },
+          {
+            col: 'nickname',
+            val: profile.nickname,
+            type: typeof profile.nickname,
+            dbType: 'text',
+            required: false,
+            pass: !!profile.nickname,
+            desc: '닉네임'
+          },
+          {
+            col: 'real_name',
+            val: profile.real_name,
+            type: typeof profile.real_name,
+            dbType: 'text',
+            required: false,
+            pass: !!profile.real_name,
+            desc: '실명 (나이스 인증)'
+          },
+          {
+            col: 'phone',
+            val: profile.phone,
+            type: typeof profile.phone,
+            dbType: 'text',
+            required: false,
+            pass: !!profile.phone,
+            desc: '전화번호'
+          },
+          {
+            col: 'birth_date',
+            val: profile.birth_date,
+            type: typeof profile.birth_date,
+            dbType: 'date',
+            required: false,
+            pass: !!profile.birth_date,
+            desc: '생년월일'
+          },
+          {
+            col: 'job',
+            val: profile.job,
+            type: typeof profile.job,
+            dbType: 'text',
+            required: false,
+            pass: !!profile.job,
+            desc: '직업'
+          },
+          {
+            col: 'nice_di',
+            val: profile.nice_di ? profile.nice_di.substring(0,20) + '...' : null,
+            type: typeof profile.nice_di,
+            dbType: 'text',
+            required: false,
+            pass: !!profile.nice_di,
+            desc: '나이스 DI'
+          },
+          {
+            col: 'is_premium',
+            val: profile.is_premium,
+            type: typeof profile.is_premium,
+            dbType: 'boolean',
+            required: false,
+            pass: true,
+            desc: '프리미엄 여부'
+          },
+          {
+            col: 'role',
+            val: profile.role,
+            type: typeof profile.role,
+            dbType: 'text',
+            required: false,
+            pass: true,
+            desc: '역할 (user/admin)'
+          },
+        ];
+
+        line('\n  컬럼명            | DB값                  | JS타입    | DB타입   | 필수 | 상태');
+        line('  ' + '-'.repeat(80));
+        checks.forEach(c => {
+          const colPad   = c.col.padEnd(18);
+          const valPad   = String(c.val ?? 'null').substring(0,20).padEnd(22);
+          const typePad  = c.type.padEnd(9);
+          const dbTypePad= c.dbType.padEnd(9);
+          const req      = c.required ? '필수' : '선택';
+          const status   = c.pass ? '✅ OK' : (c.required ? '❌ FAIL' : '⚠️  없음');
+          line(`  ${colPad}| ${valPad}| ${typePad}| ${dbTypePad}| ${req} | ${status}`);
+        });
+
+        sep();
+        // 최종 판정
+        const criticalFail = checks.filter(c => c.required && !c.pass);
+        if(criticalFail.length === 0) {
+          line('\n🎉 최종 판정: 로그인 조건 모두 충족! → 퀴즈 화면으로 이동해야 함');
+          line('⚠️  만약 로그인이 안 된다면 → 세션 저장/읽기 문제일 가능성 높음');
+        } else {
+          line('\n💥 최종 판정: 로그인 조건 미충족!');
+          criticalFail.forEach(c => line(`  → ${c.col}: ${c.desc}`));
+        }
+
+      } else {
+        ng('DB 조회', '실패 또는 데이터 없음', '정상 데이터');
+        info('응답', JSON.stringify(rows).substring(0, 200));
+      }
+    } catch(e) {
+      ng('DB 조회', '예외: ' + e.message, '정상');
+    }
+  } else {
+    line('  ⛔ Auth 실패로 DB 조회 건너뜀');
+  }
+
+  sep();
+
+  // ── STEP 4: localStorage 상태 ─────────────────────────────
+  line('\n[STEP 4] localStorage 세션 상태');
+  try {
+    const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+    if(raw) {
+      const parsed = JSON.parse(raw);
+      ok('세션 존재', '있음');
+      info('access_token', parsed.access_token ? '있음' : '없음');
+      info('refresh_token', parsed.refresh_token ? '있음' : '없음');
+      info('expires_at', parsed.expires_at ? new Date(parsed.expires_at * 1000).toLocaleString('ko-KR') : '없음');
+      info('user.id', parsed.user?.id || '없음');
+    } else {
+      ng('세션 존재', '없음', '세션 있어야 함');
+    }
+  } catch(e) {
+    ng('localStorage', '파싱 오류: ' + e.message, '정상');
+  }
+
+  sep();
+  line('\n✅ 디버그 완료');
+
+  content.textContent = log;
+}
+
+function copyDebugLog() {
+  const text = document.getElementById('debug-content').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    alert('✅ 클립보드에 복사되었습니다!');
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert('✅ 복사되었습니다!');
+  });
+}
+/* ⚠️ [임시 디버그 함수 끝] ⚠️ */
+</script>
+<!-- ⚠️ [임시 디버그 모달 끝] ⚠️ -->
 </body>
 </html>
