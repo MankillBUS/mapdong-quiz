@@ -3857,7 +3857,14 @@ async function signOut(){
 // 퀴즈 진행 중 여부 확인 — 전역 함수
 function quizActive(){
   const mapEl = document.getElementById('map');
-  return mapEl && mapEl.offsetParent !== null;
+  if(!mapEl || mapEl.offsetParent === null) return false;
+  // 로그인/인증/결제 화면이 떠있으면 퀴즈 중이 아님
+  const blockScreens = ['screen-login','screen-verify','screen-paywall'];
+  for(const s of blockScreens){
+    const el = document.getElementById(s);
+    if(el && !el.classList.contains('hidden')) return false;
+  }
+  return true;
 }
 
 sb.auth.onAuthStateChange(async(event, session) => {
