@@ -3920,11 +3920,39 @@ document.addEventListener('visibilitychange', async () => {
 });
 
 async function loadProfile(){
-  const { data } = await sb.from('user_profiles')
-    .select('*').eq('user_id', currentUser.id).maybeSingle();
-  userProfile = data;
+  try {
+    // fetch 직접 호출 (Lock 충돌 방지 - 핵심 함수)
+    let token = SUPABASE_KEY;
+    try {
+      const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+      if(raw) {
+        const parsed = JSON.parse(raw);
+        const t = parsed?.access_token || parsed?.currentSession?.access_token;
+        if(t) token = t;
+      }
+    } catch(e) {}
 
-  // DB role=admin 이면 프리미엄 강제 적용 (슈퍼패스 삭제 후에도 동작)
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${currentUser.id}&select=*&limit=1`,
+      {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${token}`,
+        }
+      }
+    );
+    if(res.ok) {
+      const rows = await res.json();
+      userProfile = rows[0] || null;
+    } else {
+      userProfile = null;
+    }
+  } catch(e) {
+    console.warn('loadProfile 오류:', e);
+    userProfile = null;
+  }
+
+  // DB role=admin 이면 프리미엄 강제 적용
   if(userProfile?.role === 'admin'){
     userProfile.is_verified   = true;
     userProfile.is_premium    = true;
