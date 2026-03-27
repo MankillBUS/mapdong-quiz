@@ -387,7 +387,7 @@ const CATS=[
 ];
 
 // ── 권한 ──
-function isAdmin(){return userProfile?.role==='admin'||['kke320001@gmail.com','test12@gmail.com'].includes(currentUser?.email);}
+function isAdmin(){return userProfile?.role==='admin';}
 function isActivePremium(){return userProfile?.is_premium&&userProfile?.premium_until&&new Date(userProfile.premium_until)>new Date();}
 function isActiveMapdongFamily(){return userProfile?.is_mapdong_family&&userProfile?.mapdong_family_until&&new Date(userProfile.mapdong_family_until)>new Date();}
 function isInsuranceUser(){return userProfile?.job==='보험';}
@@ -619,7 +619,7 @@ function renderLike(count){
 
 async function toggleLike(){
   if(!currentUser){alert('로그인 후 이용 가능합니다.');return;}
-  if(!isFullyVerified()){alert('본인인증이 완료된 회원만 이용 가능합니다.');return;}
+  if(!isAdmin() && !isFullyVerified()){alert('본인인증이 완료된 회원만 이용 가능합니다.');return;}
   const liked=_likedPosts.has(_viewingPostId);
   if(liked){
     await sb.from('community_likes').delete().eq('post_id',_viewingPostId).eq('user_id',currentUser.id);
@@ -677,7 +677,7 @@ async function submitComment(){
   const text=document.getElementById('comment-text')?.value.trim();
   if(!text){alert('댓글을 입력하세요');return;}
   if(!currentUser){alert('로그인이 필요합니다');return;}
-  if(!isFullyVerified()){alert('본인인증이 완료된 회원만 댓글을 작성할 수 있습니다.');return;}
+  if(!isAdmin() && !isFullyVerified()){alert('본인인증이 완료된 회원만 댓글을 작성할 수 있습니다.');return;}
   const {error}=await sb.from('community_comments').insert({post_id:_viewingPostId,user_id:currentUser.id,content:text});
   if(error){alert('등록 실패: '+error.message);return;}
   await renderComments(_viewingPostId);
@@ -756,7 +756,7 @@ async function submitPost(){
   if(!title){alert('제목을 입력하세요');return;}
   if(!content||editor.textContent.trim()===''){alert('내용을 입력하세요');return;}
   if(!currentUser){alert('로그인 후 글을 작성할 수 있습니다.');return;}
-  if(!isFullyVerified()){alert('본인인증이 완료된 회원만 글을 작성할 수 있습니다.');return;}
+  if(!isAdmin() && !isFullyVerified()){alert('본인인증이 완료된 회원만 글을 작성할 수 있습니다.');return;}
   if(!currentCatId){alert('카테고리를 선택하세요');return;}
   const btn=document.getElementById('btn-submit-post');
   btn.disabled=true;btn.textContent='등록 중...';
