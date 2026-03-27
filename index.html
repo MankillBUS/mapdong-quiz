@@ -5056,6 +5056,8 @@ async function _csReturnWithAuthCheck() {
     renderUserChip();
     return;
   }
+  // 이전 화면이 로그인이었으면 로그인으로
+  if(prev === 'screen-login') { showOnly('screen-login'); return; }
   // 나머지는 start 화면으로
   showOnly('start');
   renderUserChip();
@@ -5297,21 +5299,37 @@ function getRefundHtml() {
 /* ══════════════════════════════════════════════════
    공지 롤링 시스템
    ══════════════════════════════════════════════ */
-async function loadNotices() {
-  // 최근 7일 이내 공지사항만
-  const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString();
-  try {
-    const { data } = await sb
-      .from('cs_posts')
-      .select('id, title, created_at')
-      .eq('is_notice', true)
-      .gte('created_at', weekAgo)
-      .order('created_at', { ascending: false })
-      .limit(10);
-    csNoticeList = data || [];
-  } catch(e) {
-    csNoticeList = [];
-  }
+   async function loadNotices() {
+    // 최근 30일 이내 공지사항
+    const monthAgo = new Date(Date.now() - 30*24*60*60*1000).toISOString();
+    try {
+      const { data, error } = await sb
+        .from('cs_posts')
+        .select('id, title, created_at')
+        .eq('is_notice', true)
+        .gte('created_at', monthAgo)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if(error) throw error;
+      csNoticeList = data || [];
+    } catch(e) {
+      // 토큰 충돌 시 1초 후 재시도
+      setTimeout(async () => {
+        try {
+          const monthAgo2 = new Date(Date.now() - 30*24*60*60*1000).toISOString();
+          const { data } = await sb
+            .from('cs_posts')
+            .select('id, title, created_at')
+            .eq('is_notice', true)
+            .gte('created_at', monthAgo2)
+            .order('created_at', { ascending: false })
+            .limit(10);
+          csNoticeList = data || [];
+          if(csNoticeList.length > 0) { csNoticeIdx = 0; showNoticeItem(0); }
+        } catch(e2) { csNoticeList = []; }
+      }, 1000);
+      return;
+    }
 
   // 공지 없으면 placeholder
   const hnText = document.getElementById('hn-text');
