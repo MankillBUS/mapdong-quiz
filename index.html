@@ -3685,7 +3685,14 @@ const TOSS_BILLING_CLIENT_KEY = 'live_ck_ORzdMaqN3wn2eqdXYQEN85AkYXQG';
 const SUBSCRIPTION_PLANS = ['monthly','quarterly','halfyear','yearly','mapdong_family'];
 const EDGE = `${SUPABASE_URL}/functions/v1`;
 
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    storageKey: 'mapdong-auth-token',
+  }
+});
 
 let currentUser = null;
 let userProfile = null;
