@@ -5718,6 +5718,26 @@ function suErr(msg) {
   el.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
+let nicknameChecked = false;
+
+async function checkNickname() {
+  const nickname = document.getElementById('su-nickname').value.trim();
+  const msgEl = document.getElementById('nick-check-msg');
+  if(!nickname) { msgEl.style.color='#ff3c6e'; msgEl.textContent='닉네임을 입력해주세요.'; return; }
+  if(nickname.length<2||nickname.length>10) { msgEl.style.color='#ff3c6e'; msgEl.textContent='닉네임은 2~10자로 입력해주세요.'; return; }
+  msgEl.style.color='var(--text-dim)'; msgEl.textContent='확인 중...';
+  const { data } = await sb.from('user_profiles').select('user_id').eq('nickname', nickname).maybeSingle();
+  if(data) {
+    msgEl.style.color='#ff3c6e';
+    msgEl.textContent='❌ 이미 사용 중인 닉네임입니다.';
+    nicknameChecked = false;
+  } else {
+    msgEl.style.color='var(--accent3)';
+    msgEl.textContent='✅ 사용 가능한 닉네임입니다.';
+    nicknameChecked = true;
+  }
+}
+
 async function submitSignup() {
   document.getElementById('su-err').style.display='none';
   const nickname  = document.getElementById('su-nickname').value.trim();
@@ -5734,6 +5754,7 @@ async function submitSignup() {
 
   if(!nickname)                    { suErr('닉네임을 입력해주세요.'); return; }
   if(nickname.length<2||nickname.length>10){ suErr('닉네임은 2~10자로 입력해주세요.'); return; }
+  if(!nicknameChecked)             { suErr('닉네임 중복확인을 해주세요.'); return; }
   if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ suErr('올바른 이메일을 입력해주세요.'); return; }
   if(!pw)                          { suErr('비밀번호를 입력해주세요.'); return; }
   if(pw.length<8)                  { suErr('비밀번호는 8자 이상이어야 합니다.'); return; }
@@ -5931,7 +5952,12 @@ window.toggleAuthMode = function() {
 
       <div class="signup-field">
         <div class="signup-label">닉네임 <span class="req">*</span></div>
-        <input class="signup-input" id="su-nickname" type="text" placeholder="사용할 닉네임 (2~10자)" maxlength="10">
+        <div style="display:flex;gap:8px;">
+          <input class="signup-input" id="su-nickname" type="text" placeholder="사용할 닉네임 (2~10자)" maxlength="10" style="flex:1;" oninput="nicknameChecked=false;document.getElementById('nick-check-msg').textContent='';">
+
+          <button type="button" onclick="checkNickname()" id="btn-check-nick" style="background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;border:none;border-radius:10px;padding:0 14px;font-size:.8rem;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;white-space:nowrap;">중복확인</button>
+        </div>
+        <div id="nick-check-msg" style="font-size:.75rem;margin-top:4px;"></div>
       </div>
 
       <div class="signup-field">
