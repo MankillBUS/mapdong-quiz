@@ -198,6 +198,22 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   <div class="comm-cat-title" id="comm-cat-title">커뮤니티</div>
   <div id="comm-user-area">
     <button id="btn-back-quiz" onclick="backToQuiz()">🗺 퀴즈로 돌아가기</button>
+    <!-- 🔔 알림 버튼 -->
+    <div style="position:relative;">
+      <button id="notif-btn" onclick="openNotifPanel()"
+        style="background:var(--surface2);border:1px solid var(--border);
+          color:var(--text-dim);border-radius:50%;width:34px;height:34px;
+          font-size:1rem;cursor:pointer;display:none;align-items:center;
+          justify-content:center;transition:all .2s;"
+        id="notif-btn">🔔</button>
+      <div id="notif-panel" style="display:none;position:absolute;top:42px;right:0;
+        background:var(--surface);border:1px solid var(--border);border-radius:14px;
+        min-width:300px;max-width:360px;max-height:420px;overflow-y:auto;
+        z-index:500;box-shadow:0 8px 32px rgba(0,0,0,.5);">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);
+          font-size:.82rem;font-weight:700;color:var(--text);">🔔 알림</div>
+      </div>
+    </div>
     <!-- 닉네임 드롭다운 -->
     <div id="comm-user-chip" onclick="toggleCommDD(event)">
       <div class="comm-user-avatar" id="comm-avatar">?</div>
@@ -677,6 +693,104 @@ function renderLike(count){
   document.getElementById('like-count').textContent=count;
 }
 
+// ══════════════════════════════════════════════
+// 🔔 알림 시스템
+// ══════════════════════════════════════════════
+async function sendNotification(toUserId, type, postId, commentId, message){
+  if(!currentUser || toUserId === currentUser.id) return; // 본인 알림 제외
+  try {
+    await sb.from('notifications').insert({
+      user_id:      toUserId,
+      from_user_id: currentUser.id,
+      type,
+      post_id:      postId || null,
+      comment_id:   commentId || null,
+      message,
+    });
+  } catch(e){ console.warn('알림 전송 실패:', e); }
+}
+
+async function loadNotifications(){
+  if(!currentUser) return;
+  try {
+    const {data} = await sb.from('notifications')
+      .select('*').eq('user_id', currentUser.id)
+      .order('created_at', {ascending: false}).limit(30);
+    renderNotifBadge(data || []);
+    window._notifications = data || [];
+  } catch(e){}
+}
+
+function renderNotifBadge(notifs){
+  const unread = notifs.filter(n => !n.is_read).length;
+  // community.html 내 배지
+  let badge = document.getElementById('notif-badge');
+  if(!badge){
+    const btn = document.getElementById('notif-btn');
+    if(!btn) return;
+    badge = document.createElement('span');
+    badge.id = 'notif-badge';
+    badge.style.cssText = `position:absolute;top:-4px;right:-4px;background:#ff3c6e;
+      color:#fff;border-radius:50%;width:18px;height:18px;font-size:.65rem;
+      font-weight:700;display:flex;align-items:center;justify-content:center;`;
+    btn.style.position = 'relative';
+    btn.appendChild(badge);
+  }
+  badge.textContent = unread > 9 ? '9+' : unread;
+  badge.style.display = unread > 0 ? 'flex' : 'none';
+}
+
+function openNotifPanel(){
+  const notifs = window._notifications || [];
+  const panel = document.getElementById('notif-panel');
+  if(!panel) return;
+  if(panel.style.display === 'block'){ panel.style.display='none'; return; }
+
+  panel.style.display = 'block';
+  panel.innerHTML = notifs.length === 0
+    ? '<div style="text-align:center;padding:24px;color:var(--text-dim);font-size:.82rem;">알림이 없습니다</div>'
+    : notifs.map(n => `
+      <div onclick="clickNotif(${n.id}, ${n.post_id})"
+        style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;
+          background:${n.is_read?'transparent':'rgba(0,212,255,.05)'};
+          transition:background .2s;"
+        onmouseover="this.style.background='rgba(0,212,255,.08)'"
+        onmouseout="this.style.background='${n.is_read?'transparent':'rgba(0,212,255,.05)'}'">
+        <div style="font-size:.8rem;color:${n.is_read?'var(--text-dim)':'var(--text)'};line-height:1.6;">
+          ${n.is_read?'':'<span style="color:var(--accent);font-size:.65rem;margin-right:4px;">●</span>'}
+          ${escHtml(n.message)}
+        </div>
+        <div style="font-size:.68rem;color:var(--text-dim);margin-top:3px;">
+          ${new Date(n.created_at).toLocaleString('ko-KR')}
+        </div>
+      </div>`).join('');
+
+  // 모두 읽음 처리
+  const unreadIds = notifs.filter(n=>!n.is_read).map(n=>n.id);
+  if(unreadIds.length > 0){
+    sb.from('notifications').update({is_read:true}).in('id', unreadIds).then(()=>{
+      window._notifications = (window._notifications||[]).map(n=>({...n,is_read:true}));
+      renderNotifBadge(window._notifications);
+    });
+  }
+}
+
+async function clickNotif(notifId, postId){
+  document.getElementById('notif-panel').style.display = 'none';
+  if(postId){
+    await viewPost(postId);
+  }
+}
+
+// 외부 클릭 시 알림 패널 닫기
+document.addEventListener('click', e => {
+  const panel = document.getElementById('notif-panel');
+  const btn = document.getElementById('notif-btn');
+  if(panel && btn && !panel.contains(e.target) && !btn.contains(e.target)){
+    panel.style.display = 'none';
+  }
+});
+
 async function toggleLike(){
   if(!currentUser){alert('로그인이 필요합니다.');return;}
   if(!canAccess()){alert('맵동가족·프리미엄·보험등급 회원만 이용 가능합니다.');return;}
@@ -691,35 +805,81 @@ async function toggleLike(){
     _likedPosts.add(_viewingPostId);
     await sb.from('community_posts').update({like_count:(_viewingPostData.like_count||0)+1}).eq('id',_viewingPostId);
     _viewingPostData.like_count=(_viewingPostData.like_count||0)+1;
+    // 🔔 글 작성자에게 좋아요 알림
+    const myNick = userProfile?.nickname || currentUser.email?.split('@')[0] || '누군가';
+    const postTitle = (_viewingPostData.title||'').substring(0,20);
+    await sendNotification(
+      _viewingPostData.user_id, 'like', _viewingPostId, null,
+      `💙 ${myNick}님이 "${postTitle}" 글에 좋아요를 눌러주셨습니다.`
+    );
   }
   renderLike(_viewingPostData.like_count);
 }
 
 // ── 댓글 ──
 async function renderComments(postId){
-  const {data:comments}=await sb.from('community_comments').select('*').eq('post_id',postId).eq('is_deleted',false).order('created_at',{ascending:true});
-  document.getElementById('comment-count').textContent=comments?.length||0;
+  const {data:allComments}=await sb.from('community_comments')
+    .select('*').eq('post_id',postId).eq('is_deleted',false)
+    .order('created_at',{ascending:true});
+
+  // 댓글 좋아요 목록 로드
+  let myCommentLikes = new Set();
+  if(currentUser){
+    const {data:cl}=await sb.from('comment_likes').select('comment_id').eq('user_id',currentUser.id);
+    if(cl) cl.forEach(l=>myCommentLikes.add(l.comment_id));
+  }
+  window._myCommentLikes = myCommentLikes;
+
+  const roots = (allComments||[]).filter(c=>!c.parent_id);
+  const replies = (allComments||[]).filter(c=>c.parent_id);
+  document.getElementById('comment-count').textContent=allComments?.length||0;
 
   const listEl=document.getElementById('comment-list');
-  if(!comments?.length){listEl.innerHTML='<div style="color:var(--text-dim);font-size:.8rem;padding:8px 0">첫 댓글을 남겨보세요!</div>';
+  if(!allComments?.length){
+    listEl.innerHTML='<div style="color:var(--text-dim);font-size:.8rem;padding:8px 0">첫 댓글을 남겨보세요!</div>';
   } else {
-    // 댓글 작성자 닉네임 일괄 조회
-    const uids=[...new Set(comments.map(c=>c.user_id).filter(Boolean))];
+    const uids=[...new Set(allComments.map(c=>c.user_id).filter(Boolean))];
     let pmap={};
     if(uids.length){const {data:profs}=await sb.from('user_profiles').select('user_id,nickname,role,is_premium,premium_until,is_mapdong_family,mapdong_family_until,job').in('user_id',uids);if(profs)profs.forEach(p=>{pmap[p.user_id]=p;});}
-    listEl.innerHTML=comments.map(c=>{
+
+    const renderComment = (c, isReply=false) => {
       const cp=pmap[c.user_id]||{};
       const cn=cp.nickname||'(알수없음)';
       const canDel=currentUser&&(isAdmin()||c.user_id===currentUser.id);
-      return `<div class="comment-item">
+      const liked = myCommentLikes.has(c.id);
+      const myReplies = replies.filter(r=>r.parent_id===c.id);
+      return `<div class="comment-item" id="comment-${c.id}" style="${isReply?'margin-left:24px;border-left:2px solid var(--border);padding-left:10px;':''}">
         <div class="comment-top">
           <span class="comment-author" onclick="openProfile('${c.user_id}')">${gradeBadge(cp)} ${escHtml(cn)}</span>
           <span class="comment-time">${new Date(c.created_at).toLocaleString('ko-KR')}</span>
           ${canDel?`<button class="comment-del-btn" onclick="deleteComment(${c.id})">삭제</button>`:''}
         </div>
         <div class="comment-body">${escHtml(c.content)}</div>
+        <div style="display:flex;gap:10px;margin-top:6px;align-items:center;">
+          ${canComment()?`<button onclick="toggleCommentLike(${c.id})"
+            style="background:none;border:none;cursor:pointer;font-size:.75rem;
+              color:${liked?'#ff3c6e':'var(--text-dim)'};padding:2px 6px;border-radius:6px;
+              border:1px solid ${liked?'rgba(255,60,110,.3)':'var(--border)'};transition:all .2s;"
+            id="clbtn-${c.id}">
+            ${liked?'❤️':'🤍'} <span id="clcnt-${c.id}">${c.like_count||0}</span>
+          </button>`:''}
+          ${!isReply && canComment()?`<button onclick="toggleReplyBox(${c.id})"
+            style="background:none;border:1px solid var(--border);cursor:pointer;
+              font-size:.75rem;color:var(--text-dim);padding:2px 8px;border-radius:6px;">
+            💬 대댓글
+          </button>`:''}
+        </div>
+        ${!isReply?`<div id="reply-box-${c.id}" style="display:none;margin-top:8px;">
+          <textarea id="reply-text-${c.id}" class="comment-textarea"
+            placeholder="대댓글을 입력하세요..." style="min-height:60px;font-size:.82rem;"></textarea>
+          <button onclick="submitComment(${c.id})" class="comment-submit-btn"
+            style="margin-top:4px;font-size:.78rem;padding:6px 14px;">대댓글 등록</button>
+        </div>`:''}
+        ${myReplies.map(r=>renderComment(r, true)).join('')}
       </div>`;
-    }).join('');
+    };
+
+    listEl.innerHTML = roots.map(c=>renderComment(c, false)).join('');
   }
 
   const inputEl=document.getElementById('comment-input-area');
@@ -729,17 +889,88 @@ async function renderComments(postId){
       <button class="comment-submit-btn" onclick="submitComment()">댓글 등록</button>
     </div>`;
   } else {
-    inputEl.innerHTML=`<div class="comment-locked">💬 맵동가족·프리미엄·보험자격증 회원만 댓글을 달 수 있습니다.</div>`;
+    inputEl.innerHTML=`<div class="comment-locked">💬 맵동가족·프리미엄·보험등급 회원만 댓글을 달 수 있습니다.</div>`;
   }
 }
 
-async function submitComment(){
-  const text=document.getElementById('comment-text')?.value.trim();
+function toggleReplyBox(commentId){
+  const box = document.getElementById(`reply-box-${commentId}`);
+  if(!box) return;
+  const isOpen = box.style.display === 'block';
+  box.style.display = isOpen ? 'none' : 'block';
+  if(!isOpen) document.getElementById(`reply-text-${commentId}`)?.focus();
+}
+
+async function toggleCommentLike(commentId){
+  if(!currentUser){alert('로그인이 필요합니다.');return;}
+  if(!canComment()){return;}
+  const liked = (window._myCommentLikes||new Set()).has(commentId);
+  const btn = document.getElementById(`clbtn-${commentId}`);
+  const cnt = document.getElementById(`clcnt-${commentId}`);
+  if(liked){
+    await sb.from('comment_likes').delete().eq('comment_id',commentId).eq('user_id',currentUser.id);
+    window._myCommentLikes.delete(commentId);
+    const newCnt = Math.max(0, (parseInt(cnt?.textContent)||1)-1);
+    if(cnt) cnt.textContent = newCnt;
+    await sb.from('community_comments').update({like_count:newCnt}).eq('id',commentId);
+    if(btn){btn.style.color='var(--text-dim)';btn.style.borderColor='var(--border)';btn.innerHTML=`🤍 <span id="clcnt-${commentId}">${newCnt}</span>`;}
+  } else {
+    await sb.from('comment_likes').upsert({comment_id:commentId,user_id:currentUser.id});
+    window._myCommentLikes.add(commentId);
+    const newCnt = (parseInt(cnt?.textContent)||0)+1;
+    if(cnt) cnt.textContent = newCnt;
+    await sb.from('community_comments').update({like_count:newCnt}).eq('id',commentId);
+    if(btn){btn.style.color='#ff3c6e';btn.style.borderColor='rgba(255,60,110,.3)';btn.innerHTML=`❤️ <span id="clcnt-${commentId}">${newCnt}</span>`;}
+    // 🔔 댓글 작성자에게 좋아요 알림
+    const {data:cm}=await sb.from('community_comments').select('user_id,post_id').eq('id',commentId).single();
+    if(cm){
+      const myNick=userProfile?.nickname||currentUser.email?.split('@')[0]||'누군가';
+      await sendNotification(cm.user_id,'like',cm.post_id,commentId,
+        `💙 ${myNick}님이 내 댓글에 좋아요를 눌러주셨습니다.`
+      );
+    }
+  }
+}
+
+async function submitComment(parentId=null){
+  const textareaId = parentId ? `reply-text-${parentId}` : 'comment-text';
+  const text = document.getElementById(textareaId)?.value.trim();
   if(!text){alert('댓글을 입력하세요');return;}
   if(!currentUser){alert('로그인이 필요합니다.');return;}
   if(!canComment()){alert('맵동가족·프리미엄·보험등급 회원만 댓글을 작성할 수 있습니다.');return;}
-  const {error}=await sb.from('community_comments').insert({post_id:_viewingPostId,user_id:currentUser.id,content:text});
+
+  const {data:inserted, error} = await sb.from('community_comments').insert({
+    post_id:   _viewingPostId,
+    user_id:   currentUser.id,
+    content:   text,
+    parent_id: parentId || null,
+  }).select().single();
+
   if(error){alert('등록 실패: '+error.message);return;}
+
+  const myNick = userProfile?.nickname || currentUser.email?.split('@')[0] || '누군가';
+  const postTitle = (_viewingPostData?.title||'').substring(0,20);
+
+  if(parentId){
+    // 대댓글: 원댓글 작성자에게 알림
+    const {data:parent} = await sb.from('community_comments').select('user_id').eq('id',parentId).single();
+    if(parent?.user_id){
+      await sendNotification(parent.user_id, 'reply', _viewingPostId, inserted?.id,
+        `💬 ${myNick}님이 "${postTitle}" 글의 내 댓글에 대댓글을 남겼습니다.`
+      );
+    }
+    // 글 작성자에게도 알림 (원댓글 작성자와 다를 경우)
+    if(_viewingPostData?.user_id && _viewingPostData.user_id !== parent?.user_id){
+      await sendNotification(_viewingPostData.user_id, 'reply', _viewingPostId, inserted?.id,
+        `💬 ${myNick}님이 "${postTitle}" 글에 대댓글을 남겼습니다.`
+      );
+    }
+  } else {
+    // 일반 댓글: 글 작성자에게 알림
+    await sendNotification(_viewingPostData?.user_id, 'comment', _viewingPostId, inserted?.id,
+      `💬 ${myNick}님이 "${postTitle}" 글에 댓글을 남겼습니다.`
+    );
+  }
   await renderComments(_viewingPostId);
 }
 
@@ -941,6 +1172,12 @@ function renderCommUserChip(){
   document.getElementById('comm-nick').textContent = nick;
   document.getElementById('comm-avatar').textContent = nick[0]?.toUpperCase()||'?';
   document.getElementById('comm-user-chip').classList.add('visible');
+  // 알림 버튼 표시 + 로드
+  const notifBtn = document.getElementById('notif-btn');
+  if(notifBtn) notifBtn.style.display = 'flex';
+  await loadNotifications();
+  // 30초마다 알림 갱신
+  setInterval(loadNotifications, 30000);
 }
 function toggleCommDD(e){
   e.stopPropagation();
