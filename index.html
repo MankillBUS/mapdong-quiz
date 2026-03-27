@@ -5564,21 +5564,21 @@ async function startNiceAuthSignup() {
   btn.disabled = true; btn.textContent = '인증창 여는 중...';
 
   try {
-    /* ① 현재 세션 확인
-       - 로그인 상태: access_token 사용
-       - 회원가입 전(미로그인): SUPABASE_KEY(anon key) 사용 */
-    let token = null;
-    const { data: { session: existSess } } = await sb.auth.getSession();
-    if(existSess?.access_token){
-      token = existSess.access_token;
-    } else {
-      token = SUPABASE_KEY;
-    }
-
-    if(!token){
-      toast('⚙️ 인증 서버 연결 중... 잠시 후 다시 시도해주세요.','error');
-      btn.disabled=false; btn.textContent='📲 본인인증';
-      return;
+    /* ① 토큰 결정
+       - 로그인 상태(currentUser 있음): sessionStorage에서 토큰 읽기
+       - 비로그인(회원가입): anon key 사용
+       - sb.auth.getSession() 호출 안 함 (Lock 충돌 방지) */
+    let token = SUPABASE_KEY; // 기본값: anon key
+    if(currentUser) {
+      // localStorage에서 Supabase 세션 직접 읽기
+      try {
+        const raw = localStorage.getItem('mapdong-auth-token');
+        if(raw) {
+          const parsed = JSON.parse(raw);
+          const accessToken = parsed?.access_token || parsed?.currentSession?.access_token;
+          if(accessToken) token = accessToken;
+        }
+      } catch(e) { /* 파싱 실패시 anon key 사용 */ }
     }
 
     /* ② [新 API] nice-request: auth_url 발급 (10초 타임아웃) */
