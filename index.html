@@ -3691,10 +3691,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     persistSession: true,
     detectSessionInUrl: true,
     storageKey: 'mapdong-auth-token',
-    lock: async (name, acquireTimeout, fn) => {
-      // Lock 충돌 방지: 즉시 실행
-      return fn();
-    },
+    flowType: 'pkce',
   }
 });
 
@@ -3785,6 +3782,15 @@ sb.auth.onAuthStateChange(async(event, session) => {
   if(event === 'TOKEN_REFRESHED') return;
   // INITIAL_SESSION: 세션 있으면 로그인 처리, 없으면 무시 (로그인 만료 팝업 방지)
   if(event === 'INITIAL_SESSION' && !session) return;
+
+  // 이메일 인증 완료 감지 (USER_UPDATED 이벤트)
+  if(event === 'USER_UPDATED' && session?.user?.email_confirmed_at) {
+    currentUser = session.user;
+    await loadProfile();
+    toast('✅ 이메일 인증 완료! 환영합니다.', 'success');
+    if(!quizActive()) routeUser();
+    return;
+  }
 
   if(session?.user){
     currentUser = session.user;
