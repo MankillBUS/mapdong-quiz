@@ -3038,7 +3038,7 @@ function fmtMs(ms){
   return `${sec}초`;
 }
 
-
+window.startQuiz = function(){
   const s = document.querySelectorAll('.stag.sel');
   if(!s.length){ toast('지역을 선택하세요!','error'); return; }
 
@@ -4011,6 +4011,8 @@ function doNo(dist, clickLat, clickLng){
   // 랭킹 모드 완주 감지
   if(isRankingMode) setTimeout(()=>checkRankingCompletion(), 500);
 }
+
+function closeNoModal(){
   document.getElementById('moverlay').classList.remove('show');
   document.getElementById('moverlay').classList.remove('no-mode');
 
@@ -6073,7 +6075,7 @@ function getRefundHtml() {
       if(lnText) lnText.style.opacity = '1';
     }, 350);
   }, 6000);
-}
+} // end loadNotices
 
 function showNoticeItem(idx) {
   const n = csNoticeList[idx];
