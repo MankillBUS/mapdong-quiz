@@ -623,7 +623,7 @@ async function renderBoard(){
   const from=(currentPage-1)*PAGE_SIZE,to=from+PAGE_SIZE-1;
 
   let query=sb.from('community_posts')
-    .select('id,title,created_at,view_count,like_count,is_pinned,content,user_id',{count:'exact'})
+    .select('id,title,created_at,view_count,like_count,is_pinned,is_notice,content,user_id',{count:'exact'})
     .eq('category_id',currentCatId).eq('is_deleted',false);
 
   // 검색
@@ -655,10 +655,12 @@ async function renderBoard(){
     const nick=prof.nickname||'(알수없음)';
     const hasImg=p.content&&p.content.includes('<img');
     const isBest=(p.like_count||0)>=BEST_THRESHOLD;
-    const isLocked = !canReadContent();
-    return `<div class="post-row${isBest?' best':''}" onclick="viewPost(${p.id})" style="${isLocked?'opacity:.85;':''}">
+    // 공지글은 일반회원도 열람 가능 → 잠금 표시 없음
+    const isLocked = !canReadContent() && !p.is_notice;
+    return `<div class="post-row${isBest?' best':''}${p.is_notice?' notice-post':''}" onclick="viewPost(${p.id})" style="${isLocked?'opacity:.85;':''}">
       <div class="post-title-row">
         ${p.is_pinned?'<span class="post-pin">📌</span>':''}
+        ${p.is_notice?'<span class="cs-notice-badge">공지</span>':''}
         ${isBest?'<span class="post-best" title="베스트 글">👑</span>':''}
         <span class="post-title">${escHtml(p.title)}</span>
         ${hasImg?'<span class="post-has-img">🖼</span>':''}
@@ -760,10 +762,12 @@ function goPage(p){currentPage=p;renderBoard();window.scrollTo(0,0);}
 
 // ── 게시글 보기 ──
 async function viewPost(postId){
-  // 글 내용 열람: 맵동가족/프리미엄/관리자만 (일반회원/보험등급은 제목만)
-  if(!canReadContent()){showContentLocked();return;}
   const {data}=await sb.from('community_posts').select('*').eq('id',postId).single();
-  if(!data)return;
+  if(!data) return;
+
+  // 공지글은 일반회원도 열람 가능, 일반 글은 canReadContent() 필요
+  if(!data.is_notice && !canReadContent()){showContentLocked();return;}
+
   _viewingPostId=postId;_viewingPostData=data;
   await sb.from('community_posts').update({view_count:(data.view_count||0)+1}).eq('id',postId);
 
