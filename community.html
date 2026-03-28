@@ -23,17 +23,30 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   flex:1;min-width:0;
   display:flex;align-items:center;gap:8px;
   cursor:pointer;overflow:hidden;
-  padding:0 4px;
+  padding:0 8px;
+  background:rgba(200,20,20,.07);
+  border-left:1px solid rgba(255,60,60,.2);
+  border-right:1px solid rgba(255,60,60,.2);
+  height:100%;
+  transition:background .2s;
 }
+#comm-notice:hover{background:rgba(200,20,20,.12);}
 #comm-notice .hn-label{
-  flex-shrink:0;background:rgba(220,40,40,.8);color:#fff;
-  font-size:.6rem;font-weight:700;padding:2px 8px;
-  border-radius:4px;letter-spacing:1px;white-space:nowrap;
+  flex-shrink:0;
+  background:rgba(220,40,40,.85);
+  color:#fff;
+  font-size:.6rem;font-weight:700;
+  padding:3px 10px;
+  letter-spacing:1px;white-space:nowrap;
+  height:100%;display:flex;align-items:center;
+  margin:0 -8px 0 -8px;
+  border-right:1px solid rgba(255,60,60,.3);
 }
 #comm-notice .hn-text{
   font-size:.72rem;color:#ff8080;font-weight:600;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   transition:opacity .35s;
+  padding-left:4px;
 }
 #comm-notice .hn-text.fade{opacity:0;}
 #comm-notice .hn-date{
@@ -91,6 +104,23 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .post-row{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;cursor:pointer;transition:border-color .15s;margin-bottom:4px;}
 .post-row:hover{border-color:var(--accent);}
 .post-row.best{border-color:var(--gold);background:rgba(255,215,0,.05);}
+/* 공지글 빨간 테두리 */
+.post-row.notice-post{
+  border-color:rgba(255,60,60,.45);
+  background:rgba(200,20,20,.06);
+}
+.post-row.notice-post:hover{border-color:#ff3c6e;}
+/* 공지 배지 */
+.cs-notice-badge{
+  background:rgba(255,50,50,.18);
+  color:#ff4444;
+  border:1px solid rgba(255,50,50,.35);
+  border-radius:5px;
+  padding:1px 7px;
+  font-size:.62rem;
+  font-weight:700;
+  flex-shrink:0;
+}
 .post-title-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
 .post-title{font-size:.88rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
 .post-pin{color:var(--gold);font-size:.75rem;}
