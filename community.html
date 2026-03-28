@@ -17,6 +17,28 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .comm-logo span{color:var(--accent2);}
 #btn-back-quiz{background:linear-gradient(135deg,#a29bfe,#6c5ce7);border:none;border-radius:8px;padding:6px 14px;font-size:.82rem;font-weight:700;color:#fff;cursor:pointer;}
 .comm-cat-title{font-size:.9rem;color:var(--text-dim);}
+
+/* ── 헤더 공지 롤링 (index와 동일) ── */
+#comm-notice{
+  flex:1;min-width:0;
+  display:flex;align-items:center;gap:8px;
+  cursor:pointer;overflow:hidden;
+  padding:0 4px;
+}
+#comm-notice .hn-label{
+  flex-shrink:0;background:rgba(220,40,40,.8);color:#fff;
+  font-size:.6rem;font-weight:700;padding:2px 8px;
+  border-radius:4px;letter-spacing:1px;white-space:nowrap;
+}
+#comm-notice .hn-text{
+  font-size:.72rem;color:#ff8080;font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:opacity .35s;
+}
+#comm-notice .hn-text.fade{opacity:0;}
+#comm-notice .hn-date{
+  flex-shrink:0;font-size:.62rem;color:var(--text-dim);white-space:nowrap;
+}
 /* ── 유저 칩 드롭다운 ── */
 #comm-user-area{margin-left:auto;display:flex;align-items:center;gap:10px;position:relative;}
 #comm-user-chip{display:none;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px 4px 6px;cursor:pointer;transition:border-color .2s;}
@@ -196,6 +218,12 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 <div id="comm-header">
   <div class="comm-logo">Map<span>Dong</span></div>
   <div class="comm-cat-title" id="comm-cat-title">커뮤니티</div>
+  <!-- 공지 롤링 배너 -->
+  <div id="comm-notice" onclick="openCommNotice()">
+    <div class="hn-label">📢 공지</div>
+    <div class="hn-text" id="comm-hn-text">공지 로딩 중...</div>
+    <div class="hn-date" id="comm-hn-date"></div>
+  </div>
   <div id="comm-user-area">
     <button id="btn-back-quiz" onclick="backToQuiz()">🗺 퀴즈로 돌아가기</button>
     <!-- 🔔 알림 버튼 -->
@@ -528,6 +556,8 @@ async function init(){
   renderSidebar();
   renderBoard();
   renderCommUserChip();
+  // 공지사항 롤링 로드
+  loadCommNotices();
 }
 
 // ── 사이드바 ──
@@ -1467,6 +1497,62 @@ function renderMyPagination(total){
   el.innerHTML=html;
 }
 function goMyPage(p){_myPage=p;loadMyPage();window.scrollTo(0,0);}
+
+// ═══════════════════════════════════════════════
+// 📢 공지사항 롤링 (index.html과 동일 메커니즘)
+// ═══════════════════════════════════════════════
+let _commNoticeList = [];
+let _commNoticeIdx  = 0;
+let _commRollingTimer = null;
+
+async function loadCommNotices(){
+  const monthAgo = new Date(Date.now() - 30*24*60*60*1000).toISOString();
+  try {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/cs_posts?select=id,title,created_at&is_notice=eq.true&created_at=gte.${monthAgo}&order=created_at.desc&limit=10`,
+      { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${SUPABASE_KEY}` } }
+    );
+    _commNoticeList = r.ok ? await r.json() : [];
+  } catch(e){ _commNoticeList = []; }
+
+  const textEl = document.getElementById('comm-hn-text');
+  const dateEl = document.getElementById('comm-hn-date');
+  if(!_commNoticeList.length){
+    if(textEl) textEl.textContent = '등록된 공지사항이 없습니다';
+    if(dateEl) dateEl.textContent = '';
+    return;
+  }
+  _commNoticeIdx = 0;
+  showCommNoticeItem(0);
+
+  if(_commRollingTimer) clearInterval(_commRollingTimer);
+  _commRollingTimer = setInterval(()=>{
+    const el = document.getElementById('comm-hn-text');
+    if(el) el.classList.add('fade');
+    setTimeout(()=>{
+      _commNoticeIdx = (_commNoticeIdx+1) % _commNoticeList.length;
+      showCommNoticeItem(_commNoticeIdx);
+      if(el) el.classList.remove('fade');
+    }, 350);
+  }, 6000);
+}
+
+function showCommNoticeItem(idx){
+  const n = _commNoticeList[idx];
+  if(!n) return;
+  const textEl = document.getElementById('comm-hn-text');
+  const dateEl = document.getElementById('comm-hn-date');
+  if(textEl) textEl.textContent = n.title;
+  if(dateEl) dateEl.textContent = new Date(n.created_at).toLocaleDateString('ko-KR');
+}
+
+function openCommNotice(){
+  // 현재 표시 중인 공지 게시글로 이동 (고객센터 링크 없으므로 index로 이동)
+  const n = _commNoticeList[_commNoticeIdx];
+  if(!n) return;
+  // 해당 공지를 게시판에서 열기
+  if(typeof viewPost === 'function') viewPost(n.id);
+}
 
 function backToQuiz(){window.location.href='index.html';}
 function escHtml(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
