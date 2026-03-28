@@ -1179,7 +1179,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
   <div class="login-card">
     <div class="login-logo">Map<span>Dong</span></div>
-    <div class="login-sub">수도권 동(洞) 위치 퀴즈<br>로그인 후 무료 300문제 체험 가능</div>
+    <div class="login-sub">수도권 동(洞) 위치 퀴즈<br>로그인 후 무제한 무료 체험 가능</div>
     <button class="btn-google" onclick="signInGoogle()">
       <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
       Google로 계속하기
@@ -1739,7 +1739,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div class="user-avatar" id="user-avatar">?</div>
     <span class="rank-tier-icon" id="chip-rank-icon" style="font-size:.9rem;flex-shrink:0;display:none;" title="랭킹 계급"></span>
     <span class="user-name" id="user-name">-</span>
-    <span class="user-badge trial" id="user-badge">체험판</span>
+    <span class="user-badge trial" id="user-badge">일반회원</span>
     <!-- 🔔 알림 뱃지 -->
     <span id="index-notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;
       background:#ff3c6e;color:#fff;border-radius:50%;width:16px;height:16px;
@@ -1752,7 +1752,14 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
         <div style="padding:8px 12px;font-size:.78rem;font-weight:700;color:var(--text);
           border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
           🔔 알림
-          <span id="index-notif-unread-count" style="font-size:.68rem;color:var(--accent);"></span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span id="index-notif-unread-count" style="font-size:.68rem;color:var(--accent);"></span>
+            <button id="index-notif-delete-all" onclick="deleteAllIndexNotifs(event)"
+              style="display:none;background:rgba(255,60,110,.15);border:1px solid rgba(255,60,110,.3);
+                color:#ff3c6e;border-radius:5px;padding:2px 8px;font-size:.68rem;cursor:pointer;">
+              전체삭제
+            </button>
+          </div>
         </div>
         <div id="index-notif-list" style="max-height:200px;overflow-y:auto;"></div>
         <div style="border-top:1px solid var(--border);padding:4px;"></div>
@@ -1765,7 +1772,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
           ✏️ 클릭하면 내정보 수정
         </div>
         <div class="dd-email" id="dd-email" style="font-size:.84rem;font-weight:600;color:var(--text);">-</div>
-        <div class="dd-status trial" id="dd-status">체험판 이용 중</div>
+        <div class="dd-status trial" id="dd-status">일반회원 이용 중</div>
       </div>
 
       <!-- ② 플랜 결제/변경 -->
@@ -1838,14 +1845,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       </div>
 
       <!-- 무료 체험 진행바 -->
-      <div id="trial-bar">
-        <div class="trial-header">
-          <span class="trial-label">🎁 무료 체험</span>
-          <span class="trial-count"><strong id="trial-used">0</strong> / 300</span>
-        </div>
-        <div class="trial-bg"><div class="trial-fill" id="trial-fill" style="width:0%"></div></div>
-      </div>
-
       <!-- 진행률 -->
       <div class="panel">
         <div class="pt">📊 진행률</div>
@@ -4666,17 +4665,24 @@ function renderIndexNotifBadge(notifs){
   const unread = (notifs||[]).filter(n=>!n.is_read).length;
   const badge = document.getElementById('index-notif-badge');
   if(badge){ badge.textContent=unread>9?'9+':unread; badge.style.display=unread>0?'flex':'none'; }
+  // 로그인 상태면 알림 영역 항상 표시
   const area = document.getElementById('index-notif-area');
-  if(area) area.style.display = notifs?.length > 0 ? 'block' : 'none';
+  if(area) area.style.display = currentUser ? 'block' : 'none';
   const unreadEl = document.getElementById('index-notif-unread-count');
-  if(unreadEl) unreadEl.textContent = unread>0 ? `읽지 않은 알림 ${unread}개` : '';
+  if(unreadEl) unreadEl.textContent = unread>0 ? `읽지 않은 ${unread}개` : '';
+  // 전체삭제 버튼: 알림 있을 때만 표시
+  const delBtn = document.getElementById('index-notif-delete-all');
+  if(delBtn) delBtn.style.display = (notifs||[]).length>0 ? 'block' : 'none';
   renderIndexNotifList(notifs||[]);
 }
 
 function renderIndexNotifList(notifs){
   const listEl = document.getElementById('index-notif-list');
   if(!listEl) return;
-  if(!notifs.length){ listEl.innerHTML=''; return; }
+  if(!notifs.length){
+    listEl.innerHTML='<div style="text-align:center;padding:16px 12px;color:var(--text-dim);font-size:.76rem;">알림이 없습니다</div>';
+    return;
+  }
   listEl.innerHTML = notifs.slice(0,5).map(n=>`
     <div onclick="clickIndexNotif('${n.id}',${n.post_id||'null'})"
       style="padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer;
@@ -4690,6 +4696,20 @@ function renderIndexNotifList(notifs){
         ${new Date(n.created_at).toLocaleString('ko-KR')}
       </div>
     </div>`).join('');
+}
+
+async function deleteAllIndexNotifs(e){
+  e.stopPropagation();
+  if(!currentUser) return;
+  if(!confirm('알림을 모두 삭제하시겠습니까?')) return;
+  let token=SUPABASE_KEY;
+  try{const raw=localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');if(raw){const p=JSON.parse(raw);if(p?.access_token)token=p.access_token;}}catch(e){}
+  await fetch(`${SUPABASE_URL}/rest/v1/notifications?user_id=eq.${currentUser.id}`,{
+    method:'DELETE',
+    headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${token}`,'Prefer':'return=minimal'}
+  });
+  window._indexNotifs=[];
+  renderIndexNotifBadge([]);
 }
 
 async function clickIndexNotif(notifId, postId){
@@ -4856,9 +4876,9 @@ function renderUserChip(){
     if(btnMdUpg) btnMdUpg.style.display = 'none';
   } else {
     const used = userProfile?.plays_count || 0;
-    badge.textContent   = '체험판'; badge.className = 'user-badge trial';
-    status.textContent  = `체험판 · ${used}/300 사용`; status.className = 'dd-status trial';
-    if(tbar){ tbar.classList.remove('hidden'); updateTrialBar(used); }
+    badge.textContent   = '일반회원'; badge.className = 'user-badge trial';
+    status.textContent  = `일반회원 · 무제한 이용`; status.className = 'dd-status trial';
+    if(tbar) tbar.classList.add('hidden'); // 체험바 항상 숨김
     if(btnUpg)   btnUpg.style.display   = 'flex';
     if(btnMdUpg) btnMdUpg.style.display = 'flex';
   }
@@ -4942,21 +4962,16 @@ document.addEventListener('click', e => {
     document.getElementById('user-dropdown').classList.remove('show');
 });
 
-/* ── 플레이 횟수 증가 ── */
+/* ── 플레이 횟수 증가 (일반회원 무제한) ── */
 async function incrementPlays(){
-  if(!currentUser || isActivePremium()) return { ok: true };
-  const { data, error } = await sb.rpc('increment_plays', { p_user_id: currentUser.id });
-  if(error){ console.error(error); return { ok: true }; }
-  if(data?.code === 'TRIAL_EXCEEDED'){
-    userProfile.plays_count = 300;
-    renderUserChip();
-    showPaywall();
-    return { ok: false };
-  }
-  if(data?.plays_count !== undefined){
-    userProfile.plays_count = data.plays_count;
-    updateTrialBar(data.plays_count);
-  }
+  // 프리미엄/맵동가족/일반 모두 무제한 — plays_count 카운트만 유지
+  if(!currentUser) return { ok: true };
+  try {
+    const { data } = await sb.rpc('increment_plays', { p_user_id: currentUser.id });
+    if(data?.plays_count !== undefined && userProfile){
+      userProfile.plays_count = data.plays_count;
+    }
+  } catch(e){}
   return { ok: true };
 }
 
