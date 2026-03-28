@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏆 Ranking 디버그 · MapDong</title>
+<style>
+:root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1e3a5f;--accent:#00d4ff;--text:#e8f4fd;--text-dim:#7a9bb5;--gold:#ffd700;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',monospace;min-height:100vh;padding:24px;}
+h1{font-size:1.1rem;color:var(--accent);margin-bottom:16px;display:flex;align-items:center;gap:10px;}
+.toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+button{border:none;border-radius:8px;padding:8px 16px;font-size:.8rem;cursor:pointer;font-family:inherit;transition:all .2s;}
+.btn-run{background:var(--accent);color:#000;font-weight:700;}
+.btn-run:hover{opacity:.85;}
+.btn-copy{background:rgba(0,212,255,.15);border:1px solid var(--accent);color:var(--accent);}
+.btn-copy:hover{background:rgba(0,212,255,.25);}
+.btn-clear{background:rgba(255,60,110,.15);border:1px solid #ff3c6e;color:#ff3c6e;}
+.btn-clear:hover{background:rgba(255,60,110,.25);}
+.btn-back{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text-dim);}
+.btn-back:hover{border-color:var(--accent);color:var(--accent);}
+#log{
+  background:#0d1117;border:1px solid var(--accent);border-radius:12px;
+  padding:20px;font-family:monospace;font-size:.78rem;color:var(--text);
+  line-height:1.9;white-space:pre-wrap;word-break:break-all;
+  min-height:400px;max-height:80vh;overflow-y:auto;
+}
+.ok{color:#39ff14;}.ng{color:#ff3c6e;}.info{color:#b0c8de;}.warn{color:var(--gold);}
+.status{font-size:.75rem;color:var(--text-dim);margin-bottom:8px;}
+</style>
+</head>
+<body>
+<h1>🏆 Ranking 디버그</h1>
+<div class="toolbar">
+  <button class="btn-run" onclick="runDebug()">▶ 분석 실행</button>
+  <button class="btn-copy" onclick="copyLog()">📋 로그 복사</button>
+  <button class="btn-clear" onclick="clearLog()">🗑 초기화</button>
+  <button class="btn-back" onclick="history.back()">← 돌아가기</button>
+</div>
+<div class="status" id="status">버튼을 눌러 분석을 시작하세요.</div>
+<div id="log">대기 중...</div>
+
+<script>
+const SUPABASE_URL = 'https://emgsueepzioudqnitkyn.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemlvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkwNzQsImV4cCI6MjA4NjU2NTA3NH0.epR1k3MVh0MfZejFh9VflCNOS8Uz8EuCZlez5OBMz3s';
+const LS_KEY = 'sb-emgsueepzioudqnitkyn-auth-token';
+
+let logText = '';
+
+function line(cls, txt){ logText += `<span class="${cls}">${txt}</span>\n`; }
+const ok   = (k,v) => line('ok',   `  ✅ ${k}: ${v}`);
+const ng   = (k,v,e) => line('ng', `  ❌ ${k}: ${v}  ← 기대값: ${e}`);
+const info = (k,v) => line('info', `  ℹ️  ${k}: ${v}`);
+const warn = (k,v) => line('warn', `  ⚠️  ${k}: ${v}`);
+const sep  = () => line('info', '─'.repeat(60));
+const head = (t) => line('ok', t);
+
+function render(){ document.getElementById('log').innerHTML = logText; }
+function clearLog(){ logText=''; document.getElementById('log').innerHTML='대기 중...'; document.getElementById('status').textContent='초기화됨.'; }
+
+function getToken(){
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(raw){ const p=JSON.parse(raw); return { token: p?.access_token||p?.currentSession?.access_token||SUPABASE_KEY, exp: p?.expires_at||p?.currentSession?.expires_at||0, uid: p?.user?.id||p?.currentSession?.user?.id||null, email: p?.user?.email||p?.currentSession?.user?.email||null }; }
+  }catch(e){}
+  return { token: SUPABASE_KEY, exp: 0, uid: null, email: null };
+}
+
+async function runDebug(){
+  logText = '';
+  document.getElementById('status').textContent = '분석 중...';
+  const now = Date.now();
+
+  head('━'.repeat(60));
+  head(`🏆 Ranking 디버그: ${new Date().toLocaleString('ko-KR')}`);
+  sep();
+
+  // ── 1. localStorage 토큰
+  line('info', '\n[1] localStorage 토큰 상태');
+  const { token, exp, uid, email } = getToken();
+  const expired = exp ? (exp * 1000) < now : false;
+  const expSoon = exp ? (exp * 1000) < (now + 60000) : false; // 1분 이내 만료
+  const expDate = exp ? new Date(exp * 1000).toLocaleString('ko-KR') : '없음';
+
+  token !== SUPABASE_KEY ? ok('access_token', '있음') : ng('access_token', '없음/anon', '유저 토큰');
+  info('user.id', uid || '없음');
+  info('email', email || '없음');
+  info('만료시각', expDate);
+  if(expired)     ng('만료여부', '만료됨 ← JWT expired 오류 원인', '유효해야 함');
+  else if(expSoon) warn('만료여부', '1분 내 만료 임박 (갱신 필요)');
+  else            ok('만료여부', '유효');
+  token===SUPABASE_KEY ? ng('토큰 종류', 'anon key (인증 불가)', '유저 토큰') : ok('토큰 종류', '유저 토큰');
+  sep();
+
+  // ── 2. 토큰 갱신 가능 여부
+  line('info', '\n[2] 토큰 갱신 진단');
+  if(expired){
+    warn('진단', '토큰이 만료됨 → Supabase SDK가 refresh_token으로 자동 갱신해야 함');
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      const p = raw ? JSON.parse(raw) : null;
+      const rft = p?.refresh_token || p?.currentSession?.refresh_token;
+      rft ? ok('refresh_token', '있음 → SDK 자동 갱신 가능') : ng('refresh_token', '없음', 'refresh_token 있어야 함');
+    }catch(e){ ng('refresh_token 파싱', e.message, '정상 파싱'); }
+    warn('해결책', '페이지 새로고침 또는 재로그인 후 토큰 갱신 확인');
+  } else {
+    ok('토큰 상태', '유효 → 갱신 불필요');
+  }
+  sep();
+
+  // ── 3. ranking_scores 테이블 접근
+  line('info', '\n[3] ranking_scores 테이블 접근 테스트');
+  info('사용 토큰', token===SUPABASE_KEY ? 'anon key ⚠️' : '유저 토큰 ✅');
+
+  // anon key SELECT (공개 랭킹 조회)
+  try{
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/ranking_scores?limit=3&order=rate.desc`,
+      { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${SUPABASE_KEY}` } });
+    if(r.ok){ const rows=await r.json(); ok('anon SELECT', `200 OK · ${rows.length}개 행 반환`); }
+    else{ const t=await r.text(); ng('anon SELECT', `${r.status}: ${t.substring(0,100)}`, '200 OK'); }
+  }catch(e){ ng('anon SELECT', `네트워크 오류: ${e.message}`, '200 OK'); }
+
+  // 유저 토큰 SELECT
+  if(token!==SUPABASE_KEY && uid){
+    try{
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/ranking_scores?user_id=eq.${uid}&limit=5&order=rate.desc`,
+        { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${token}` } });
+      if(r.ok){ const rows=await r.json(); ok('유저 토큰 SELECT', `200 OK · 내 기록 ${rows.length}개`);
+        if(rows.length){ rows.slice(0,3).forEach(row=>info('  기록', `${row.group_key} | 정답률 ${row.rate}% | ${row.elapsed_ms ? Math.round(row.elapsed_ms/1000)+'초' : '-'}`)); }
+      } else { const t=await r.text(); ng('유저 토큰 SELECT', `${r.status}: ${t.substring(0,100)}`, '200 OK'); }
+    }catch(e){ ng('유저 토큰 SELECT', `네트워크 오류: ${e.message}`, '200 OK'); }
+  } else { warn('유저 토큰 SELECT', '토큰 없거나 uid 없어 건너뜀'); }
+  sep();
+
+  // ── 4. goRanking 이동 방식
+  line('info', '\n[4] goRanking() 이동 방식');
+  ok('이동 방식', 'window.location.href (같은 탭 이동 — community와 동일)');
+  info('ranking.html URL', location.origin + '/ranking.html');
+  try{
+    const r = await fetch('ranking.html', { method:'HEAD' });
+    r.ok ? ok('ranking.html 접근', `${r.status} OK`) : ng('ranking.html 접근', `${r.status}`, '200 OK');
+  }catch(e){ ng('ranking.html HEAD', e.message, '200 OK'); }
+  sep();
+
+  // ── 5. 토큰 만료 시 해결 가이드
+  if(expired){
+    line('warn', '\n[5] ⚠️ JWT expired 해결 방법');
+    warn('원인', '토큰 만료 후 자동 갱신이 이루어지지 않았음');
+    warn('방법1', '페이지 새로고침 → Supabase SDK가 refresh_token으로 자동 갱신');
+    warn('방법2', '재로그인 → 새 토큰 발급');
+    warn('방법3', '만료 30초 전 체크 로직이 갱신을 차단 중인지 확인 (fetchMyRankTier)');
+    sep();
+  }
+
+  head('\n✅ 디버그 완료');
+  render();
+  document.getElementById('status').textContent = `완료: ${new Date().toLocaleString('ko-KR')}`;
+}
+
+function copyLog(){
+  const text = document.getElementById('log').innerText;
+  navigator.clipboard.writeText(text)
+    .then(()=>alert('✅ 로그가 복사되었습니다!'))
+    .catch(()=>{ const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); alert('✅ 복사됨!'); });
+}
+
+// 페이지 열리면 자동 실행
+runDebug();
+</script>
+</body>
+</html>
