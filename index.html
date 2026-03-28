@@ -4651,6 +4651,13 @@ async function loadProfile(sessionToken){
   renderUserChip();
   // 로그인 후 알림 로드
   loadIndexNotifications();
+  // 신규회원 무료체험 상태 서버 로드 (프리미엄 아닌 경우만)
+  if(!isActivePremium()){
+    loadTrialStatus().then(()=>{
+      updateNewMemberTimer();
+      startTrialCheckTimer();
+    });
+  }
 }
 
 /* ══════════════════════════════════════════════
@@ -4762,32 +4769,162 @@ function isActivePremium(){
    user_profiles.created_at 기준으로 24시간 이내면 true
    → 모든 정답 표시 기능 무료 허용
    ──────────────────────────────────────────────────────── */
-function isNewMember24h(){
-  if(!userProfile?.created_at) return false;
-  const joinedAt = new Date(userProfile.created_at).getTime();
-  const elapsed  = Date.now() - joinedAt;
-  return elapsed < 24 * 60 * 60 * 1000; // 24시간 미만
+/* ══════════════════════════════════════════════════════════════
+   🎁 신규회원 무료체험 - 서버 이중검증 시스템
+   메커니즘:
+   1. 로그인 시 free_trial_status 초기화 (없으면 INSERT)
+   2. 2시간마다 서버 체크 (체크 1~11회)
+   3. 11회 이후 → 1시간 3분마다 체크 (체크 12~13회)
+   4. 13회 완료(24시간 6분) → trial_used=true 기록
+   5. toggleShowAll: remaining_seconds>0 AND trial_used=false 둘다 통과해야 허용
+   ══════════════════════════════════════════════════════════════ */
+let _trialStatus      = null;  // { trial_used, check_count, last_checked, expired_at }
+let _trialCheckTimer  = null;
+let _trialDisplayTimer= null;
+
+const TRIAL_DURATION_MS  = 24 * 60 * 60 * 1000; // 24시간
+const TRIAL_BONUS_MS     = 6  * 60 * 1000;        // 보너스 6분
+const TRIAL_TOTAL_MS     = TRIAL_DURATION_MS + TRIAL_BONUS_MS; // 24시간 6분
+const TRIAL_CHECK_NORMAL = 2  * 60 * 60 * 1000;   // 2시간 (1~11회)
+const TRIAL_CHECK_FINE   = 63 * 60 * 1000;         // 1시간 3분 (12~13회)
+const TRIAL_MAX_CHECKS   = 13;
+
+/* ── 토큰 헬퍼 ── */
+function _getToken(){
+  try{
+    const raw=localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+    if(raw){ const p=JSON.parse(raw); return p?.access_token||p?.currentSession?.access_token||SUPABASE_KEY; }
+  }catch(e){}
+  return SUPABASE_KEY;
 }
 
-/* ── 신규회원 24시간 남은시간 표시 타이머 ── */
-let _newMemberTimerInterval = null;
+/* ── 서버에서 trial 상태 로드 (없으면 생성) ── */
+async function loadTrialStatus(){
+  if(!currentUser) return;
+  const token = _getToken();
+  if(token === SUPABASE_KEY) return;
 
+  try {
+    // 1. 기존 레코드 조회
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/free_trial_status?user_id=eq.${currentUser.id}&select=*&limit=1`,
+      { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${token}` } }
+    );
+    if(!r.ok) return;
+    const rows = await r.json();
+
+    if(rows.length > 0){
+      _trialStatus = rows[0];
+    } else {
+      // 2. 없으면 신규 생성
+      const expiredAt = new Date(
+        new Date(userProfile.created_at).getTime() + TRIAL_TOTAL_MS
+      ).toISOString();
+      const ins = await fetch(
+        `${SUPABASE_URL}/rest/v1/free_trial_status`,
+        {
+          method: 'POST',
+          headers:{
+            'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${token}`,
+            'Content-Type':'application/json', 'Prefer':'return=representation'
+          },
+          body: JSON.stringify({
+            user_id:     currentUser.id,
+            trial_used:  false,
+            check_count: 0,
+            last_checked: new Date().toISOString(),
+            expired_at:  expiredAt
+          })
+        }
+      );
+      if(ins.ok){ const d=await ins.json(); _trialStatus = Array.isArray(d)?d[0]:d; }
+    }
+  } catch(e){ console.warn('trial 로드 실패:', e); }
+}
+
+/* ── 서버 체크 1회 실행 ── */
+async function runTrialCheck(){
+  if(!currentUser || !_trialStatus) return;
+  if(_trialStatus.trial_used) return; // 이미 만료됨
+
+  const token = _getToken();
+  if(token === SUPABASE_KEY) return;
+
+  const now         = Date.now();
+  const expiredAt   = new Date(_trialStatus.expired_at).getTime();
+  const newCount    = (_trialStatus.check_count || 0) + 1;
+  const isExpired   = now >= expiredAt || newCount >= TRIAL_MAX_CHECKS;
+
+  try {
+    const patch = await fetch(
+      `${SUPABASE_URL}/rest/v1/free_trial_status?user_id=eq.${currentUser.id}`,
+      {
+        method: 'PATCH',
+        headers:{
+          'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${token}`,
+          'Content-Type':'application/json', 'Prefer':'return=representation'
+        },
+        body: JSON.stringify({
+          check_count:  newCount,
+          last_checked: new Date().toISOString(),
+          trial_used:   isExpired ? true : _trialStatus.trial_used
+        })
+      }
+    );
+    if(patch.ok){
+      const d = await patch.json();
+      _trialStatus = Array.isArray(d) ? d[0] : d;
+
+      if(isExpired){
+        // 만료 처리
+        stopTrialCheckTimer();
+        updateNewMemberTimer();
+        if(!isActivePremium()){
+          toast('🎁 24시간 무료체험이 종료되었습니다. 프리미엄으로 계속 이용하세요!', 'info');
+        }
+      }
+    }
+  } catch(e){ console.warn('trial 체크 실패:', e); }
+}
+
+/* ── 체크 타이머 시작 ── */
+function startTrialCheckTimer(){
+  stopTrialCheckTimer();
+  if(!_trialStatus || _trialStatus.trial_used) return;
+
+  function scheduleNext(){
+    const count = _trialStatus?.check_count || 0;
+    // 11회 이하: 2시간, 12회 이상: 1시간 3분
+    const delay = count < 11 ? TRIAL_CHECK_NORMAL : TRIAL_CHECK_FINE;
+    _trialCheckTimer = setTimeout(async ()=>{
+      await runTrialCheck();
+      if(_trialStatus && !_trialStatus.trial_used) scheduleNext();
+    }, delay);
+  }
+  scheduleNext();
+}
+
+function stopTrialCheckTimer(){
+  if(_trialCheckTimer){ clearTimeout(_trialCheckTimer); _trialCheckTimer = null; }
+}
+
+/* ── 남은 시간 UI 업데이트 ── */
 function updateNewMemberTimer(){
   const timerDiv  = document.getElementById('new-member-timer');
   const timerText = document.getElementById('new-member-timer-text');
   if(!timerDiv || !timerText) return;
 
-  if(!userProfile?.created_at || isActivePremium()){
+  // 프리미엄이거나 trial_used=true이면 숨김
+  if(isActivePremium() || !_trialStatus || _trialStatus.trial_used){
     timerDiv.style.display = 'none';
     return;
   }
 
-  const joinedAt  = new Date(userProfile.created_at).getTime();
-  const remaining = (joinedAt + 24*60*60*1000) - Date.now();
+  const expiredAt = new Date(_trialStatus.expired_at).getTime();
+  const remaining = expiredAt - Date.now();
 
   if(remaining <= 0){
     timerDiv.style.display = 'none';
-    if(_newMemberTimerInterval){ clearInterval(_newMemberTimerInterval); _newMemberTimerInterval = null; }
     return;
   }
 
@@ -4799,8 +4936,23 @@ function updateNewMemberTimer(){
 
 function startNewMemberTimer(){
   updateNewMemberTimer();
-  if(_newMemberTimerInterval) clearInterval(_newMemberTimerInterval);
-  _newMemberTimerInterval = setInterval(updateNewMemberTimer, 60000); // 1분마다
+  if(_trialDisplayTimer) clearInterval(_trialDisplayTimer);
+  _trialDisplayTimer = setInterval(updateNewMemberTimer, 60000); // 1분마다 UI 갱신
+}
+
+/* ── 무료체험 사용 가능 여부 (이중 검증) ── */
+function canUseFreeTrialShowAll(){
+  if(isActivePremium()) return true;   // 프리미엄은 항상 허용
+  if(!_trialStatus) return false;      // 서버 데이터 없으면 차단
+  if(_trialStatus.trial_used) return false; // 서버에서 만료 기록된 경우 차단
+  // 만료시각 서버값 기준 검증
+  const expiredAt = new Date(_trialStatus.expired_at).getTime();
+  return Date.now() < expiredAt;
+}
+
+/* ── 구 isNewMember24h 대체 ── */
+function isNewMember24h(){
+  return canUseFreeTrialShowAll();
 }
 
 /* ── 맵동가족 활성 여부 ─────────────────────────────────── */
