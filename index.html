@@ -1496,15 +1496,15 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 <!-- 시작 화면 -->
 <div id="start" class="fs-screen hidden">
-<!-- 디버그 버튼 -->
+  <!-- 디버그 버튼 -->
   <div style="position:fixed;bottom:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
-    <button onclick="window.open('debug_ranking.html','_blank')"
+    <button onclick="window.location.href='debug_ranking.html'"
       style="background:rgba(0,212,255,.15);border:1px dashed var(--accent);
         color:var(--accent);border-radius:8px;padding:6px 12px;
         font-size:.72rem;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">
       🏆 Ranking 디버그
     </button>
-    <button onclick="window.open('debug_auth.html','_blank')"
+    <button onclick="window.location.href='debug_auth.html'"
       style="background:rgba(255,165,0,.2);border:1px dashed #ff8c00;
         color:#ff8c00;border-radius:8px;padding:6px 12px;
         font-size:.72rem;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">
@@ -7498,6 +7498,313 @@ async function resendOtp() {
 </div>
 
 <!-- 🏆 Ranking 디버그 모달 -->
+<div id="ranking-debug-modal" style="display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.92);backdrop-filter:blur(8px);
+  z-index:99999;align-items:flex-start;justify-content:center;
+  padding:20px;overflow-y:auto;">
+  <div style="background:#0d1117;border:1px solid var(--accent);border-radius:16px;
+    max-width:720px;width:100%;padding:24px;margin:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:1.1rem;color:var(--accent);">
+        🏆 Ranking 디버그
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="copyRankingLog()"
+          style="background:var(--accent);color:#000;border:none;border-radius:8px;
+            padding:6px 14px;font-size:.78rem;font-weight:700;cursor:pointer;">
+          📋 복사
+        </button>
+        <button onclick="document.getElementById('ranking-debug-modal').style.display='none'"
+          style="background:rgba(255,255,255,.1);color:#aaa;border:1px solid #333;
+            border-radius:8px;padding:6px 14px;font-size:.78rem;cursor:pointer;">
+          ✕ 닫기
+        </button>
+      </div>
+    </div>
+    <div id="ranking-debug-content" style="font-family:monospace;font-size:.75rem;
+      color:#e8f4fd;line-height:1.8;white-space:pre-wrap;word-break:break-all;">
+      분석 중...
+    </div>
+  </div>
+</div>
+
+<!-- ⚠️ [임시 인증 디버그 모달] 삭제 예정 -->
+<div id="auth-debug-modal" style="display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.92);backdrop-filter:blur(8px);
+  z-index:99999;align-items:flex-start;justify-content:center;
+  padding:20px;overflow-y:auto;">
+  <div style="background:#0d1117;border:1px solid #ff8c00;border-radius:16px;
+    max-width:680px;width:100%;padding:24px;margin:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:1.1rem;color:#ff8c00;">
+        🔧 인증 상태 디버그
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="copyAuthLog()"
+          style="background:#ff8c00;color:#000;border:none;border-radius:8px;
+            padding:6px 14px;font-size:.78rem;font-weight:700;cursor:pointer;">
+          📋 복사
+        </button>
+        <button onclick="document.getElementById('auth-debug-modal').style.display='none'"
+          style="background:rgba(255,255,255,.1);color:#aaa;border:1px solid #333;
+            border-radius:8px;padding:6px 14px;font-size:.78rem;cursor:pointer;">
+          ✕ 닫기
+        </button>
+      </div>
+    </div>
+    <div id="auth-debug-content" style="font-family:monospace;font-size:.75rem;
+      color:#e8f4fd;line-height:1.8;white-space:pre-wrap;word-break:break-all;">
+      분석 중...
+    </div>
+  </div>
+</div>
+
+<script>
+/* ⚠️ [임시 디버그 함수] 삭제 예정 */
+/* 🏆 Ranking 디버그 함수 */
+async function runRankingDebug() {
+  const modal = document.getElementById('ranking-debug-modal');
+  const box   = document.getElementById('ranking-debug-content');
+  modal.style.display = 'flex';
+  box.textContent = '🔄 분석 중...';
+
+  let log = '';
+  const ok   = (k,v) => { log += `  ✅ ${k}: ${v}\n`; };
+  const ng   = (k,v,e) => { log += `  ❌ ${k}: ${v}  ← 기대값: ${e}\n`; };
+  const info = (k,v) => { log += `  ℹ️  ${k}: ${v}\n`; };
+  const warn = (k,v) => { log += `  ⚠️  ${k}: ${v}\n`; };
+  const sep  = () => { log += '─'.repeat(60) + '\n'; };
+
+  log += '━'.repeat(60) + '\n';
+  log += `🏆 Ranking 디버그: ${new Date().toLocaleString('ko-KR')}\n`;
+  sep();
+
+  // ── 1. 기본 상태
+  log += '\n[1] 현재 상태\n';
+  info('currentUser', currentUser ? currentUser.email : '없음');
+  info('quizActive()', quizActive());
+  info('cur (현재 문제)', cur ? `${cur.d} (${cur.rn})` : 'null');
+  info('allDongs.length', allDongs?.length || 0);
+  info('isRankingMode', isRankingMode);
+  info('rankingGroupKey', rankingGroupKey || '없음');
+  sep();
+
+  // ── 2. localStorage 토큰 상태
+  log += '\n[2] localStorage 토큰\n';
+  try {
+    const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+    if(raw) {
+      const p = JSON.parse(raw);
+      const t = p?.access_token || p?.currentSession?.access_token;
+      const exp = p?.expires_at || p?.currentSession?.expires_at;
+      const uid = p?.user?.id || p?.currentSession?.user?.id;
+      const expDate = exp ? new Date(exp * 1000).toLocaleString('ko-KR') : '없음';
+      const expired = exp ? (exp * 1000) < Date.now() : false;
+
+      t ? ok('access_token', '있음') : ng('access_token', '없음', '토큰 있어야 함');
+      info('user.id', uid || '없음');
+      info('만료시각', expDate);
+      expired ? ng('만료여부', '만료됨', '유효해야 함') : ok('만료여부', '유효');
+
+      const tokenIsAnon = (t === SUPABASE_KEY);
+      tokenIsAnon ? ng('토큰 종류', 'anon key (인증 불가)', '유저 토큰') : ok('토큰 종류', '유저 토큰');
+    } else {
+      ng('localStorage 세션', '없음', '세션 있어야 함');
+    }
+  } catch(e) { log += `  ❌ 파싱 오류: ${e.message}\n`; }
+  sep();
+
+  // ── 3. ranking_scores 테이블 접근 테스트
+  log += '\n[3] ranking_scores 테이블 접근\n';
+  try {
+    let token = SUPABASE_KEY;
+    try {
+      const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+      if(raw) { const p=JSON.parse(raw); const t=p?.access_token||p?.currentSession?.access_token; if(t) token=t; }
+    } catch(e) {}
+
+    info('사용 토큰', token === SUPABASE_KEY ? 'anon key ⚠️' : '유저 토큰 ✅');
+
+    // SELECT 테스트 (anon key로도 가능해야 함 - RLS SELECT USING(true))
+    const resAnon = await fetch(
+      `${SUPABASE_URL}/rest/v1/ranking_scores?limit=1`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    );
+    resAnon.ok ? ok('anon key SELECT', `${resAnon.status} OK`) : ng('anon key SELECT', `${resAnon.status}`, '200 OK (RLS 누구나 읽기)');
+
+    // 유저 토큰으로 테스트
+    if(token !== SUPABASE_KEY && currentUser) {
+      const resUser = await fetch(
+        `${SUPABASE_URL}/rest/v1/ranking_scores?user_id=eq.${currentUser.id}&limit=1`,
+        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` } }
+      );
+      if(resUser.ok) {
+        const rows = await resUser.json();
+        ok('유저 토큰 SELECT', `${resUser.status} OK · ${rows.length}개 기록`);
+      } else {
+        const txt = await resUser.text();
+        ng('유저 토큰 SELECT', `${resUser.status}: ${txt.substring(0,80)}`, '200 OK');
+      }
+    } else {
+      warn('유저 토큰 SELECT', '토큰 없어서 건너뜀');
+    }
+  } catch(e) { log += `  ❌ 네트워크 오류: ${e.message}\n`; }
+  sep();
+
+  // ── 4. goRanking 시뮬레이션
+  log += '\n[4] goRanking() 시뮬레이션\n';
+  info('currentUser', currentUser ? '있음' : '없음 → 로그인 필요 오류');
+  info('window.open 방식', '새 탭 열기 (퀴즈 상태 보존)');
+  info('ranking.html URL', window.location.origin + '/ranking.html');
+
+  // ranking.html 존재 확인
+  try {
+    const r = await fetch('ranking.html', { method: 'HEAD' });
+    r.ok ? ok('ranking.html 접근', `${r.status} OK`) : ng('ranking.html 접근', `${r.status}`, '200 OK');
+  } catch(e) { log += `  ❌ ranking.html fetch 오류: ${e.message}\n`; }
+  sep();
+
+  // ── 5. 랭킹 모드 가능 여부
+  log += '\n[5] 랭킹 모드 시작 조건\n';
+  const selected = document.querySelectorAll('.stag.sel');
+  info('선택된 지역 수', selected.length);
+  info('rankingGroupKey', rankingGroupKey || '없음 (카테고리 전체 선택 필요)');
+  const rankBtn = document.getElementById('btn-ranking-start');
+  info('랭킹 시작 버튼 상태', rankBtn ? (rankBtn.disabled ? '비활성' : '활성') : '버튼 없음');
+  sep();
+
+  log += '\n✅ 디버그 완료\n';
+  box.textContent = log;
+}
+
+function copyRankingLog() {
+  const text = document.getElementById('ranking-debug-content').textContent;
+  navigator.clipboard.writeText(text)
+    .then(() => alert('✅ 랭킹 디버그 로그가 복사되었습니다!'))
+    .catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      alert('✅ 복사됨!');
+    });
+}
+
+/* ⚠️ [임시 디버그 함수] 삭제 예정 */
+async function runAuthDebug() {
+  const modal = document.getElementById('auth-debug-modal');
+  const box   = document.getElementById('auth-debug-content');
+  modal.style.display = 'flex';
+  box.textContent = '🔄 분석 중...';
+
+  let log = '';
+  const ok   = (k,v) => { log += `  ✅ ${k}: ${v}\n`; };
+  const ng   = (k,v,e) => { log += `  ❌ ${k}: ${v}  ← 기대값: ${e}\n`; };
+  const info = (k,v) => { log += `  ℹ️  ${k}: ${v}\n`; };
+  const sep  = () => { log += '─'.repeat(55) + '\n'; };
+
+  log += '━'.repeat(55) + '\n';
+  log += `🔧 디버그: ${new Date().toLocaleString('ko-KR')}\n`;
+  sep();
+
+  // ── 1. currentUser 상태
+  log += '\n[1] 로그인 상태 (currentUser)\n';
+  if(currentUser) {
+    ok('로그인', '됨');
+    info('user.id', currentUser.id);
+    info('email', currentUser.email);
+  } else {
+    ng('로그인', '안됨', '로그인된 상태');
+  }
+  sep();
+
+  // ── 2. userProfile 상태
+  log += '\n[2] 프로필 로드 (userProfile)\n';
+  if(userProfile) {
+    ok('프로필 로드', '됨');
+    info('is_verified', String(userProfile.is_verified) + ' (타입: ' + typeof userProfile.is_verified + ')');
+    info('nice_di', userProfile.nice_di ? '있음(' + userProfile.nice_di.length + '자)' : '없음/null');
+    info('role', userProfile.role || 'user');
+    info('nickname', userProfile.nickname || '없음');
+    info('email_confirmed', currentUser?.email_confirmed_at ? '완료' : '미완료');
+  } else {
+    ng('프로필 로드', '없음', 'DB에서 로드된 프로필');
+  }
+  sep();
+
+  // ── 3. isFullyVerified 판정
+  log += '\n[3] isFullyVerified() 판정\n';
+  const fv = isFullyVerified();
+  if(fv) {
+    ok('최종 판정', '인증 완료 → 퀴즈 이용 가능');
+  } else {
+    ng('최종 판정', '인증 미완료', '인증 완료 상태');
+    if(!userProfile) log += '    → 원인: userProfile이 null\n';
+    else if(userProfile.is_verified !== true) log += `    → 원인: is_verified = ${userProfile.is_verified} (true여야 함)\n`;
+    else if(!userProfile.nice_di) log += '    → 원인: nice_di 없음\n';
+    else log += '    → 원인: nice_di 값이 너무 짧음\n';
+  }
+  sep();
+
+  // ── 4. localStorage 세션
+  log += '\n[4] localStorage 세션\n';
+  try {
+    const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+    if(raw) {
+      const parsed = JSON.parse(raw);
+      ok('세션', '있음');
+      info('access_token', parsed.access_token ? '있음' : '없음');
+      info('user.id', parsed.user?.id || '없음');
+      const exp = parsed.expires_at ? new Date(parsed.expires_at * 1000).toLocaleString('ko-KR') : '없음';
+      info('만료시각', exp);
+    } else {
+      ng('세션', '없음', '세션 있어야 함');
+    }
+  } catch(e) { log += `  ⚠️ 파싱오류: ${e.message}\n`; }
+  sep();
+
+  // ── 5. DB 직접 조회
+  log += '\n[5] DB 직접 조회 (user_profiles)\n';
+  if(currentUser) {
+    try {
+      let token = SUPABASE_KEY;
+      const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+      if(raw) { const p = JSON.parse(raw); if(p?.access_token) token = p.access_token; }
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${currentUser.id}&select=is_verified,nice_di,role,nickname&limit=1`,
+        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` } }
+      );
+      const rows = await res.json();
+      if(rows?.length > 0) {
+        ok('DB 조회', '성공');
+        info('DB.is_verified', String(rows[0].is_verified));
+        info('DB.nice_di', rows[0].nice_di ? '있음(' + rows[0].nice_di.length + '자)' : '없음');
+        info('DB.role', rows[0].role || 'user');
+        // 메모리vs DB 비교
+        if(userProfile?.is_verified !== rows[0].is_verified)
+          log += `  ⚠️ 메모리(${userProfile?.is_verified}) ≠ DB(${rows[0].is_verified}) 불일치!\n`;
+        else ok('메모리=DB', '일치');
+      } else {
+        ng('DB 조회', '결과 없음', '프로필 있어야 함');
+      }
+    } catch(e) { log += `  ❌ 오류: ${e.message}\n`; }
+  } else {
+    log += '  ⛔ 로그인 안되어 있어 DB 조회 건너뜀\n';
+  }
+  sep();
+  log += '\n✅ 디버그 완료\n';
+  box.textContent = log;
+}
+
+function copyAuthLog() {
+  const text = document.getElementById('auth-debug-content').textContent;
+  navigator.clipboard.writeText(text).then(() => alert('✅ 복사됨!')).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta); alert('✅ 복사됨!');
+  });
+}
+/* ⚠️ [임시 디버그 끝] */
+</script>
 <!-- ⚠️ [임시 디버그 모달 끝] -->
 </body>
 </html>
