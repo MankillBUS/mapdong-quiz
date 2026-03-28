@@ -662,7 +662,7 @@ async function renderBoard(){
   const from=(currentPage-1)*PAGE_SIZE,to=from+PAGE_SIZE-1;
 
   let query=sb.from('community_posts')
-    .select('id,title,created_at,view_count,like_count,is_pinned,is_notice,content,user_id',{count:'exact'})
+    .select('id,title,created_at,view_count,like_count,is_pinned,is_notice,user_id',{count:'exact'})
     .eq('category_id',currentCatId).eq('is_deleted',false);
 
   // 검색
@@ -692,7 +692,7 @@ async function renderBoard(){
   listEl.innerHTML=data.map(p=>{
     const prof=profileMap[p.user_id]||{};
     const nick=prof.nickname||'(알수없음)';
-    const hasImg=p.content&&p.content.includes('<img');
+    const hasImg = false; // 목록에서 content 미조회 (성능/보안)
     const isBest=(p.like_count||0)>=BEST_THRESHOLD;
     // 공지글은 일반회원도 열람 가능 → 잠금 없음
     const isLocked = !canReadContent() && !p.is_notice;
