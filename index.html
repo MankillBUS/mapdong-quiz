@@ -1497,7 +1497,13 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 <!-- 시작 화면 -->
 <div id="start" class="fs-screen hidden">
   <!-- ⚠️ [임시 디버그] 삭제 예정 -->
-  <div style="position:fixed;bottom:16px;right:16px;z-index:9999;">
+  <div style="position:fixed;bottom:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+    <button onclick="runRankingDebug()"
+      style="background:rgba(0,212,255,.15);border:1px dashed var(--accent);
+        color:var(--accent);border-radius:8px;padding:6px 12px;
+        font-size:.72rem;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">
+      🏆 Ranking 디버그
+    </button>
     <button onclick="runAuthDebug()"
       style="background:rgba(255,165,0,.2);border:1px dashed #ff8c00;
         color:#ff8c00;border-radius:8px;padding:6px 12px;
@@ -5452,7 +5458,8 @@ function goMyInfo(){
 }
 function goRanking(){
   if(!currentUser){ toast('로그인이 필요합니다','error'); return; }
-  window.location.href = 'ranking.html';
+  // 새 탭으로 열기: 퀴즈 진행 중일 때 index.html 상태 보존
+  window.open('ranking.html', '_blank');
 }
 function goEvent(){
   if(!canAccessCommunity()){ toast('맵동가족 또는 프리미엄 회원만 이용 가능합니다','error'); return; }
@@ -7492,6 +7499,37 @@ async function resendOtp() {
   </div>
 </div>
 
+<!-- 🏆 Ranking 디버그 모달 -->
+<div id="ranking-debug-modal" style="display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.92);backdrop-filter:blur(8px);
+  z-index:99999;align-items:flex-start;justify-content:center;
+  padding:20px;overflow-y:auto;">
+  <div style="background:#0d1117;border:1px solid var(--accent);border-radius:16px;
+    max-width:720px;width:100%;padding:24px;margin:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:1.1rem;color:var(--accent);">
+        🏆 Ranking 디버그
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="copyRankingLog()"
+          style="background:var(--accent);color:#000;border:none;border-radius:8px;
+            padding:6px 14px;font-size:.78rem;font-weight:700;cursor:pointer;">
+          📋 복사
+        </button>
+        <button onclick="document.getElementById('ranking-debug-modal').style.display='none'"
+          style="background:rgba(255,255,255,.1);color:#aaa;border:1px solid #333;
+            border-radius:8px;padding:6px 14px;font-size:.78rem;cursor:pointer;">
+          ✕ 닫기
+        </button>
+      </div>
+    </div>
+    <div id="ranking-debug-content" style="font-family:monospace;font-size:.75rem;
+      color:#e8f4fd;line-height:1.8;white-space:pre-wrap;word-break:break-all;">
+      분석 중...
+    </div>
+  </div>
+</div>
+
 <!-- ⚠️ [임시 인증 디버그 모달] 삭제 예정 -->
 <div id="auth-debug-modal" style="display:none;position:fixed;inset:0;
   background:rgba(0,0,0,.92);backdrop-filter:blur(8px);
@@ -7524,6 +7562,135 @@ async function resendOtp() {
 </div>
 
 <script>
+/* ⚠️ [임시 디버그 함수] 삭제 예정 */
+/* 🏆 Ranking 디버그 함수 */
+async function runRankingDebug() {
+  const modal = document.getElementById('ranking-debug-modal');
+  const box   = document.getElementById('ranking-debug-content');
+  modal.style.display = 'flex';
+  box.textContent = '🔄 분석 중...';
+
+  let log = '';
+  const ok   = (k,v) => { log += `  ✅ ${k}: ${v}\n`; };
+  const ng   = (k,v,e) => { log += `  ❌ ${k}: ${v}  ← 기대값: ${e}\n`; };
+  const info = (k,v) => { log += `  ℹ️  ${k}: ${v}\n`; };
+  const warn = (k,v) => { log += `  ⚠️  ${k}: ${v}\n`; };
+  const sep  = () => { log += '─'.repeat(60) + '\n'; };
+
+  log += '━'.repeat(60) + '\n';
+  log += `🏆 Ranking 디버그: ${new Date().toLocaleString('ko-KR')}\n`;
+  sep();
+
+  // ── 1. 기본 상태
+  log += '\n[1] 현재 상태\n';
+  info('currentUser', currentUser ? currentUser.email : '없음');
+  info('quizActive()', quizActive());
+  info('cur (현재 문제)', cur ? `${cur.d} (${cur.rn})` : 'null');
+  info('allDongs.length', allDongs?.length || 0);
+  info('isRankingMode', isRankingMode);
+  info('rankingGroupKey', rankingGroupKey || '없음');
+  sep();
+
+  // ── 2. localStorage 토큰 상태
+  log += '\n[2] localStorage 토큰\n';
+  try {
+    const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+    if(raw) {
+      const p = JSON.parse(raw);
+      const t = p?.access_token || p?.currentSession?.access_token;
+      const exp = p?.expires_at || p?.currentSession?.expires_at;
+      const uid = p?.user?.id || p?.currentSession?.user?.id;
+      const expDate = exp ? new Date(exp * 1000).toLocaleString('ko-KR') : '없음';
+      const expired = exp ? (exp * 1000) < Date.now() : false;
+
+      t ? ok('access_token', '있음') : ng('access_token', '없음', '토큰 있어야 함');
+      info('user.id', uid || '없음');
+      info('만료시각', expDate);
+      expired ? ng('만료여부', '만료됨', '유효해야 함') : ok('만료여부', '유효');
+
+      const tokenIsAnon = (t === SUPABASE_KEY);
+      tokenIsAnon ? ng('토큰 종류', 'anon key (인증 불가)', '유저 토큰') : ok('토큰 종류', '유저 토큰');
+    } else {
+      ng('localStorage 세션', '없음', '세션 있어야 함');
+    }
+  } catch(e) { log += `  ❌ 파싱 오류: ${e.message}\n`; }
+  sep();
+
+  // ── 3. ranking_scores 테이블 접근 테스트
+  log += '\n[3] ranking_scores 테이블 접근\n';
+  try {
+    let token = SUPABASE_KEY;
+    try {
+      const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+      if(raw) { const p=JSON.parse(raw); const t=p?.access_token||p?.currentSession?.access_token; if(t) token=t; }
+    } catch(e) {}
+
+    info('사용 토큰', token === SUPABASE_KEY ? 'anon key ⚠️' : '유저 토큰 ✅');
+
+    // SELECT 테스트 (anon key로도 가능해야 함 - RLS SELECT USING(true))
+    const resAnon = await fetch(
+      `${SUPABASE_URL}/rest/v1/ranking_scores?limit=1`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    );
+    resAnon.ok ? ok('anon key SELECT', `${resAnon.status} OK`) : ng('anon key SELECT', `${resAnon.status}`, '200 OK (RLS 누구나 읽기)');
+
+    // 유저 토큰으로 테스트
+    if(token !== SUPABASE_KEY && currentUser) {
+      const resUser = await fetch(
+        `${SUPABASE_URL}/rest/v1/ranking_scores?user_id=eq.${currentUser.id}&limit=1`,
+        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` } }
+      );
+      if(resUser.ok) {
+        const rows = await resUser.json();
+        ok('유저 토큰 SELECT', `${resUser.status} OK · ${rows.length}개 기록`);
+      } else {
+        const txt = await resUser.text();
+        ng('유저 토큰 SELECT', `${resUser.status}: ${txt.substring(0,80)}`, '200 OK');
+      }
+    } else {
+      warn('유저 토큰 SELECT', '토큰 없어서 건너뜀');
+    }
+  } catch(e) { log += `  ❌ 네트워크 오류: ${e.message}\n`; }
+  sep();
+
+  // ── 4. goRanking 시뮬레이션
+  log += '\n[4] goRanking() 시뮬레이션\n';
+  info('currentUser', currentUser ? '있음' : '없음 → 로그인 필요 오류');
+  info('window.open 방식', '새 탭 열기 (퀴즈 상태 보존)');
+  info('ranking.html URL', window.location.origin + '/ranking.html');
+
+  // ranking.html 존재 확인
+  try {
+    const r = await fetch('ranking.html', { method: 'HEAD' });
+    r.ok ? ok('ranking.html 접근', `${r.status} OK`) : ng('ranking.html 접근', `${r.status}`, '200 OK');
+  } catch(e) { log += `  ❌ ranking.html fetch 오류: ${e.message}\n`; }
+  sep();
+
+  // ── 5. 랭킹 모드 가능 여부
+  log += '\n[5] 랭킹 모드 시작 조건\n';
+  const selected = document.querySelectorAll('.stag.sel');
+  info('선택된 지역 수', selected.length);
+  info('rankingGroupKey', rankingGroupKey || '없음 (카테고리 전체 선택 필요)');
+  const rankBtn = document.getElementById('btn-ranking-start');
+  info('랭킹 시작 버튼 상태', rankBtn ? (rankBtn.disabled ? '비활성' : '활성') : '버튼 없음');
+  sep();
+
+  log += '\n✅ 디버그 완료\n';
+  box.textContent = log;
+}
+
+function copyRankingLog() {
+  const text = document.getElementById('ranking-debug-content').textContent;
+  navigator.clipboard.writeText(text)
+    .then(() => alert('✅ 랭킹 디버그 로그가 복사되었습니다!'))
+    .catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      alert('✅ 복사됨!');
+    });
+}
+
 /* ⚠️ [임시 디버그 함수] 삭제 예정 */
 async function runAuthDebug() {
   const modal = document.getElementById('auth-debug-modal');
