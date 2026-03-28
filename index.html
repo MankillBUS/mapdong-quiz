@@ -4355,15 +4355,18 @@ function getAuthStatus(){
 }
 
 function quizActive(){
-  const mapEl = document.getElementById('map');
-  if(!mapEl || mapEl.offsetParent === null) return false;
-  // 로그인/인증/결제 화면이 떠있으면 퀴즈 중이 아님
-  const blockScreens = ['screen-login','screen-verify','screen-paywall'];
-  for(const s of blockScreens){
-    const el = document.getElementById(s);
-    if(el && !el.classList.contains('hidden')) return false;
+  // cur(현재 문제)이 있거나 allDongs가 로드돼 있으면 퀴즈 진행 중
+  // DOM 가시성(offsetParent)은 탭 전환 시 false가 되므로 신뢰하지 않음
+  if(cur || (allDongs && allDongs.length > 0)) {
+    // 단, 로그인/인증/결제 화면이 떠있으면 퀴즈 중이 아님
+    const blockScreens = ['screen-login','screen-verify','screen-paywall'];
+    for(const s of blockScreens){
+      const el = document.getElementById(s);
+      if(el && !el.classList.contains('hidden')) return false;
+    }
+    return true;
   }
-  return true;
+  return false;
 }
 
 sb.auth.onAuthStateChange(async(event, session) => {
@@ -4410,19 +4413,31 @@ sb.auth.onAuthStateChange(async(event, session) => {
   }
 });
 
-// ★ 탭 전환 시 퀴즈 유지 - visibilitychange로 처리
-document.addEventListener('visibilitychange', async () => {
+// ★ 탭 전환 시 세션 만료 감지 - getSession() 대신 localStorage 직접 읽기 (Lock 충돌 방지)
+document.addEventListener('visibilitychange', () => {
   if(document.visibilityState !== 'visible') return;
+  // 퀴즈 중이면 절대 화면 전환 안 함
   if(quizActive()) return;
-  // 회원가입 모달이 열려있으면 세션 체크 안함
+  // 회원가입 모달이 열려있으면 체크 안함
   const signupModal = document.getElementById('signup-modal');
   if(signupModal && signupModal.style.display !== 'none' && signupModal.style.display !== '') return;
-  const { data: { session } } = await sb.auth.getSession();
-  if(!session && currentUser) {
-    // 이미 로그인된 상태였을 때만 만료 처리
-    currentUser = null; userProfile = null;
-    document.getElementById('user-chip').classList.remove('visible');
-    showOnly('screen-login');
+
+  // localStorage에서 토큰 만료 확인 (getSession 호출 없음)
+  if(currentUser) {
+    try {
+      const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+      if(raw) {
+        const parsed = JSON.parse(raw);
+        const exp = parsed?.expires_at || parsed?.currentSession?.expires_at || 0;
+        // 만료됐으면 로그아웃 처리
+        if(exp && (exp * 1000) < Date.now()) {
+          currentUser = null; userProfile = null;
+          document.getElementById('user-chip').classList.remove('visible');
+          showOnly('screen-login');
+        }
+        // 만료 안 됐으면 아무것도 안 함 (Supabase SDK가 자동 갱신)
+      }
+    } catch(e) {}
   }
 });
 
