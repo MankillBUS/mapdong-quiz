@@ -696,7 +696,9 @@ async function renderBoard(){
     const isBest=(p.like_count||0)>=BEST_THRESHOLD;
     // 공지글은 일반회원도 열람 가능 → 잠금 표시 없음
     const isLocked = !canReadContent() && !p.is_notice;
-    return `<div class="post-row${isBest?' best':''}${p.is_notice?' notice-post':''}" onclick="viewPost(${p.id})" style="${isLocked?'opacity:.85;':''}">
+    return `<div class="post-row${isBest?' best':''}${p.is_notice?' notice-post':''}"
+      onclick="${isLocked ? 'showContentLocked()' : `viewPost(${p.id})`}"
+      style="${isLocked ? 'cursor:pointer;opacity:.85;' : ''}">
       <div class="post-title-row">
         ${p.is_pinned?'<span class="post-pin">📌</span>':''}
         ${p.is_notice?'<span class="cs-notice-badge">공지</span>':''}
@@ -801,11 +803,16 @@ function goPage(p){currentPage=p;renderBoard();window.scrollTo(0,0);}
 
 // ── 게시글 보기 ──
 async function viewPost(postId){
+  // 1차: 권한 없으면 fetch 자체를 하지 않음 (일반 글)
+  // 공지글 여부는 fetch 후에 알 수 있으므로 일단 fetch
   const {data}=await sb.from('community_posts').select('*').eq('id',postId).single();
   if(!data) return;
 
   // 공지글은 일반회원도 열람 가능, 일반 글은 canReadContent() 필요
-  if(!data.is_notice && !canReadContent()){showContentLocked();return;}
+  if(!data.is_notice && !canReadContent()){
+    showContentLocked();
+    return;
+  }
 
   _viewingPostId=postId;_viewingPostData=data;
   await sb.from('community_posts').update({view_count:(data.view_count||0)+1}).eq('id',postId);
