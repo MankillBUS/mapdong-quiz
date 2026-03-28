@@ -3029,16 +3029,16 @@ document.getElementById('gu-quiz-mode').addEventListener('change', function(e){
 // ─── 랭킹 모드 시작 ──────────────────────────────────────────────
 window.startRankingMode = function(){
   if(!currentUser){ toast('로그인이 필요합니다','error'); return; }
-  // 프리미엄 전용 — start 화면은 그대로 유지하고 paywall만 모달로 띄움
+  // 프리미엄 전용
   if(!isActivePremium() && !isAdmin()){
     toast('🏆 랭킹 모드는 프리미엄 회원만 이용 가능합니다.','error');
     setTimeout(()=>{
       const pw = document.getElementById('screen-paywall');
       if(pw){
-        // 랭킹 전용 플래그 — closePaywall에서 완전히 초기화하기 위해 사용
+        // fromRanking 플래그 설정 → closePaywall에서 start 화면 복원에 사용
         pw.dataset.fromRanking = '1';
-        pw.classList.remove('hidden');
-        pw.style.cssText = 'display:flex!important;position:fixed;inset:0;z-index:9000;';
+        // showOnly로 정상 열기 (SCREENS 상태 추적 포함)
+        showOnly('screen-paywall');
         if(typeof initPlanSlider==='function') setTimeout(initPlanSlider,50);
       }
     }, 300);
@@ -3236,6 +3236,14 @@ function fmtMs(ms){
 }
 
 window.startQuiz = function(){
+  // 혹시 열려있는 paywall 완전 초기화 (랭킹 버튼 → paywall → 퀴즈시작 버그 방지)
+  const pw = document.getElementById('screen-paywall');
+  if(pw && !pw.classList.contains('hidden')){
+    pw.style.cssText = '';
+    delete pw.dataset.fromRanking;
+    pw.classList.add('hidden');
+  }
+
   const s = document.querySelectorAll('.stag.sel');
   if(!s.length){ toast('지역을 선택하세요!','error'); return; }
 
@@ -5412,16 +5420,12 @@ function closePaywall() {
   if(!pw) return;
 
   const fromRanking = pw.dataset.fromRanking === '1';
-  // 인라인 style + 플래그 초기화
   pw.style.cssText = '';
   delete pw.dataset.fromRanking;
 
   if(fromRanking){
-    // 랭킹 버튼에서 열린 경우: paywall만 닫고 start 화면 완전 복원
-    pw.classList.add('hidden');
-    // start 화면이 hidden 됐을 수 있으므로 명시적으로 복원
-    const startEl = document.getElementById('start');
-    if(startEl) startEl.classList.remove('hidden');
+    // 랭킹 버튼에서 열린 경우 → start 화면으로 복원
+    showOnly('start');
     return;
   }
 
