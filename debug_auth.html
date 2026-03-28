@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔧 인증 디버그 · MapDong</title>
+<style>
+:root{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1e3a5f;--accent:#ff8c00;--text:#e8f4fd;--text-dim:#7a9bb5;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',monospace;min-height:100vh;padding:24px;}
+h1{font-size:1.1rem;color:var(--accent);margin-bottom:16px;}
+.toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+button{border:none;border-radius:8px;padding:8px 16px;font-size:.8rem;cursor:pointer;font-family:inherit;transition:all .2s;}
+.btn-run{background:var(--accent);color:#000;font-weight:700;}
+.btn-run:hover{opacity:.85;}
+.btn-copy{background:rgba(255,140,0,.15);border:1px solid var(--accent);color:var(--accent);}
+.btn-copy:hover{background:rgba(255,140,0,.25);}
+.btn-clear{background:rgba(255,60,110,.15);border:1px solid #ff3c6e;color:#ff3c6e;}
+.btn-clear:hover{background:rgba(255,60,110,.25);}
+.btn-back{background:rgba(255,255,255,.06);border:1px solid #1e3a5f;color:#7a9bb5;}
+.btn-back:hover{border-color:var(--accent);color:var(--accent);}
+#log{
+  background:#0d1117;border:1px solid var(--accent);border-radius:12px;
+  padding:20px;font-family:monospace;font-size:.78rem;color:var(--text);
+  line-height:1.9;white-space:pre-wrap;word-break:break-all;
+  min-height:400px;max-height:80vh;overflow-y:auto;
+}
+.ok{color:#39ff14;}.ng{color:#ff3c6e;}.info{color:#b0c8de;}.warn{color:#ffd700;}
+.status{font-size:.75rem;color:#7a9bb5;margin-bottom:8px;}
+</style>
+</head>
+<body>
+<h1>🔧 인증 상태 디버그</h1>
+<div class="toolbar">
+  <button class="btn-run" onclick="runDebug()">▶ 분석 실행</button>
+  <button class="btn-copy" onclick="copyLog()">📋 로그 복사</button>
+  <button class="btn-clear" onclick="clearLog()">🗑 초기화</button>
+  <button class="btn-back" onclick="history.back()">← 돌아가기</button>
+</div>
+<div class="status" id="status">버튼을 눌러 분석을 시작하세요.</div>
+<div id="log">대기 중...</div>
+
+<script>
+const SUPABASE_URL = 'https://emgsueepzioudqnitkyn.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemlvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkwNzQsImV4cCI6MjA4NjU2NTA3NH0.epR1k3MVh0MfZejFh9VflCNOS8Uz8EuCZlez5OBMz3s';
+const LS_KEY = 'sb-emgsueepzioudqnitkyn-auth-token';
+
+let logText = '';
+
+function line(cls, txt){ logText += `<span class="${cls}">${txt}</span>\n`; }
+const ok   = (k,v) => line('ok',   `  ✅ ${k}: ${v}`);
+const ng   = (k,v,e) => line('ng', `  ❌ ${k}: ${v}  ← 기대값: ${e}`);
+const info = (k,v) => line('info', `  ℹ️  ${k}: ${v}`);
+const warn = (k,v) => line('warn', `  ⚠️  ${k}: ${v}`);
+const sep  = () => line('info', '─'.repeat(55));
+const head = (t) => line('ok', t);
+
+function render(){ document.getElementById('log').innerHTML = logText; }
+function clearLog(){ logText=''; document.getElementById('log').innerHTML='대기 중...'; document.getElementById('status').textContent='초기화됨.'; }
+
+async function runDebug(){
+  logText = '';
+  document.getElementById('status').textContent = '분석 중...';
+  const now = Date.now();
+
+  head('━'.repeat(55));
+  head(`🔧 인증 디버그: ${new Date().toLocaleString('ko-KR')}`);
+  sep();
+
+  // ── 1. localStorage 세션 전체 분석
+  line('info', '\n[1] localStorage 세션 상태');
+  let parsed = null, accessToken = null, uid = null, email = null;
+  let exp = 0, expired = false;
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw) {
+      parsed = JSON.parse(raw);
+      accessToken = parsed?.access_token || parsed?.currentSession?.access_token;
+      const rft   = parsed?.refresh_token || parsed?.currentSession?.refresh_token;
+      uid         = parsed?.user?.id || parsed?.currentSession?.user?.id;
+      email       = parsed?.user?.email || parsed?.currentSession?.user?.email;
+      exp         = parsed?.expires_at || parsed?.currentSession?.expires_at || 0;
+      expired     = exp ? (exp*1000) < now : false;
+      const expDate = exp ? new Date(exp*1000).toLocaleString('ko-KR') : '없음';
+
+      ok('세션', '있음');
+      accessToken ? ok('access_token', '있음') : ng('access_token', '없음', '있어야 함');
+      rft         ? ok('refresh_token', '있음') : ng('refresh_token', '없음', '있어야 함 (자동 갱신용)');
+      info('user.id', uid || '없음');
+      info('email', email || '없음');
+      info('만료시각', expDate);
+      if(expired)   ng('만료여부', '만료됨 ← 모든 API 401 원인', '유효');
+      else          ok('만료여부', '유효');
+    } else {
+      ng('localStorage 세션', '없음', '세션 있어야 함');
+    }
+  } catch(e) { ng('localStorage 파싱', e.message, '정상 파싱'); }
+  sep();
+
+  // ── 2. Supabase 세션 갱신 테스트 (refresh_token 직접 호출)
+  line('info', '\n[2] 토큰 갱신 진단');
+  if(expired && parsed) {
+    warn('상태', '토큰 만료됨 → refresh_token으로 갱신 필요');
+    const rft = parsed?.refresh_token || parsed?.currentSession?.refresh_token;
+    if(rft) {
+      warn('refresh_token', '있음 → 갱신 시도...');
+      try {
+        const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+          method:'POST', headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},
+          body: JSON.stringify({ refresh_token: rft })
+        });
+        if(r.ok) {
+          const d = await r.json();
+          ok('갱신 결과', '성공 → 새 토큰 발급됨');
+          info('새 만료시각', d.expires_at ? new Date(d.expires_at*1000).toLocaleString('ko-KR') : '없음');
+          warn('조치 필요', '페이지를 새로고침하거나 재로그인하면 자동으로 갱신됩니다');
+        } else {
+          const t = await r.text();
+          ng('갱신 결과', `${r.status}: ${t.substring(0,100)}`, '200 OK');
+          warn('조치 필요', '재로그인이 필요합니다');
+        }
+      } catch(e){ ng('갱신 요청', e.message, '성공'); }
+    } else {
+      ng('refresh_token', '없음 → 자동 갱신 불가', '있어야 함');
+      warn('조치 필요', '재로그인이 필요합니다');
+    }
+  } else if(!expired) {
+    ok('갱신 필요 없음', '토큰이 유효함');
+  } else {
+    warn('세션 없음', 'localStorage에 세션이 없습니다 → 로그인 필요');
+  }
+  sep();
+
+  // ── 3. user_profiles DB 조회
+  line('info', '\n[3] DB 직접 조회 (user_profiles)');
+  if(accessToken && uid && !expired) {
+    try {
+      const r = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${uid}&select=is_verified,nice_di,role,nickname,is_premium,premium_until,plays_count&limit=1`,
+        { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${accessToken}` } }
+      );
+      if(r.ok) {
+        const rows = await r.json();
+        if(rows?.length > 0) {
+          const p = rows[0];
+          ok('DB 조회', '성공');
+          info('nickname', p.nickname || '없음');
+          info('role', p.role || 'user');
+          info('is_verified', String(p.is_verified) + ' (타입: ' + typeof p.is_verified + ')');
+          info('nice_di', p.nice_di ? '있음(' + p.nice_di.length + '자)' : '없음/null');
+          // isFullyVerified 판정
+          const fv = p.is_verified === true && p.nice_di && p.nice_di.trim().length >= 10;
+          fv ? ok('isFullyVerified()', '인증 완료 → 퀴즈 이용 가능') : ng('isFullyVerified()', '인증 미완료', '인증 완료');
+          info('is_premium', String(p.is_premium));
+          if(p.is_premium && p.premium_until) info('premium_until', new Date(p.premium_until).toLocaleString('ko-KR'));
+          info('plays_count', String(p.plays_count || 0));
+        } else {
+          ng('DB 조회', '결과 없음', '프로필 있어야 함');
+        }
+      } else {
+        const t = await r.text();
+        ng('DB 조회', `${r.status}: ${t.substring(0,100)}`, '200 OK');
+      }
+    } catch(e){ ng('DB 조회', e.message, '성공'); }
+  } else if(expired) {
+    warn('DB 조회 건너뜀', '토큰 만료 → 401 발생하므로 건너뜀');
+  } else {
+    warn('DB 조회 건너뜀', 'uid 또는 토큰 없음');
+  }
+  sep();
+
+  // ── 4. 요약 진단
+  line('info', '\n[4] 종합 진단');
+  if(!parsed) {
+    ng('진단', '세션 없음 → 로그인 필요', '로그인 상태');
+  } else if(expired) {
+    ng('진단', '토큰 만료 → 페이지 새로고침 또는 재로그인 필요', '유효한 세션');
+    warn('즉시 해결', '브라우저에서 index.html을 새로고침하면 Supabase SDK가 자동 갱신 시도');
+  } else if(!accessToken) {
+    ng('진단', 'access_token 없음', '토큰 있어야 함');
+  } else {
+    ok('진단', '세션 정상 → 인증 상태 양호');
+  }
+  sep();
+
+  head('\n✅ 디버그 완료');
+  render();
+  document.getElementById('status').textContent = `완료: ${new Date().toLocaleString('ko-KR')}`;
+}
+
+function copyLog(){
+  const text = document.getElementById('log').innerText;
+  navigator.clipboard.writeText(text)
+    .then(()=>alert('✅ 로그가 복사되었습니다!'))
+    .catch(()=>{ const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); alert('✅ 복사됨!'); });
+}
+
+runDebug();
+</script>
+</body>
+</html>
