@@ -777,8 +777,9 @@ function renderLike(count){
 // 🔔 알림 시스템
 // ══════════════════════════════════════════════
 async function sendNotification(toUserId, type, postId, commentId, message){
-  if(!currentUser || !toUserId) return; // 비로그인/대상없음 제외
-  // 본인이 본인 글에 좋아요 누른 경우도 알림 발송 (요청사항)
+  if(!currentUser || !toUserId) return;
+  // 자기 자신에게는 알림 발송 안 함
+  if(toUserId === currentUser.id) return;
   try {
     await sb.from('notifications').insert({
       user_id:      toUserId,
@@ -828,13 +829,13 @@ function openNotifPanel(){
   if(panel.style.display === 'block'){ panel.style.display='none'; return; }
 
   panel.style.display = 'block';
-  panel.innerHTML = notifs.length === 0
+
+  const listHtml = notifs.length === 0
     ? '<div style="text-align:center;padding:24px;color:var(--text-dim);font-size:.82rem;">알림이 없습니다</div>'
     : notifs.map(n => `
       <div onclick="clickNotif(${n.id}, ${n.post_id})"
         style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;
-          background:${n.is_read?'transparent':'rgba(0,212,255,.05)'};
-          transition:background .2s;"
+          background:${n.is_read?'transparent':'rgba(0,212,255,.05)'};transition:background .2s;"
         onmouseover="this.style.background='rgba(0,212,255,.08)'"
         onmouseout="this.style.background='${n.is_read?'transparent':'rgba(0,212,255,.05)'}'">
         <div style="font-size:.8rem;color:${n.is_read?'var(--text-dim)':'var(--text)'};line-height:1.6;">
@@ -846,6 +847,18 @@ function openNotifPanel(){
         </div>
       </div>`).join('');
 
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;
+      padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface2);">
+      <span style="font-size:.78rem;font-weight:700;color:var(--text);">🔔 알림</span>
+      ${notifs.length > 0 ? `<button onclick="deleteAllNotifs(event)"
+        style="background:rgba(255,60,110,.15);border:1px solid rgba(255,60,110,.3);
+          color:#ff3c6e;border-radius:6px;padding:3px 10px;font-size:.7rem;cursor:pointer;">
+        전체삭제
+      </button>` : ''}
+    </div>
+    ${listHtml}`;
+
   // 모두 읽음 처리
   const unreadIds = notifs.filter(n=>!n.is_read).map(n=>n.id);
   if(unreadIds.length > 0){
@@ -854,6 +867,19 @@ function openNotifPanel(){
       renderNotifBadge(window._notifications);
     });
   }
+}
+
+async function deleteAllNotifs(e){
+  e.stopPropagation();
+  if(!currentUser) return;
+  if(!confirm('알림을 모두 삭제하시겠습니까?')) return;
+  try {
+    await sb.from('notifications').delete().eq('user_id', currentUser.id);
+    window._notifications = [];
+    renderNotifBadge([]);
+    const panel = document.getElementById('notif-panel');
+    if(panel) panel.style.display = 'none';
+  } catch(e){ console.warn('알림 전체삭제 실패:', e); }
 }
 
 async function clickNotif(notifId, postId){
@@ -898,6 +924,7 @@ async function toggleLike(){
 }
 
 // ── 댓글 ──
+// ── 댓글 ──
 async function renderComments(postId){
   const {data:allComments}=await sb.from('community_comments')
     .select('*').eq('post_id',postId).eq('is_deleted',false)
@@ -911,25 +938,52 @@ async function renderComments(postId){
   }
   window._myCommentLikes = myCommentLikes;
 
-  const roots = (allComments||[]).filter(c=>!c.parent_id);
-  const replies = (allComments||[]).filter(c=>c.parent_id);
-  document.getElementById('comment-count').textContent=allComments?.length||0;
+  const comments = allComments || [];
+  document.getElementById('comment-count').textContent = comments.length;
 
-  const listEl=document.getElementById('comment-list');
-  if(!allComments?.length){
+  const listEl = document.getElementById('comment-list');
+  if(!comments.length){
     listEl.innerHTML='<div style="color:var(--text-dim);font-size:.8rem;padding:8px 0">첫 댓글을 남겨보세요!</div>';
   } else {
-    const uids=[...new Set(allComments.map(c=>c.user_id).filter(Boolean))];
+    // 프로필 맵
+    const uids=[...new Set(comments.map(c=>c.user_id).filter(Boolean))];
     let pmap={};
-    if(uids.length){const {data:profs}=await sb.from('user_profiles').select('user_id,nickname,role,is_premium,premium_until,is_mapdong_family,mapdong_family_until,job').in('user_id',uids);if(profs)profs.forEach(p=>{pmap[p.user_id]=p;});}
+    if(uids.length){
+      const {data:profs}=await sb.from('user_profiles')
+        .select('user_id,nickname,role,is_premium,premium_until,is_mapdong_family,mapdong_family_until,job')
+        .in('user_id',uids);
+      if(profs) profs.forEach(p=>{pmap[p.user_id]=p;});
+    }
 
-    const renderComment = (c, isReply=false) => {
-      const cp=pmap[c.user_id]||{};
-      const cn=cp.nickname||'(알수없음)';
-      const canDel=currentUser&&(isAdmin()||c.user_id===currentUser.id);
+    // id → children 맵 구성
+    const childMap = {};
+    comments.forEach(c=>{ childMap[c.id] = []; });
+    comments.forEach(c=>{
+      if(c.parent_id && childMap[c.parent_id]) childMap[c.parent_id].push(c);
+    });
+    const roots = comments.filter(c=>!c.parent_id);
+
+    // 재귀 렌더: depth 0부터 무한 depth 지원 (시각적 최대 5단계)
+    const MAX_VISUAL_INDENT = 5;
+    const renderComment = (c, depth=0) => {
+      const cp = pmap[c.user_id]||{};
+      const cn = cp.nickname||'(알수없음)';
+      const canDel = currentUser&&(isAdmin()||c.user_id===currentUser.id);
       const liked = myCommentLikes.has(c.id);
-      const myReplies = replies.filter(r=>r.parent_id===c.id);
-      return `<div class="comment-item" id="comment-${c.id}" style="${isReply?'margin-left:24px;border-left:2px solid var(--border);padding-left:10px;':''}">
+      const children = childMap[c.id] || [];
+      const visualDepth = Math.min(depth, MAX_VISUAL_INDENT);
+      const indentPx = visualDepth * 20;
+      const borderColor = depth===0 ? 'transparent'
+        : depth===1 ? 'rgba(0,212,255,.3)'
+        : depth===2 ? 'rgba(255,60,110,.25)'
+        : depth===3 ? 'rgba(255,215,0,.25)'
+        : 'rgba(160,100,255,.2)';
+
+      return `<div class="comment-item" id="comment-${c.id}"
+        style="margin-left:${indentPx}px;
+          ${depth>0?`border-left:2px solid ${borderColor};padding-left:10px;`:''}
+          ${depth>0?'margin-top:6px;':''}"
+        >
         <div class="comment-top">
           <span class="comment-author" onclick="openProfile('${c.user_id}')">${gradeBadge(cp)} ${escHtml(cn)}</span>
           <span class="comment-time">${new Date(c.created_at).toLocaleString('ko-KR')}</span>
@@ -944,23 +998,23 @@ async function renderComments(postId){
             id="clbtn-${c.id}">
             ${liked?'❤️':'🤍'} <span id="clcnt-${c.id}">${c.like_count||0}</span>
           </button>`:''}
-          ${!isReply && canComment()?`<button onclick="toggleReplyBox(${c.id})"
+          ${canComment()?`<button onclick="toggleReplyBox(${c.id})"
             style="background:none;border:1px solid var(--border);cursor:pointer;
               font-size:.75rem;color:var(--text-dim);padding:2px 8px;border-radius:6px;">
-            💬 대댓글
+            💬 답글
           </button>`:''}
         </div>
-        ${!isReply?`<div id="reply-box-${c.id}" style="display:none;margin-top:8px;">
+        <div id="reply-box-${c.id}" style="display:none;margin-top:8px;">
           <textarea id="reply-text-${c.id}" class="comment-textarea"
-            placeholder="대댓글을 입력하세요..." style="min-height:60px;font-size:.82rem;"></textarea>
+            placeholder="답글을 입력하세요..." style="min-height:60px;font-size:.82rem;"></textarea>
           <button onclick="submitComment(${c.id})" class="comment-submit-btn"
-            style="margin-top:4px;font-size:.78rem;padding:6px 14px;">대댓글 등록</button>
-        </div>`:''}
-        ${myReplies.map(r=>renderComment(r, true)).join('')}
+            style="margin-top:4px;font-size:.78rem;padding:6px 14px;">답글 등록</button>
+        </div>
+        ${children.map(r=>renderComment(r, depth+1)).join('')}
       </div>`;
     };
 
-    listEl.innerHTML = roots.map(c=>renderComment(c, false)).join('');
+    listEl.innerHTML = roots.map(c=>renderComment(c,0)).join('');
   }
 
   const inputEl=document.getElementById('comment-input-area');
@@ -975,11 +1029,18 @@ async function renderComments(postId){
 }
 
 function toggleReplyBox(commentId){
+  // 다른 열린 답글 박스 모두 닫기
+  document.querySelectorAll('[id^="reply-box-"]').forEach(box=>{
+    if(box.id !== `reply-box-${commentId}`) box.style.display = 'none';
+  });
   const box = document.getElementById(`reply-box-${commentId}`);
   if(!box) return;
   const isOpen = box.style.display === 'block';
   box.style.display = isOpen ? 'none' : 'block';
-  if(!isOpen) document.getElementById(`reply-text-${commentId}`)?.focus();
+  if(!isOpen){
+    const ta = document.getElementById(`reply-text-${commentId}`);
+    if(ta){ ta.focus(); ta.scrollIntoView({behavior:'smooth', block:'nearest'}); }
+  }
 }
 
 async function toggleCommentLike(commentId){
