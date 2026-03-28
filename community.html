@@ -1558,17 +1558,12 @@ let _commNoticeIdx  = 0;
 let _commRollingTimer = null;
 
 async function loadCommNotices(){
+  // ✅ index.html과 동일한 테이블: cs_posts (고객센터 공지사항)
   const monthAgo = new Date(Date.now() - 30*24*60*60*1000).toISOString();
-  // community_posts 테이블에서 is_notice=true 글 가져오기
-  let token = SUPABASE_KEY;
-  try{
-    const raw=localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
-    if(raw){const p=JSON.parse(raw);const t=p?.access_token||p?.currentSession?.access_token;if(t)token=t;}
-  }catch(e){}
   try {
     const r = await fetch(
-      `${SUPABASE_URL}/rest/v1/community_posts?select=id,title,created_at&is_notice=eq.true&is_deleted=eq.false&created_at=gte.${monthAgo}&order=created_at.desc&limit=10`,
-      { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${token}` } }
+      `${SUPABASE_URL}/rest/v1/cs_posts?select=id,title,created_at&is_notice=eq.true&created_at=gte.${monthAgo}&order=created_at.desc&limit=10`,
+      { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${SUPABASE_KEY}` } }
     );
     _commNoticeList = r.ok ? await r.json() : [];
   } catch(e){ _commNoticeList = []; }
@@ -1605,9 +1600,11 @@ function showCommNoticeItem(idx){
 }
 
 function openCommNotice(){
+  // cs_posts 공지사항이므로 index.html 고객센터로 이동
   const n = _commNoticeList[_commNoticeIdx];
   if(!n) return;
-  if(typeof viewPost === 'function') viewPost(n.id);
+  // index.html?cs=notice&postId=N 으로 이동해서 해당 공지 열기
+  window.location.href = `index.html?cs=notice&postId=${n.id}`;
 }
 
 function backToQuiz(){window.location.href='index.html';}
