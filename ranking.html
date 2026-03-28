@@ -305,9 +305,7 @@ td.center{text-align:center;}
 const SUPABASE_URL = 'https://emgsueepzioudqnitkyn.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemlvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkwNzQsImV4cCI6MjA4NjU2NTA3NH0.epR1k3MVh0MfZejFh9VflCNOS8Uz8EuCZlez5OBMz3s';
 
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { autoRefreshToken:true, persistSession:true, storageKey:'sb-emgsueepzioudqnitkyn-auth-token' }
-});
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
 let userProfile  = null;
@@ -383,26 +381,44 @@ async function init(){
   buildTierLegend();
   buildGroupTabs();
 
-  // ✅ 인수인계 문서 규칙: sb.auth.getSession() 직접 사용 금지 → localStorage 직접 읽기
-  let sessionToken = null;
+  // ── community.html과 동일한 인증 패턴 ──
+  // 1순위: localStorage 직접 읽기 (Lock 충돌 방지)
+  let accessToken = null;
   try {
     const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
     if(raw){
       const parsed = JSON.parse(raw);
       const t   = parsed?.access_token || parsed?.currentSession?.access_token;
-      const u   = parsed?.user         || parsed?.currentSession?.user;
       const exp = parsed?.expires_at   || parsed?.currentSession?.expires_at;
-      // 만료 체크 (unix timestamp)
-      const notExpired = !exp || (exp * 1000) > Date.now();
-      if(t && u && notExpired){
-        sessionToken = t;
-        currentUser  = u;
+      const u   = parsed?.user         || parsed?.currentSession?.user;
+      if(t && u?.id && (!exp || exp > Math.floor(Date.now()/1000))){
+        accessToken = t;
+        currentUser = u;
       }
     }
   } catch(e){}
 
-  if(currentUser && sessionToken){
-    await loadProfile(sessionToken);
+  // 2순위: getSession 폴백 + localStorage 재저장
+  if(!currentUser){
+    try {
+      const { data:{ session } } = await sb.auth.getSession();
+      if(session?.user){
+        currentUser = session.user;
+        accessToken = session.access_token;
+        localStorage.setItem('sb-emgsueepzioudqnitkyn-auth-token', JSON.stringify({
+          access_token:  session.access_token,
+          refresh_token: session.refresh_token,
+          expires_at:    session.expires_at,
+          expires_in:    session.expires_in || 3600,
+          token_type:    'bearer',
+          user:          session.user,
+        }));
+      }
+    } catch(e){}
+  }
+
+  if(currentUser && accessToken){
+    await loadProfile(accessToken);
   }
 
   // 첫 번째 그룹 자동 선택
