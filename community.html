@@ -1205,7 +1205,16 @@ async function submitComment(parentId=null){
 
 async function deleteComment(commentId){
   if(!confirm('댓글을 삭제하시겠습니까?'))return;
-  await sb.from('community_comments').update({is_deleted:true}).eq('id',commentId);
+  try{
+    let token=SUPABASE_KEY;
+    try{const raw=localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');if(raw){const p=JSON.parse(raw);const t=p?.access_token||p?.currentSession?.access_token;if(t)token=t;}}catch(e){}
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/community_comments?id=eq.${commentId}`,
+      {method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${token}`,
+        'Content-Type':'application/json','Prefer':'return=minimal'},
+       body:JSON.stringify({is_deleted:true})}
+    );
+  }catch(e){console.warn('댓글 삭제 실패:',e);}
   await renderComments(_viewingPostId);
 }
 
@@ -1230,9 +1239,18 @@ async function toggleNoticePost(){
 async function deletePost(){
   if(!_viewingPostId)return;
   if(!confirm('이 게시글을 삭제하시겠습니까?'))return;
-  const {error}=await sb.from('community_posts').update({is_deleted:true}).eq('id',_viewingPostId);
-  if(error){alert('삭제 실패: '+error.message);return;}
-  showListView();renderBoard();
+  try{
+    let token=SUPABASE_KEY;
+    try{const raw=localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');if(raw){const p=JSON.parse(raw);const t=p?.access_token||p?.currentSession?.access_token;if(t)token=t;}}catch(e){}
+    const res=await fetch(
+      `${SUPABASE_URL}/rest/v1/community_posts?id=eq.${_viewingPostId}`,
+      {method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${token}`,
+        'Content-Type':'application/json','Prefer':'return=minimal'},
+       body:JSON.stringify({is_deleted:true})}
+    );
+    if(!res.ok){const t=await res.text();alert('삭제 실패: '+t);return;}
+    showListView();renderBoard();
+  }catch(e){alert('삭제 실패: '+e.message);}
 }
 function editPost(){
   if(!_viewingPostData)return;
