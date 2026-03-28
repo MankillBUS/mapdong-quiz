@@ -694,11 +694,10 @@ async function renderBoard(){
     const nick=prof.nickname||'(알수없음)';
     const hasImg=p.content&&p.content.includes('<img');
     const isBest=(p.like_count||0)>=BEST_THRESHOLD;
-    // 공지글은 일반회원도 열람 가능 → 잠금 표시 없음
+    // 공지글은 일반회원도 열람 가능 → 잠금 없음
     const isLocked = !canReadContent() && !p.is_notice;
     return `<div class="post-row${isBest?' best':''}${p.is_notice?' notice-post':''}"
-      onclick="${isLocked ? 'showContentLocked()' : `viewPost(${p.id})`}"
-      style="${isLocked ? 'cursor:pointer;opacity:.85;' : ''}">
+      ${isLocked ? 'style="cursor:default;opacity:.9;"' : `onclick="viewPost(${p.id})" style=""`}>
       <div class="post-title-row">
         ${p.is_pinned?'<span class="post-pin">📌</span>':''}
         ${p.is_notice?'<span class="cs-notice-badge">공지</span>':''}
@@ -706,6 +705,15 @@ async function renderBoard(){
         <span class="post-title">${escHtml(p.title)}</span>
         ${hasImg?'<span class="post-has-img">🖼</span>':''}
         ${isLocked?'<span style="font-size:.65rem;color:var(--text-dim);margin-left:4px;">🔒</span>':''}
+      </div>
+      <div class="post-bottom">
+        <span class="post-author" onclick="event.stopPropagation();openProfile('${p.user_id}')">
+          ${gradeBadge(prof)} ${escHtml(nick)}
+        </span>
+        <span class="post-meta">${new Date(p.created_at).toLocaleDateString('ko-KR')}</span>
+        <div class="post-stats"><span>👁 ${p.view_count}</span><span>❤️ ${p.like_count||0}</span></div>
+      </div>
+    </div>`;
       </div>
       <div class="post-bottom">
         <span class="post-author" onclick="event.stopPropagation();openProfile('${p.user_id}')">
