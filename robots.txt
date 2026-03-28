@@ -13,3 +13,7 @@ Allow: /
 
 # Sitemap 위치
 Sitemap: https://www.mapdong.com/sitemap.xml
+
+# 네이버
+User-agent: Yeti
+Allow:/
