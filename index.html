@@ -1708,6 +1708,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   </div>
   <div class="cs-pg-tabs">
     <div class="cs-pg-tab active" id="tab-board" onclick="csTab('board')">📋 Q&A게시판</div>
+    <div class="cs-pg-tab" id="tab-about" onclick="csTab('about')">🏢 회사 개요</div>
     <div class="cs-pg-tab" id="tab-refund" onclick="csTab('refund')">📄 환불 약관</div>
     <div class="cs-pg-tab" id="tab-privacy" onclick="csTab('privacy')">🔐 개인정보처리방침</div>
   </div>
@@ -3022,10 +3023,23 @@ document.getElementById('gu-quiz-mode').addEventListener('change', function(e){
 // ─── 랭킹 모드 시작 ──────────────────────────────────────────────
 window.startRankingMode = function(){
   if(!currentUser){ toast('로그인이 필요합니다','error'); return; }
-  // 프리미엄 전용
+  // 프리미엄 전용 — paywall은 오버레이로 표시 (start 화면 유지)
   if(!isActivePremium() && !isAdmin()){
     toast('🏆 랭킹 모드는 프리미엄 회원만 이용 가능합니다.','error');
-    setTimeout(()=>showPaywall(), 400);
+    // showPaywall()은 showOnly('screen-paywall')을 호출해 start를 숨기므로
+    // 대신 screen-paywall을 직접 hidden 해제하되 start는 그대로 둠
+    setTimeout(()=>{
+      const pw = document.getElementById('screen-paywall');
+      if(pw){
+        // 모든 fs-screen 숨기되 start는 유지, paywall만 추가 표시
+        SCREENS.forEach(s=>{
+          const el=document.getElementById(s);
+          if(el) el.classList.add('hidden');
+        });
+        pw.classList.remove('hidden');
+        if(typeof initPlanSlider==='function') setTimeout(initPlanSlider,50);
+      }
+    }, 400);
     return;
   }
   const s = document.querySelectorAll('.stag.sel');
@@ -3059,6 +3073,13 @@ window.startRankingMode = function(){
   const guToggle = document.getElementById('gu-quiz-mode');
   if(guToggle){ guToggle.checked = false; }
   isGuQuizMode = false;
+
+  // 정답범위 1.5km 고정 (랭킹 모드에서는 조절 불가)
+  const slider = document.getElementById('range-slider-map');
+  if(slider){ slider.value = 1.5; slider.disabled = true; }
+  const rangeVal = document.getElementById('range-value-map');
+  if(rangeVal) rangeVal.textContent = '1.5km';
+  answerRadius = 1.5;
 
   document.getElementById('start').classList.add('hidden');
   isDarkTheme = _savedTheme;
@@ -3131,6 +3152,9 @@ async function checkRankingCompletion(){
   const header = document.getElementById('ranking-mode-header');
   if(header) header.remove();
   document.body.style.paddingTop = '';
+  // 정답범위 슬라이더 다시 활성화
+  const sliderMap = document.getElementById('range-slider-map');
+  if(sliderMap) sliderMap.disabled = false;
 
   // 정답률 50% 미만이면 저장 안 함
   if(rate < 50){
@@ -6057,12 +6081,104 @@ function _csReturnWithAuthCheck() {
 function csTab(tab) {
   csCurrentTab = tab;
   document.getElementById('tab-board').classList.toggle('active', tab === 'board');
+  document.getElementById('tab-about').classList.toggle('active', tab === 'about');
   document.getElementById('tab-refund').classList.toggle('active', tab === 'refund');
   const privTab = document.getElementById('tab-privacy');
   if(privTab) privTab.classList.toggle('active', tab === 'privacy');
   if(tab === 'board')        renderCSBoard();
+  else if(tab === 'about')   renderCSAbout();
   else if(tab === 'privacy') renderCSPrivacy();
   else                       renderCSRefund();
+}
+
+function renderCSAbout(){
+  const body = document.getElementById('cs-body');
+  body.innerHTML = `
+    <div style="max-width:640px;margin:0 auto;padding:8px 0 32px;">
+
+      <!-- 로고 + 슬로건 -->
+      <div style="text-align:center;margin-bottom:28px;">
+        <div style="font-family:'Black Han Sans',sans-serif;font-size:2rem;
+          color:var(--accent);letter-spacing:4px;margin-bottom:6px;">
+          Map<span style="color:var(--accent2)">Dong</span>
+        </div>
+        <div style="font-size:.82rem;color:var(--text-dim);">
+          수도권 행정동 위치 퀴즈 서비스
+        </div>
+      </div>
+
+      <!-- 회사 정보 카드 -->
+      <div style="background:var(--surface2);border:1px solid var(--border);
+        border-radius:14px;overflow:hidden;margin-bottom:16px;">
+        <div style="background:rgba(0,212,255,.06);padding:10px 18px;
+          font-size:.68rem;color:var(--accent);text-transform:uppercase;
+          letter-spacing:2px;font-weight:700;border-bottom:1px solid var(--border);">
+          회사 정보
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);">
+          ${[
+            ['회사명','워크트래블허브'],
+            ['대표자','김강별'],
+            ['사업자번호','690-17-02022'],
+            ['통신판매업','제2025-서울서초-3783호'],
+            ['설립','2025년'],
+            ['서비스명','MapDong (맵동)'],
+          ].map(([k,v])=>`
+            <div style="background:var(--surface2);padding:12px 16px;">
+              <div style="font-size:.62rem;color:var(--text-dim);margin-bottom:3px;">${k}</div>
+              <div style="font-size:.82rem;color:var(--text);font-weight:600;">${v}</div>
+            </div>`).join('')}
+        </div>
+        <div style="background:var(--surface2);padding:12px 16px;border-top:1px solid var(--border);">
+          <div style="font-size:.62rem;color:var(--text-dim);margin-bottom:3px;">주소</div>
+          <div style="font-size:.82rem;color:var(--text);">서울특별시 서초구 서초동 1362-23 더포인트 3층</div>
+        </div>
+      </div>
+
+      <!-- 서비스 소개 -->
+      <div style="background:var(--surface2);border:1px solid var(--border);
+        border-radius:14px;overflow:hidden;margin-bottom:16px;">
+        <div style="background:rgba(0,212,255,.06);padding:10px 18px;
+          font-size:.68rem;color:var(--accent);text-transform:uppercase;
+          letter-spacing:2px;font-weight:700;border-bottom:1px solid var(--border);">
+          서비스 소개
+        </div>
+        <div style="padding:16px 18px;font-size:.82rem;color:#b0c8de;line-height:1.9;">
+          MapDong은 수도권 행정동의 위치를 지도에서 직접 클릭하며 학습하는
+          퀴즈 서비스입니다.<br>
+          서울·인천·경기 전 행정동을 대상으로 정확한 위치 감각을 기를 수 있으며,
+          일반회원은 무제한 무료로, 프리미엄 회원은 랭킹 시스템과 커뮤니티 등
+          확장 기능을 이용할 수 있습니다.
+        </div>
+      </div>
+
+      <!-- 연락처 -->
+      <div style="background:var(--surface2);border:1px solid var(--border);
+        border-radius:14px;overflow:hidden;">
+        <div style="background:rgba(0,212,255,.06);padding:10px 18px;
+          font-size:.68rem;color:var(--accent);text-transform:uppercase;
+          letter-spacing:2px;font-weight:700;border-bottom:1px solid var(--border);">
+          연락처
+        </div>
+        <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:1.1rem;">📞</span>
+            <div>
+              <div style="font-size:.68rem;color:var(--text-dim);">전화</div>
+              <div style="font-size:.84rem;color:var(--text);font-weight:600;">070-7782-3601</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:1.1rem;">✉️</span>
+            <div>
+              <div style="font-size:.68rem;color:var(--text-dim);">이메일 (고객문의)</div>
+              <div style="font-size:.84rem;color:var(--accent2);">mapdong@worktravelhub.com</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>`;
 }
 
 /* ── 관리자 판별 ─────────────────────────────────────────── */
