@@ -5458,8 +5458,7 @@ function goMyInfo(){
 }
 function goRanking(){
   if(!currentUser){ toast('로그인이 필요합니다','error'); return; }
-  // 새 탭으로 열기: 퀴즈 진행 중일 때 index.html 상태 보존
-  window.open('ranking.html', '_blank');
+  window.location.href = 'ranking.html';
 }
 function goEvent(){
   if(!canAccessCommunity()){ toast('맵동가족 또는 프리미엄 회원만 이용 가능합니다','error'); return; }
