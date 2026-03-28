@@ -295,7 +295,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   .mt{font-size:1.3rem;}
 
   /* 정답바 모바일 */
-  /* 정답인정범위: 불투명도 50%, 위치 살짝 올림 */
   #range-control{
     bottom:80px !important;
     opacity:0.5 !important;
@@ -312,20 +311,115 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   .stag{padding:5px 10px;font-size:.74rem;}
 }
 
-/* 소형 모바일 (480px 이하) */
+/* ══════════════════════════════════════════
+   모바일 전용 UI 개선 (480px 이하 — iOS 포함)
+   ══════════════════════════════════════════ */
 @media (max-width:480px){
   .ab-btn-label{font-size:0;}
   .ab-btn-label::before{content:'OFF';font-size:.85rem;}
-
   .st{font-size:1.8rem;}
   .ss{font-size:.78rem;}
   #stags-groups{max-height:44vh;}
   .city-group-box{padding:9px 10px 11px;}
   .sbtn{padding:12px 28px;font-size:.95rem;}
 
-  /* 헤더 스탯바 숨기고 로고+유저칩만 */
+  /* 헤더: 로고 + 유저칩만, 나머지 숨김 */
   #stats-bar{display:none;}
-  #header{justify-content:space-between;}
+  #header{
+    justify-content:space-between;
+    padding:5px 10px;
+    min-height:44px;
+  }
+  /* 처음으로 버튼 + 고객센터 버튼 축약 */
+  #header button[onclick="goHome()"]{ font-size:.72rem; padding:4px 8px; }
+  #btn-cs{ font-size:.7rem; padding:4px 8px; }
+
+  /* ── 사이드바 토글 버튼 모바일 강화 ── */
+  /* 좌측 토글: 더 크고 눈에 잘 띄게 */
+  #side-toggle{
+    width:28px !important;
+    height:64px !important;
+    font-size:1rem !important;
+    background:rgba(17,24,39,.92) !important;
+    border:2px solid var(--accent) !important;
+    color:var(--accent) !important;
+    box-shadow:2px 0 12px rgba(0,212,255,.25);
+    z-index:800;
+  }
+  /* 우측 토글 */
+  #right-side-toggle{
+    width:28px !important;
+    height:64px !important;
+    font-size:1rem !important;
+    background:rgba(17,24,39,.92) !important;
+    border:2px solid var(--accent) !important;
+    color:var(--accent) !important;
+    box-shadow:-2px 0 12px rgba(0,212,255,.25);
+    z-index:800;
+  }
+  /* 접힌 상태 강조 */
+  #main.side-collapsed #side-toggle{
+    left:0 !important;
+    background:rgba(0,212,255,.18) !important;
+  }
+  #main.right-collapsed #right-side-toggle{
+    right:0 !important;
+    background:rgba(0,212,255,.18) !important;
+  }
+
+  /* ── 정답 범위 슬라이더: 모바일에서 최소화 ── */
+  #range-control{
+    bottom:70px !important;
+    left:4px !important;
+    right:4px !important;
+    width:auto !important;
+    min-width:0 !important;
+    padding:8px 12px !important;
+    opacity:.45 !important;
+  }
+  #range-control:active,#range-control:focus-within{
+    opacity:1 !important;
+  }
+
+  /* ── 지도 오버레이 버튼들 ── */
+  #mo{
+    top:6px !important;
+    right:6px !important;
+    gap:4px !important;
+  }
+  .mb{
+    padding:6px 8px !important;
+    font-size:.62rem !important;
+    max-width:72px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  /* Leaflet 줌 버튼이 헤더에 안 겹치도록 */
+  .leaflet-top.leaflet-left{
+    top:50px !important;
+  }
+
+  /* ans-bar 모바일 */
+  #ans-bar{
+    left:4px !important;
+    right:4px !important;
+    bottom:8px !important;
+    padding:6px 10px !important;
+    font-size:.72rem !important;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  #ans-bar .ab-label{ font-size:.7rem; }
+  #ans-bar .ab-dong{ font-size:.85rem; }
+  #ans-bar .ab-close{ padding:4px 10px; font-size:.7rem; }
+
+  /* 모바일 문제카드 오버레이 */
+  #mobile-qcard-overlay{
+    top:8px;
+    max-width:calc(100vw - 72px);
+  }
 }
 
 /* 터치 디바이스: 호버 효과 비활성화로 탭 반응성 향상 */
@@ -2935,6 +3029,12 @@ document.getElementById('gu-quiz-mode').addEventListener('change', function(e){
 // ─── 랭킹 모드 시작 ──────────────────────────────────────────────
 window.startRankingMode = function(){
   if(!currentUser){ toast('로그인이 필요합니다','error'); return; }
+  // 프리미엄 전용
+  if(!isActivePremium() && !isAdmin()){
+    toast('🏆 랭킹 모드는 프리미엄 회원만 이용 가능합니다.','error');
+    setTimeout(()=>showPaywall(), 400);
+    return;
+  }
   const s = document.querySelectorAll('.stag.sel');
   if(!s.length){ toast('지역을 선택하세요!','error'); return; }
   if(!rankingGroupKey){ toast('랭킹 모드 조건이 맞지 않습니다.','error'); return; }
@@ -2992,14 +3092,26 @@ function showRankingModeHeader(){
   if(existing) existing.remove();
   const div = document.createElement('div');
   div.id = 'ranking-mode-header';
-  div.style.cssText = `position:fixed;top:0;left:0;right:0;z-index:10000;
-    background:linear-gradient(135deg,rgba(255,215,0,.2),rgba(255,165,0,.15));
+  div.style.cssText = `
+    position:fixed;top:0;left:0;right:0;z-index:10001;
+    background:linear-gradient(135deg,rgba(30,20,0,.97),rgba(50,35,0,.97));
     border-bottom:2px solid var(--gold);
-    padding:4px 16px;display:flex;align-items:center;justify-content:space-between;
-    font-size:.72rem;color:var(--gold);font-weight:700;pointer-events:none;`;
-  div.innerHTML = `<span>🏆 랭킹 모드 진행 중 · ${rankingGroupKey}</span>
-    <span id="ranking-progress-header">0 / ${rankingTotalDongs}</span>`;
+    padding:6px 16px;
+    display:flex;align-items:center;justify-content:space-between;
+    font-size:.76rem;color:var(--gold);font-weight:700;
+    box-shadow:0 2px 12px rgba(255,215,0,.25);
+    height:36px;
+  `;
+  div.innerHTML = `
+    <span style="display:flex;align-items:center;gap:8px;">
+      🏆 <span>랭킹 모드 진행 중 · ${rankingGroupKey}</span>
+    </span>
+    <span id="ranking-progress-header" style="font-variant-numeric:tabular-nums;">
+      0 / ${rankingTotalDongs}
+    </span>`;
   document.body.appendChild(div);
+  // 헤더 바 높이(36px)만큼 전체 UI 아래로 밀기
+  document.body.style.paddingTop = '36px';
 }
 
 function updateRankingHeader(){
@@ -3025,6 +3137,7 @@ async function checkRankingCompletion(){
   canAns = false;
   const header = document.getElementById('ranking-mode-header');
   if(header) header.remove();
+  document.body.style.paddingTop = '';
 
   // 정답률 50% 미만이면 저장 안 함
   if(rate < 50){
@@ -3257,6 +3370,7 @@ window.goHome = function(){
       rankingResults = [];
       const rankHeader = document.getElementById('ranking-mode-header');
       if(rankHeader) rankHeader.remove();
+      document.body.style.paddingTop = '';
     }
 
     // 퀴즈 완전 중단: 레이어/큐 초기화
