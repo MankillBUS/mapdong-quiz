@@ -6352,87 +6352,159 @@ function csTab(tab) {
 function renderCSAbout(){
   const body = document.getElementById('cs-body');
   body.innerHTML = `
-    <div style="max-width:640px;margin:0 auto;padding:8px 0 32px;">
+    <div style="max-width:680px;margin:0 auto;padding:8px 0 40px;font-family:'Noto Sans KR',sans-serif;">
 
       <!-- 로고 + 슬로건 -->
-      <div style="text-align:center;margin-bottom:28px;">
-        <div style="font-family:'Black Han Sans',sans-serif;font-size:2rem;
-          color:var(--accent);letter-spacing:4px;margin-bottom:6px;">
+      <div style="text-align:center;padding:28px 20px 24px;margin-bottom:20px;
+        background:linear-gradient(135deg,rgba(0,212,255,.06),rgba(255,60,110,.04));
+        border:1px solid rgba(0,212,255,.15);border-radius:16px;">
+        <div style="font-family:'Black Han Sans',sans-serif;font-size:2.2rem;
+          color:var(--accent);letter-spacing:4px;margin-bottom:8px;">
           Map<span style="color:var(--accent2)">Dong</span>
         </div>
-        <div style="font-size:.82rem;color:var(--text-dim);">
-          수도권 행정동 위치 퀴즈 서비스
+        <div style="font-size:.9rem;color:var(--text);font-weight:700;margin-bottom:6px;">
+          실제 수익과 연결되는 위치 학습 플랫폼
         </div>
-      </div>
-
-      <!-- 회사 정보 카드 -->
-      <div style="background:var(--surface2);border:1px solid var(--border);
-        border-radius:14px;overflow:hidden;margin-bottom:16px;">
-        <div style="background:rgba(0,212,255,.06);padding:10px 18px;
-          font-size:.68rem;color:var(--accent);text-transform:uppercase;
-          letter-spacing:2px;font-weight:700;border-bottom:1px solid var(--border);">
-          회사 정보
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);">
-          ${[
-            ['회사명','워크트래블허브'],
-            ['대표자','김강별'],
-            ['사업자번호','690-17-02022'],
-            ['통신판매업','제2025-서울서초-3783호'],
-            ['설립','2025년'],
-            ['서비스명','MapDong (맵동)'],
-          ].map(([k,v])=>`
-            <div style="background:var(--surface2);padding:12px 16px;">
-              <div style="font-size:.62rem;color:var(--text-dim);margin-bottom:3px;">${k}</div>
-              <div style="font-size:.82rem;color:var(--text);font-weight:600;">${v}</div>
-            </div>`).join('')}
-        </div>
-        <div style="background:var(--surface2);padding:12px 16px;border-top:1px solid var(--border);">
-          <div style="font-size:.62rem;color:var(--text-dim);margin-bottom:3px;">주소</div>
-          <div style="font-size:.82rem;color:var(--text);">서울특별시 서초구 서초동 1362-23 더포인트 3층</div>
+        <div style="font-size:.76rem;color:var(--text-dim);line-height:1.7;">
+          서울·인천·경기 전 행정동 기반 인터랙티브 퀴즈 서비스
         </div>
       </div>
 
       <!-- 서비스 소개 -->
-      <div style="background:var(--surface2);border:1px solid var(--border);
-        border-radius:14px;overflow:hidden;margin-bottom:16px;">
-        <div style="background:rgba(0,212,255,.06);padding:10px 18px;
-          font-size:.68rem;color:var(--accent);text-transform:uppercase;
-          letter-spacing:2px;font-weight:700;border-bottom:1px solid var(--border);">
-          서비스 소개
-        </div>
-        <div style="padding:16px 18px;font-size:.82rem;color:#b0c8de;line-height:1.9;">
-          MapDong은 수도권 행정동의 위치를 지도에서 직접 클릭하며 학습하는
-          퀴즈 서비스입니다.<br>
-          서울·인천·경기 전 행정동을 대상으로 정확한 위치 감각을 기를 수 있으며,
-          일반회원은 무료체험, 프리미엄 회원은 랭킹 시스템과 커뮤니티 등
-          확장 기능을 이용할 수 있습니다.
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:14px;">
+        <div style="background:rgba(0,212,255,.07);padding:10px 18px;font-size:.65rem;
+          color:var(--accent);text-transform:uppercase;letter-spacing:2px;font-weight:700;
+          border-bottom:1px solid var(--border);">📌 서비스 소개</div>
+        <div style="padding:16px 18px;font-size:.82rem;color:#b0c8de;line-height:1.95;">
+          MapDong은 사용자가 지도 위에서 행정동을 직접 선택하며 학습하는 인터랙티브 퀴즈 서비스입니다.<br><br>
+          단순한 퀴즈를 넘어, <strong style="color:var(--text);">운송업 종사자들이 실제 업무에서 겪는 문제를 해결</strong>하기 위한
+          <strong style="color:var(--accent);">실전형 학습 + 커뮤니티 + 데이터 기반 플랫폼</strong>입니다.<br><br>
+          일반회원은 무료 체험으로 핵심 기능을 경험할 수 있으며,
+          프리미엄 회원은 랭킹 시스템·커뮤니티·고급 학습 데이터 등 확장 기능을 통해
+          수익 향상에 직접적으로 기여하는 환경을 제공합니다.
         </div>
       </div>
 
-      <!-- 연락처 -->
-      <div style="background:var(--surface2);border:1px solid var(--border);
-        border-radius:14px;overflow:hidden;">
-        <div style="background:rgba(0,212,255,.06);padding:10px 18px;
-          font-size:.68rem;color:var(--accent);text-transform:uppercase;
-          letter-spacing:2px;font-weight:700;border-bottom:1px solid var(--border);">
-          연락처
+      <!-- 문제 정의 -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:14px;">
+        <div style="background:rgba(255,60,110,.07);padding:10px 18px;font-size:.65rem;
+          color:var(--accent2);text-transform:uppercase;letter-spacing:2px;font-weight:700;
+          border-bottom:1px solid var(--border);">🚨 문제 정의</div>
+        <div style="padding:16px 18px;">
+          <div style="font-size:.84rem;color:var(--text);font-weight:700;margin-bottom:10px;">
+            위치 파악 능력 부족으로 인한 동선 낭비와 시간 손실
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            ${[
+              ['📍','행정동·읍·면 위치 이해 부족'],
+              ['🔄','비효율적인 경로 선택'],
+              ['⛽','반복적인 유류비 손실'],
+            ].map(([ic,tx])=>`
+              <div style="display:flex;align-items:center;gap:10px;background:rgba(255,60,110,.05);
+                border:1px solid rgba(255,60,110,.15);border-radius:8px;padding:8px 12px;">
+                <span style="font-size:1rem;">${ic}</span>
+                <span style="font-size:.8rem;color:#b0c8de;">${tx}</span>
+              </div>`).join('')}
+          </div>
+          <div style="margin-top:12px;font-size:.78rem;color:var(--text-dim);line-height:1.8;">
+            하루 단위로 누적되는 손실은 곧 <strong style="color:var(--accent2);">수익 감소로 직결</strong>되는 구조적 문제입니다.<br>
+            MapDong은 <strong style="color:var(--accent);">반복 학습 + 실전 시뮬레이션 + 커뮤니티 지식 공유</strong> 구조를 통해
+            위치 인지 능력을 빠르게 향상시킵니다.
+          </div>
         </div>
-        <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <span style="font-size:1.1rem;">📞</span>
-            <div>
-              <div style="font-size:.68rem;color:var(--text-dim);">전화</div>
-              <div style="font-size:.84rem;color:var(--text);font-weight:600;">070-7782-3601</div>
-            </div>
+      </div>
+
+      <!-- 기대 효과 -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:14px;">
+        <div style="background:rgba(255,215,0,.07);padding:10px 18px;font-size:.65rem;
+          color:var(--gold);text-transform:uppercase;letter-spacing:2px;font-weight:700;
+          border-bottom:1px solid var(--border);">📊 데이터 기반 기대 효과</div>
+        <div style="padding:14px 18px;display:flex;flex-direction:column;gap:10px;">
+          <div style="font-size:.65rem;color:var(--text-dim);padding:6px 10px;
+            background:rgba(255,255,255,.03);border-radius:6px;line-height:1.6;">
+            ※ 아래 수치는 국토교통부·환경부·한국교통연구원·통계청 등 공개 데이터 기반 추정치입니다.
           </div>
-          <div style="display:flex;align-items:center;gap:12px;">
-            <span style="font-size:1.1rem;">✉️</span>
-            <div>
-              <div style="font-size:.68rem;color:var(--text-dim);">이메일 (고객문의)</div>
-              <div style="font-size:.84rem;color:var(--accent2);">kke320001@gmail.com</div>
-            </div>
-          </div>
+          ${[
+            ['🚚','운행 거리 최적화','일 150km 기준 약 5~12% 동선 감소 · 일 300km 기준 약 8~15% 감소','rgba(0,212,255,.08)','rgba(0,212,255,.2)','var(--accent)'],
+            ['🌱','환경 개선','CO₂ 약 5~12% 감소 · 질소산화물 등 대기오염물질 약 4~10% 감소 기여','rgba(57,255,20,.06)','rgba(57,255,20,.2)','#39ff14'],
+            ['💰','수익 향상','1개월 학습 시 평균 +5~10% · 3개월 이상 학습 시 평균 +10~25% 수익 증가 기대','rgba(255,215,0,.08)','rgba(255,215,0,.25)','var(--gold)'],
+          ].map(([ic,title,desc,bg,border,color])=>`
+            <div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:12px 14px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <span style="font-size:1.1rem;">${ic}</span>
+                <span style="font-size:.82rem;font-weight:700;color:${color};">${title}</span>
+              </div>
+              <div style="font-size:.76rem;color:#b0c8de;line-height:1.7;">${desc}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- 커뮤니티 -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:14px;">
+        <div style="background:rgba(162,155,254,.07);padding:10px 18px;font-size:.65rem;
+          color:#a29bfe;text-transform:uppercase;letter-spacing:2px;font-weight:700;
+          border-bottom:1px solid var(--border);">🏆 커뮤니티 & 보상 시스템</div>
+        <div style="padding:14px 18px;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+          ${[
+            ['📍','지역별 꿀팁 공유'],
+            ['🗺','실전 경로 노하우'],
+            ['🏅','랭킹 및 계급 시스템'],
+            ['💬','사용자 간 정보 교류'],
+          ].map(([ic,tx])=>`
+            <div style="display:flex;align-items:center;gap:8px;background:rgba(162,155,254,.06);
+              border:1px solid rgba(162,155,254,.15);border-radius:8px;padding:8px 10px;">
+              <span>${ic}</span>
+              <span style="font-size:.76rem;color:#b0c8de;">${tx}</span>
+            </div>`).join('')}
+        </div>
+        <div style="padding:0 18px 14px;font-size:.76rem;color:var(--text-dim);line-height:1.8;">
+          프리미엄·맵동가족 회원은 회원 상태 유지 시 이벤트 자동 참여 및
+          <strong style="color:#a29bfe;">지속적인 보상 이벤트·혜택</strong>을 제공합니다.
+        </div>
+      </div>
+
+      <!-- 운영 철학 -->
+      <div style="background:linear-gradient(135deg,rgba(0,212,255,.06),rgba(162,155,254,.06));
+        border:1px solid rgba(0,212,255,.2);border-radius:14px;padding:20px 18px;margin-bottom:14px;
+        text-align:center;">
+        <div style="font-family:'Black Han Sans',sans-serif;font-size:1.1rem;
+          color:var(--accent);letter-spacing:2px;margin-bottom:10px;">"다시 돌려드립니다."</div>
+        <div style="font-size:.78rem;color:#b0c8de;line-height:1.9;">
+          MapDong은 단순 수익 창출이 아닌,<br>
+          <strong style="color:var(--text);">사용자의 실질적인 수익 향상과 성장</strong>을 목표로 합니다.
+        </div>
+        <div style="display:flex;justify-content:center;gap:16px;margin-top:14px;flex-wrap:wrap;">
+          ${['합리적인 가격 정책','실질적 도움 중심 설계','지속적인 서비스 개선','지속적인 이벤트 나눔'].map(t=>`
+            <span style="font-size:.7rem;color:var(--accent);background:rgba(0,212,255,.08);
+              border:1px solid rgba(0,212,255,.2);border-radius:20px;padding:3px 12px;">✓ ${t}</span>`).join('')}
+        </div>
+      </div>
+
+      <!-- 회사 정보 + 연락처 -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;overflow:hidden;">
+        <div style="background:rgba(0,212,255,.07);padding:10px 18px;font-size:.65rem;
+          color:var(--accent);text-transform:uppercase;letter-spacing:2px;font-weight:700;
+          border-bottom:1px solid var(--border);">🏢 회사 정보 & 연락처</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);">
+          ${[
+            ['회사명','워크트래블허브'],['대표자','김강별'],
+            ['사업자번호','690-17-02022'],['통신판매업','제2025-서울서초-3783호'],
+            ['전화','070-7782-3601'],['이메일','kke320001@gmail.com'],
+          ].map(([k,v])=>`
+            <div style="background:var(--surface2);padding:10px 14px;">
+              <div style="font-size:.58rem;color:var(--text-dim);margin-bottom:2px;">${k}</div>
+              <div style="font-size:.78rem;color:var(--text);font-weight:600;">${v}</div>
+            </div>`).join('')}
+        </div>
+        <div style="background:var(--surface2);padding:10px 14px;border-top:1px solid var(--border);">
+          <div style="font-size:.58rem;color:var(--text-dim);margin-bottom:2px;">주소</div>
+          <div style="font-size:.78rem;color:var(--text);">서울특별시 서초구 서초동 1362-23 더포인트 3층</div>
+        </div>
+        <div style="padding:12px 18px;border-top:1px solid var(--border);
+          font-size:.7rem;color:var(--text-dim);line-height:1.75;">
+          <strong style="color:var(--accent);">⚖️ 지식재산권</strong><br>
+          MapDong이 독자적으로 가공한 데이터·코드·구조·시스템에 대한 지식재산권 및 소유권은 MapDong에 귀속됩니다.
+          외부 지도·아이콘·폰트 등은 각 제공사의 라이선스 정책을 따릅니다.
         </div>
       </div>
 
