@@ -1908,6 +1908,12 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <button class="mb" onclick="focusA()">🎯 정답위치</button>
       <button class="mb" onclick="skipQ()">⏭ 건너뛰기</button>
       <button class="mb" id="btn-show-all" onclick="toggleShowAll()" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7);">📚 모든 정답 표시</button>
+      <!-- 신규회원 24시간 남은시간 표시 -->
+      <div id="new-member-timer" style="display:none;font-size:.6rem;color:#a29bfe;
+        text-align:center;background:rgba(162,155,254,.12);border:1px solid rgba(162,155,254,.3);
+        border-radius:5px;padding:2px 7px;white-space:nowrap;margin-top:-2px;">
+        🎁 모든정답 <span id="new-member-timer-text"></span>
+      </div>
     </div>
     <!-- 오답 정답위치 표시 바 -->
     <div id="ans-bar">
@@ -3081,6 +3087,7 @@ window.startRankingMode = function(){
   isDarkTheme = _savedTheme;
   initMap(); buildFilter(); reshuffleRanking(); nextQ();
   document.getElementById('range-control').style.display = 'block';
+  startNewMemberTimer();
 
   // 랭킹 모드 헤더 표시
   showRankingModeHeader();
@@ -3264,6 +3271,7 @@ window.startQuiz = function(){
     isDarkTheme = _savedTheme;
     initMap(); buildFilter(); reshuffle(); nextQ();
     document.getElementById('range-control').style.display = 'block';
+    startNewMemberTimer();
   };
 
   if(!POLY_CACHE){
@@ -4759,6 +4767,40 @@ function isNewMember24h(){
   const joinedAt = new Date(userProfile.created_at).getTime();
   const elapsed  = Date.now() - joinedAt;
   return elapsed < 24 * 60 * 60 * 1000; // 24시간 미만
+}
+
+/* ── 신규회원 24시간 남은시간 표시 타이머 ── */
+let _newMemberTimerInterval = null;
+
+function updateNewMemberTimer(){
+  const timerDiv  = document.getElementById('new-member-timer');
+  const timerText = document.getElementById('new-member-timer-text');
+  if(!timerDiv || !timerText) return;
+
+  if(!userProfile?.created_at || isActivePremium()){
+    timerDiv.style.display = 'none';
+    return;
+  }
+
+  const joinedAt  = new Date(userProfile.created_at).getTime();
+  const remaining = (joinedAt + 24*60*60*1000) - Date.now();
+
+  if(remaining <= 0){
+    timerDiv.style.display = 'none';
+    if(_newMemberTimerInterval){ clearInterval(_newMemberTimerInterval); _newMemberTimerInterval = null; }
+    return;
+  }
+
+  const h = Math.floor(remaining / 3600000);
+  const m = Math.floor((remaining % 3600000) / 60000);
+  timerText.textContent = `${h}시간 ${m}분 남음`;
+  timerDiv.style.display = 'block';
+}
+
+function startNewMemberTimer(){
+  updateNewMemberTimer();
+  if(_newMemberTimerInterval) clearInterval(_newMemberTimerInterval);
+  _newMemberTimerInterval = setInterval(updateNewMemberTimer, 60000); // 1분마다
 }
 
 /* ── 맵동가족 활성 여부 ─────────────────────────────────── */
