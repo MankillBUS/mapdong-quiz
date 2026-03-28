@@ -1590,8 +1590,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
 <!-- 시작 화면 -->
 <div id="start" class="fs-screen hidden">
-  <!-- 디버그 버튼 -->
-  <div style="position:fixed;bottom:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+  <!-- 디버그 버튼 (일시 숨김) -->
+  <div style="display:none;position:fixed;bottom:16px;right:16px;z-index:9999;flex-direction:column;gap:6px;align-items:flex-end;">
     <button onclick="window.location.href='debug_ranking.html'"
       style="background:rgba(0,212,255,.15);border:1px dashed var(--accent);
         color:var(--accent);border-radius:8px;padding:6px 12px;
@@ -3027,10 +3027,10 @@ window.startRankingMode = function(){
   if(!isActivePremium() && !isAdmin()){
     toast('🏆 랭킹 모드는 프리미엄 회원만 이용 가능합니다.','error');
     setTimeout(()=>{
-      // screen-paywall을 position:fixed 모달로 강제 표시
-      // (showOnly를 쓰지 않으므로 start 화면 상태 변경 없음)
       const pw = document.getElementById('screen-paywall');
       if(pw){
+        // 랭킹 전용 플래그 — closePaywall에서 완전히 초기화하기 위해 사용
+        pw.dataset.fromRanking = '1';
         pw.classList.remove('hidden');
         pw.style.cssText = 'display:flex!important;position:fixed;inset:0;z-index:9000;';
         if(typeof initPlanSlider==='function') setTimeout(initPlanSlider,50);
@@ -3902,7 +3902,7 @@ window.hideWrongBoundary = function(){
 
 window.toggleShowAll = function(){
   if(isRankingMode){ toast('🏆 랭킹 모드에서는 모든 정답 표시를 사용할 수 없습니다.','error'); return; }
-  if(!isActivePremium()){
+  if(!isActivePremium() && !isNewMember24h()){
     showShowAllLockedPopup();
     return;
   }
@@ -4750,6 +4750,17 @@ function isActivePremium(){
       && new Date(userProfile.premium_until) > new Date();
 }
 
+/* ── 신규 가입 24시간 이내 여부 ────────────────────────────
+   user_profiles.created_at 기준으로 24시간 이내면 true
+   → 모든 정답 표시 기능 무료 허용
+   ──────────────────────────────────────────────────────── */
+function isNewMember24h(){
+  if(!userProfile?.created_at) return false;
+  const joinedAt = new Date(userProfile.created_at).getTime();
+  const elapsed  = Date.now() - joinedAt;
+  return elapsed < 24 * 60 * 60 * 1000; // 24시간 미만
+}
+
 /* ── 맵동가족 활성 여부 ─────────────────────────────────── */
 function isActiveMapdongFamily(){
   return userProfile?.is_mapdong_family
@@ -5205,9 +5216,22 @@ function showPaywall(e) {
 function closePaywall() {
   const pw = document.getElementById('screen-paywall');
   if(!pw) return;
-  // 인라인 style로 강제 표시된 경우(랭킹 버튼에서 열린 경우) style 초기화
+
+  const fromRanking = pw.dataset.fromRanking === '1';
+  // 인라인 style + 플래그 초기화
   pw.style.cssText = '';
-  // start 화면이 visible이면 그대로 유지 (랭킹 버튼에서 열린 케이스)
+  delete pw.dataset.fromRanking;
+
+  if(fromRanking){
+    // 랭킹 버튼에서 열린 경우: paywall만 닫고 start 화면 완전 복원
+    pw.classList.add('hidden');
+    // start 화면이 hidden 됐을 수 있으므로 명시적으로 복원
+    const startEl = document.getElementById('start');
+    if(startEl) startEl.classList.remove('hidden');
+    return;
+  }
+
+  // start 화면이 이미 visible이면 그냥 닫기
   const startEl = document.getElementById('start');
   if(startEl && !startEl.classList.contains('hidden')){
     pw.classList.add('hidden');
@@ -7689,19 +7713,25 @@ async function verifyOtp() {
     const otpInner = document.querySelector('#otp-modal > div');
     if(otpInner) {
       otpInner.innerHTML = `
-        <div style="font-size:3rem;margin-bottom:16px;">✅</div>
-        <div style="font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:#39ff14;margin-bottom:10px;">
-          이메일 인증 완료!
+        <div style="font-size:3rem;margin-bottom:16px;">🎉</div>
+        <div style="font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:#39ff14;margin-bottom:14px;">
+          환영합니다!
         </div>
-        <div style="font-size:.9rem;color:#7a9bb5;">
-          잠시 후 로그인됩니다...
+        <div style="background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);
+          border-radius:10px;padding:12px 16px;font-size:.82rem;color:var(--accent);
+          line-height:1.8;margin-bottom:8px;">
+          🎁 첫 가입 <strong>24시간</strong> 동안은<br>
+          퀴즈의 <strong>모든 정답 표시</strong> 기능이 활성화됩니다.
+        </div>
+        <div style="font-size:.76rem;color:#7a9bb5;margin-top:8px;">
+          잠시 후 자동으로 이동합니다...
         </div>
       `;
     }
     setTimeout(() => {
       hideOtpModal();
       window.location.reload();
-    }, 1500);
+    }, 2500);
 
   } catch(e) {
     errEl.textContent = '오류가 발생했습니다. 다시 시도해주세요.';
