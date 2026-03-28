@@ -1747,6 +1747,17 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       z-index:10;">0</span>
     <div id="user-dropdown">
 
+      <!-- ① 프로필 영역 — 클릭하면 내정보 수정 -->
+      <div class="dd-info" id="dd-info-top" onclick="goMyInfo()"
+           onmouseenter="this.style.background='var(--surface2)'"
+           onmouseleave="this.style.background=''">
+        <div style="font-size:.58rem;color:var(--text-dim);letter-spacing:.5px;margin-bottom:3px;">
+          ✏️ 클릭하면 내정보 수정
+        </div>
+        <div class="dd-email" id="dd-email" style="font-size:.84rem;font-weight:600;color:var(--text);">-</div>
+        <div class="dd-status trial" id="dd-status">일반회원 이용 중</div>
+      </div>
+
       <!-- 🔔 알림 영역 -->
       <div id="index-notif-area" style="display:none;">
         <div style="padding:8px 12px;font-size:.78rem;font-weight:700;color:var(--text);
@@ -1763,16 +1774,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
         </div>
         <div id="index-notif-list" style="max-height:200px;overflow-y:auto;"></div>
         <div style="border-top:1px solid var(--border);padding:4px;"></div>
-      </div>
-      <!-- ① 프로필 영역 — 클릭하면 내정보 수정 -->
-      <div class="dd-info" id="dd-info-top" onclick="goMyInfo()"
-           onmouseenter="this.style.background='var(--surface2)'"
-           onmouseleave="this.style.background=''">
-        <div style="font-size:.58rem;color:var(--text-dim);letter-spacing:.5px;margin-bottom:3px;">
-          ✏️ 클릭하면 내정보 수정
-        </div>
-        <div class="dd-email" id="dd-email" style="font-size:.84rem;font-weight:600;color:var(--text);">-</div>
-        <div class="dd-status trial" id="dd-status">일반회원 이용 중</div>
       </div>
 
       <!-- ② 플랜 결제/변경 -->
@@ -1798,14 +1799,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <!-- ④ 구분선 -->
       <div style="border-top:1px solid var(--border);margin:4px 6px;"></div>
 
-      <!-- ⑤ 내정보 수정 -->
-      <button class="dd-btn" id="dd-myinfo" onclick="goMyInfo()"
-        style="width:100%;display:flex;align-items:center;gap:9px;padding:9px 12px;">
-        <span style="font-size:1rem;flex-shrink:0;">✏️</span>
-        <span style="font-size:.82rem;color:var(--text-dim);">내정보 수정</span>
-      </button>
-
-      <!-- ⑥ 로그아웃 -->
+      <!-- ⑤ 로그아웃 -->
       <button class="dd-btn danger" onclick="closeDropdown();signOut()"
         style="width:100%;display:flex;align-items:center;gap:9px;padding:9px 12px;">
         <span style="font-size:1rem;flex-shrink:0;">🚪</span>
