@@ -7563,18 +7563,22 @@ async function checkNickname() {
   if(nickname.length<2||nickname.length>10) { msgEl.style.color='#ff3c6e'; msgEl.textContent='닉네임은 2~10자로 입력해주세요.'; return; }
   msgEl.style.color='var(--text-dim)'; msgEl.textContent='확인 중...';
   try {
-    // fetch 직접 호출로 Lock 충돌 우회
+    // SECURITY DEFINER RPC 호출 (anon key로도 전체 user_profiles 조회 가능)
+    // 기존 REST 직접 조회는 RLS(auth.uid()=user_id)에 막혀 항상 "사용 가능"으로 오판됨
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_profiles?select=user_id&nickname=eq.${encodeURIComponent(nickname)}&limit=1`,
+      `${SUPABASE_URL}/rest/v1/rpc/check_nickname_exists`,
       {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'apikey': SUPABASE_KEY,
           'Authorization': `Bearer ${SUPABASE_KEY}`,
-        }
+        },
+        body: JSON.stringify({ check_nickname: nickname }),
       }
     );
     const data = await res.json();
-    if(data && data.length > 0) {
+    if(data === true) {
       msgEl.style.color='#ff3c6e';
       msgEl.textContent='❌ 이미 사용 중인 닉네임입니다.';
       nicknameChecked = false;
