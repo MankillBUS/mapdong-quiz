@@ -4377,13 +4377,187 @@ function showOnly(id){
   });
 }
 
-/* ── 로그인 ── */
+/* ── 구글 로그인 / 가입 ── */
 async function signInGoogle(){
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: window.location.origin }
   });
   if(error) toast('구글 로그인 실패: ' + error.message, 'error');
+}
+
+/* ── 구글 유저의 프로필 완성 여부 판단 ──
+   nickname, phone, job 중 하나라도 없으면 미완성으로 판단 */
+function isGoogleProfileIncomplete(){
+  if(!currentUser) return false;
+  // 구글 OAuth 유저: provider가 google인 경우
+  const isGoogleUser = currentUser.app_metadata?.provider === 'google'
+    || (currentUser.identities || []).some(i => i.provider === 'google');
+  if(!isGoogleUser) return false;
+  if(!userProfile) return true;
+  // 필수 항목 중 하나라도 미입력이면 미완성
+  return !userProfile.nickname || !userProfile.phone || !userProfile.job || !userProfile.is_verified;
+}
+
+/* ── 구글 가입자용 회원가입 폼 열기 ──
+   기존 signup-modal을 재사용하되 이메일/비밀번호 필드 숨김
+   구글 계정의 닉네임을 자동 입력 */
+function openGoogleSignupModal(){
+  // 기존 openSignupModal() 호출하여 폼 초기화
+  openSignupModal();
+
+  // ── 이메일 필드 숨김 + 자동 입력 (구글 이메일 고정)
+  const emailField = document.getElementById('su-email')?.closest('.signup-field');
+  if(emailField) emailField.style.display = 'none';
+  const emailInput = document.getElementById('su-email');
+  if(emailInput){
+    emailInput.value = currentUser.email || '';
+    emailChecked = true; // 이미 구글 인증된 이메일 → 중복확인 스킵
+  }
+
+  // ── 비밀번호 필드 숨김 (구글 OAuth → 비밀번호 불필요)
+  ['su-pw','su-pw2'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el){
+      const field = el.closest('.signup-field');
+      if(field) field.style.display = 'none';
+      el.value = '_Google_OAuth_NoPass_' + Date.now(); // 더미값 (검증 우회)
+    }
+  });
+
+  // ── 구글 닉네임 자동 입력
+  const googleNickname = currentUser.user_metadata?.name
+    || currentUser.user_metadata?.full_name
+    || currentUser.user_metadata?.user_name
+    || '';
+  // 10자 초과면 앞 10자만
+  const safeNick = googleNickname.slice(0, 10);
+  const nickInput = document.getElementById('su-nickname');
+  if(nickInput && safeNick){
+    nickInput.value = safeNick;
+    // 닉네임 중복확인은 사용자가 직접 해야 함 (자동 입력이어도 중복 가능)
+    nicknameChecked = false;
+  }
+
+  // ── 헤더 타이틀 변경
+  const header = document.querySelector('#signup-modal .signup-header div:first-child');
+  if(header) header.textContent = '📝 구글 계정 정보 입력';
+  const subHeader = document.querySelector('#signup-modal .signup-header div:nth-child(2)');
+  if(subHeader) subHeader.textContent = '서비스 이용을 위해 추가 정보를 입력해주세요.';
+
+  // ── 안내 배너 추가 (구글 이메일 표시)
+  const errEl = document.getElementById('su-err');
+  if(errEl){
+    errEl.style.display = 'block';
+    errEl.style.background = 'rgba(0,212,255,.08)';
+    errEl.style.borderColor = 'rgba(0,212,255,.3)';
+    errEl.style.color = 'var(--accent)';
+    errEl.textContent = `🔗 구글 계정 연동: ${currentUser.email} — 비밀번호 없이 구글로 로그인합니다.`;
+  }
+
+  // ── 닫기 버튼 비활성화 (미완성 상태에서 닫으면 로그아웃)
+  const closeBtn = document.querySelector('#signup-modal .signup-close-btn');
+  if(closeBtn){
+    closeBtn.onclick = function(){
+      if(!confirm('입력을 취소하면 로그아웃됩니다. 취소하시겠습니까?')) return;
+      sb.auth.signOut();
+      closeSignupModal();
+      showOnly('screen-login');
+    };
+  }
+
+  // ── submitSignup 버튼 텍스트 변경
+  const submitBtn = document.getElementById('su-submit');
+  if(submitBtn) submitBtn.textContent = '✓ 정보 저장하고 시작하기';
+}
+
+/* ── 구글 가입자 회원가입 제출 (submitSignup 오버라이드) ──
+   비밀번호 없이 user_profiles만 PATCH */
+async function submitGoogleSignup(){
+  document.getElementById('su-err').style.display='none';
+  const nickname  = document.getElementById('su-nickname').value.trim();
+  const realName  = document.getElementById('su-realname').value.trim();
+  const p1        = document.getElementById('su-phone1').value;
+  const p2        = document.getElementById('su-phone2').value;
+  const p3        = document.getElementById('su-phone3').value;
+  const job       = document.getElementById('su-job').value;
+  const addr      = document.getElementById('su-addr').value.trim();
+  const addrDt    = document.getElementById('su-addr-detail').value.trim();
+
+  function suErrG(msg){ const e=document.getElementById('su-err'); e.style.display='block'; e.style.background='rgba(255,60,110,.1)'; e.style.borderColor='var(--accent2)'; e.style.color='var(--accent2)'; e.textContent=msg; }
+
+  if(!nickname)                             { suErrG('닉네임을 입력해주세요.'); return; }
+  if(nickname.length<2||nickname.length>10) { suErrG('닉네임은 2~10자로 입력해주세요.'); return; }
+  if(!nicknameChecked)                      { suErrG('닉네임 중복확인을 해주세요.'); return; }
+  if(!realName)                             { suErrG('실명을 입력해주세요.'); return; }
+  if(!job)                                  { suErrG('직업을 선택해주세요.'); return; }
+  if(!signupPhoneVerified)                  { suErrG('휴대폰 본인인증을 먼저 완료해주세요.'); return; }
+  if(!p1||!p2||!p3)                         { suErrG('휴대폰 번호를 입력해주세요.'); return; }
+
+  const phone    = `${p1}-${p2}-${p3}`;
+  const fullAddr = addr ? (addrDt ? addr+' '+addrDt : addr) : '';
+  const niceData = window._niceResult || {};
+
+  const btn = document.getElementById('su-submit');
+  btn.disabled=true; btn.textContent='저장 중...';
+
+  try {
+    const token = await _getTokenWithRefresh();
+    if(!token){ suErrG('세션이 만료되었습니다. 다시 로그인해주세요.'); btn.disabled=false; btn.textContent='✓ 정보 저장하고 시작하기'; return; }
+
+    const patchRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${currentUser.id}`,
+      {
+        method: 'PATCH',
+        headers:{
+          'Content-Type':'application/json',
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${token}`,
+          'Prefer': 'return=minimal',
+        },
+        body: JSON.stringify({
+          nickname:    nickname,
+          real_name:   realName,
+          phone:       phone,
+          address:     fullAddr,
+          job:         job,
+          is_verified: true,
+          is_premium:  false,
+          plays_count: 0,
+          birth_date:  niceData.birth_date  || null,
+          nice_di:     niceData.nice_di     || null,
+          mobile_co:   niceData.mobile_co   || null,
+          verified_at: new Date().toISOString(),
+          updated_at:  new Date().toISOString(),
+        }),
+      }
+    );
+
+    if(!patchRes.ok){
+      const errTxt = await patchRes.text();
+      suErrG('저장 실패: ' + errTxt); btn.disabled=false; btn.textContent='✓ 정보 저장하고 시작하기'; return;
+    }
+
+    // 성공 → 성공 메시지 표시 후 새로고침
+    const otpInner = document.querySelector('#signup-modal .signup-card');
+    if(otpInner){
+      otpInner.innerHTML = `
+        <div style="padding:48px 32px;text-align:center;">
+          <div style="font-size:3rem;margin-bottom:16px;">🎉</div>
+          <div style="font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:#39ff14;margin-bottom:14px;">환영합니다!</div>
+          <div style="background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);
+            border-radius:10px;padding:12px 16px;font-size:.82rem;color:var(--accent);line-height:1.8;margin-bottom:8px;">
+            🎁 첫 가입 <strong>24시간</strong> 동안은<br>
+            퀴즈의 <strong>모든 정답 표시</strong> 기능이 활성화됩니다.
+          </div>
+          <div style="font-size:.76rem;color:#7a9bb5;margin-top:8px;">잠시 후 자동으로 이동합니다...</div>
+        </div>`;
+    }
+    setTimeout(() => { window.location.reload(); }, 2500);
+
+  } catch(e){
+    suErrG('오류: ' + e.message); btn.disabled=false; btn.textContent='✓ 정보 저장하고 시작하기';
+  }
 }
 
 /* toggleAuthMode는 하단 회원가입 모달 시스템에서 재정의됩니다 */
@@ -4684,6 +4858,13 @@ async function loadProfile(sessionToken){
       updateNewMemberTimer();
       startTrialCheckTimer();
     });
+  }
+
+  // ── 구글 가입자 프로필 미완성 감지 → 추가 정보 입력 팝업
+  if(isGoogleProfileIncomplete()){
+    // 개인정보 약관 모달 없이 바로 구글용 회원가입 폼 열기
+    setTimeout(() => openGoogleSignupModal(), 400);
+    return;
   }
 }
 
@@ -7001,23 +7182,50 @@ function initSignupValidation() {
 
 function checkSignupComplete() {
   const nickname  = document.getElementById('su-nickname')?.value.trim();
-  const email     = document.getElementById('su-email')?.value.trim();
-  const pw        = document.getElementById('su-pw')?.value;
-  const pw2       = document.getElementById('su-pw2')?.value;
   const realName  = document.getElementById('su-realname')?.value.trim();
   const p1        = document.getElementById('su-phone1')?.value;
   const p2        = document.getElementById('su-phone2')?.value;
   const p3        = document.getElementById('su-phone3')?.value;
   const job       = document.getElementById('su-job')?.value;
 
-  const allFilled = nickname && email && pw && pw2 && realName && p1 && p2 && p3 && job
-    && nicknameChecked && emailChecked && signupPhoneVerified;
+  let allFilled;
+  if(isGoogleProfileIncomplete()) {
+    // 구글 모드: 이메일/비밀번호 체크 제외
+    allFilled = nickname && realName && p1 && p2 && p3 && job
+      && nicknameChecked && signupPhoneVerified;
+  } else {
+    const email = document.getElementById('su-email')?.value.trim();
+    const pw    = document.getElementById('su-pw')?.value;
+    const pw2   = document.getElementById('su-pw2')?.value;
+    allFilled = nickname && email && pw && pw2 && realName && p1 && p2 && p3 && job
+      && nicknameChecked && emailChecked && signupPhoneVerified;
+  }
 
   const btn = document.getElementById('su-submit');
   if(btn) btn.disabled = !allFilled;
 }
 
 function closeSignupModal() {
+  // 구글 모드에서 숨겼던 필드 복원 (일반 회원가입 시 재사용 대비)
+  ['su-email','su-pw','su-pw2'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el){
+      const field = el.closest('.signup-field');
+      if(field) field.style.display = '';
+    }
+  });
+  // 헤더 원상복구
+  const header = document.querySelector('#signup-modal .signup-header div:first-child');
+  if(header && header.textContent.includes('구글')) header.textContent = '📝 회원가입';
+  const subHeader = document.querySelector('#signup-modal .signup-header div:nth-child(2)');
+  if(subHeader && subHeader.textContent.includes('추가 정보')) subHeader.textContent = '개인정보 약관에 동의하셨습니다 ✓';
+  // 닫기 버튼 원상복구
+  const closeBtn = document.querySelector('#signup-modal .signup-close-btn');
+  if(closeBtn) closeBtn.onclick = function(){ closeSignupModal(); };
+  // 제출 버튼 텍스트 원상복구
+  const submitBtn = document.getElementById('su-submit');
+  if(submitBtn && submitBtn.textContent.includes('저장')) submitBtn.textContent = '✓ 회원가입 완료하기';
+
   document.getElementById('signup-modal').classList.remove('show');
 }
 
@@ -7383,6 +7591,12 @@ async function checkNickname() {
 }
 
 async function submitSignup() {
+  // ── 구글 가입자는 별도 함수로 처리 (비밀번호/이메일 불필요)
+  if(isGoogleProfileIncomplete()) {
+    await submitGoogleSignup();
+    return;
+  }
+
   document.getElementById('su-err').style.display='none';
   const nickname  = document.getElementById('su-nickname').value.trim();
   const email     = document.getElementById('su-email').value.trim();
