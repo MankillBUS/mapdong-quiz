@@ -428,11 +428,21 @@ function _clearAllLayers() {
  */
 function _hasWorkModeAccess() {
   try {
-    // 기존 시스템 전역 변수 참조
     if (typeof userProfile === 'undefined' || !userProfile) return false;
-    var role = userProfile.role || 'user';
-    var plan = userProfile.plan || userProfile.subscription_plan || '';
-    return role === 'admin' || plan === 'premium';
+
+    // ── admin 즉시 허용 ──────────────────────────────────────
+    if (userProfile.role === 'admin') return true;
+
+    // ── premium 확인: 기존 시스템 isActivePremium() 우선 사용 ──
+    // isActivePremium() = userProfile.is_premium && premium_until > now
+    if (typeof isActivePremium === 'function') {
+      return isActivePremium();
+    }
+
+    // fallback: 직접 판정
+    return !!(userProfile.is_premium &&
+              userProfile.premium_until &&
+              new Date(userProfile.premium_until) > new Date());
   } catch(e) {
     return false;
   }
