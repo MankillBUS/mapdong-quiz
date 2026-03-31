@@ -1,34 +1,5 @@
 /**
- * index.js — 업무모드 컨트롤 타워
- *
- * ✅ 모든 상태는 여기서만 관리
- * ✅ 모듈 간 연결은 여기서만
- * ❌ 다른 모듈에서 직접 import 금지
- *
- * ══ 확인된 버그 목록 및 수정 내역 ══════════════════════════════
- *
- * [버그1] onMapClick 함수명 충돌 (가장 심각)
- *   - index.html: function onMapClick(e) — 퀴즈 클릭 핸들러
- *   - index.js:   function onMapClick(latlng) — 업무모드 핸들러
- *   - 결과: index.js 로드 후 index.html의 퀴즈 onMapClick이 덮어써짐
- *          → LatLng(NaN,NaN) 오류, 퀴즈 클릭 불가, 도형 생성 불가
- *   - 수정: 업무모드 전용 함수명 _wmMapClick 으로 변경
- *
- * [버그2] goHome() 후 업무모드 미초기화
- *   - goHome() → map.remove() → map=null 하지만 _map은 파괴된 객체 참조
- *   - 수정: goHome()에 window.stopWorkMode() 호출 추가 (index.html 수정 필요)
- *          + _isMapAlive() 로 모든 지도 조작 전 생존 확인
- *
- * [버그3] 폴리곤 로드 불가 (선택 지역 교차 안 됨)
- *   - DB[key].dongs에 geo 필드 없음
- *   - getDongGeo(rn, gu, d) 로 POLY_CACHE에서 꺼내야 함
- *   - rn 필드: DB[key].dongs[i].rn (buildDBFromCache에서 설정)
- *   - 수정: _getActiveDongPolygons()에서 getDongGeo() 직접 호출
- *
- * [버그4] LatLng(NaN,NaN) — 좌표변환 실패
- *   - GPS pos가 있어도 tangent 계산 실패 시 arc 포인트에 undefined 혼입
- *   - 수정: buildFanPolygon/buildLinePolygon 호출 전 GPS 유효성 검증
- *          + ring 조합 시 NaN 필터링
+ * index.js — 업무모드 컨트롤 타워 (최종)
  */
 
 // ════════════════════════════════════════════════════════════════
@@ -36,20 +7,25 @@
 // ════════════════════════════════════════════════════════════════
 
 let _map         = null;
-let _shapes      = [];
-let _currentMode = null;
-let _endPoint    = null;
+let _shapes      = [];          // { type, layer, polygon, endPt }[]
+let _currentMode = null;        // 'line' | 'fan' | null
+let _endPoint    = null;        // 부채꼴 고정 끝점
 let _resultSet   = new Set();
 let _autoCopy    = false;
 let _prevResult  = '';
 
 let _gpsWatchId  = null;
 let _gpsPos      = null;
-let _wmClickFn   = null;   // [버그1] 업무모드 전용 클릭 핸들러
+let _wmClickFn   = null;        // 업무모드 전용 클릭핸들러 (퀴즈 onMapClick과 완전 분리)
 
+// 슬라이더 값
 let _lineBuffer  = 0.3;
 let _fanR1       = 0.3;
 let _fanR2       = 0.8;
+
+// 동/구 폴리곤 표시 레이어
+let _dongLayers     = [];
+let _dongVisible    = false;
 
 // ════════════════════════════════════════════════════════════════
 // 2. 업무모드 진입
@@ -60,28 +36,32 @@ function initWorkMode(leafletMap) {
     alert('프리미엄 전용 기능입니다.\n업그레이드 후 이용해 주세요.');
     return;
   }
-
   if (_currentMode !== null || _gpsWatchId !== null) return;
 
   _map = leafletMap;
 
   _gpsWatchId = initGPS(
     function(pos) { _wmOnGpsUpdate(pos); },
-    function(err) {
-      setGpsDot('error');
-      console.warn('[WorkMode] GPS 오류:', err);
-    }
+    function(err) { setGpsDot('error'); console.warn('[WorkMode] GPS 오류:', err); }
   );
   setGpsDot('wait');
 
+  // ui.js의 확장된 renderWorkModePanel 호출 (11개 콜백)
   renderWorkModePanel(
-    function() { _wmSwitchMode('line'); },
-    function() { _wmSwitchMode('fan');  },
-    function() { _toggleAutoCopy();     },
-    function() { _focusGps();           }
+    function() { _wmSwitchMode('line'); },          // 선 모드
+    function() { _wmSwitchMode('fan'); },           // 부채꼴 모드
+    function() { _toggleAutoCopy(); },              // 자동복사
+    function() { _focusGps(); },                    // GPS 이동
+    function() { _wmAddLineChain(); },              // [문제5] 선 이어붙이기
+    function() { _wmAddFanChain(); },               // [문제6] 부채꼴 이어붙이기
+    function() { _wmToggleShowDong(); },            // [문제1,2] 동/구 표시
+    function() { _wmClearAll(); },                  // 전체 초기화
+    function(v) { _lineBuffer = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },  // [문제3] 선 버퍼
+    function(v) { _fanR1 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },       // [문제4] r1
+    function(v) { _fanR2 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); }        // [문제4] r2
   );
 
-  // [버그1 수정] 업무모드 전용 클릭 핸들러 — onMapClick과 다른 이름
+  // 업무모드 전용 클릭핸들러 (퀴즈 onMapClick 덮어쓰기 방지)
   _wmClickFn = function(e) {
     if (_currentMode) { _wmMapClick(e.latlng); }
   };
@@ -89,36 +69,32 @@ function initWorkMode(leafletMap) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// 3. 업무모드 종료 — 완전 초기화
+// 3. 업무모드 종료
 // ════════════════════════════════════════════════════════════════
 
 function exitWorkMode() {
-  // GPS clearWatch
   stopGPS(_gpsWatchId);
   _gpsWatchId = null;
   _gpsPos     = null;
 
-  // 레이어 제거
+  _wmClearDongLayers();
   _wmClearAllLayers();
 
-  // [버그1 수정] 클릭 핸들러 제거 (퀴즈 onMapClick과 완전 분리)
   if (_map && _wmClickFn) {
     try { _map.off('click', _wmClickFn); } catch(e) {}
     _wmClickFn = null;
   }
 
-  // 상태 초기화
   _shapes      = [];
   _currentMode = null;
   _endPoint    = null;
   _resultSet   = new Set();
   _autoCopy    = false;
   _prevResult  = '';
+  _dongLayers  = [];
+  _dongVisible = false;
 
-  // UI 패널 제거
   removeWorkModePanel();
-
-  // [버그2 수정] 지도 참조 해제
   _map = null;
 }
 
@@ -128,23 +104,22 @@ function exitWorkMode() {
 
 function _wmSwitchMode(mode) {
   if (_currentMode === mode) return;
-  _wmDestroyAll();
+  _wmDestroyShapes();
   _currentMode = mode;
   setActiveModeBtn(mode);
   if (mode === 'fan') _endPoint = null;
 }
 
 // ════════════════════════════════════════════════════════════════
-// 5. GPS 업데이트 (업무모드 전용)
+// 5. GPS 업데이트
 // ════════════════════════════════════════════════════════════════
 
 function _wmOnGpsUpdate(pos) {
   _gpsPos = pos;
   setGpsDot('active');
 
-  // [버그2 수정] goHome 후 지도 파괴 감지 → 자동 종료
   if (!_isMapAlive()) {
-    console.warn('[WorkMode] 지도 파괴됨 → 업무모드 자동 종료');
+    console.warn('[WorkMode] 지도 파괴됨 → 자동 종료');
     exitWorkMode();
     return;
   }
@@ -157,23 +132,33 @@ function _wmOnGpsUpdate(pos) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// 6. 지도 클릭 처리 (업무모드 전용 — [버그1] onMapClick과 분리)
+// 6. 지도 클릭 (업무모드 전용)
 // ════════════════════════════════════════════════════════════════
 
 function _wmMapClick(latlng) {
-  if (!_currentMode) return;
-  if (!_isMapAlive()) return;
-
-  // [버그4 수정] GPS 유효성 검증
-  if (!_gpsPos || typeof _gpsPos.lat !== 'number' || typeof _gpsPos.lng !== 'number') {
-    console.warn('[WorkMode] GPS 미수신 — 클릭 무시');
+  if (!_currentMode || !_isMapAlive()) return;
+  if (!_isValidLatLng(_gpsPos)) {
+    console.warn('[WorkMode] GPS 미수신');
     return;
   }
 
   if (_currentMode === 'line') {
-    _wmAddLine(latlng);
+    // [문제5 수정] 첫 클릭만 직접 처리. 이후 추가는 "선 추가" 버튼으로
+    if (_shapes.filter(s => s.type === 'line').length === 0) {
+      _wmAddLine(latlng);
+    } else {
+      // 이미 선이 있으면 마지막 선 교체 (끝점만 변경)
+      _wmReplaceLastLine(latlng);
+    }
   } else if (_currentMode === 'fan') {
-    _wmAddFan(latlng);
+    // [문제6 수정] 첫 클릭만 끝점 설정. 이후 추가는 "부채꼴 추가" 버튼으로
+    if (!_endPoint) {
+      _endPoint = latlng;
+      _wmAddFan(latlng);
+    } else {
+      // 이미 끝점 있으면 현재 부채꼴 교체 (끝점 고정 유지)
+      _wmReplaceLastFan();
+    }
   }
 
   _wmRunIntersect();
@@ -181,21 +166,13 @@ function _wmMapClick(latlng) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// 7. 도형 생성
+// 7. 도형 생성 — 직접 추가
 // ════════════════════════════════════════════════════════════════
 
 function _wmAddLine(clickPos) {
   if (!_isValidLatLng(clickPos)) return;
-
-  const result = buildLinePolygon(_gpsPos, clickPos, _lineBuffer);
-  if (!result) return;
-
-  // [버그4 수정] 결과 유효성 확인
-  if (!_isValidPolygon(result.polygon)) {
-    console.warn('[WorkMode] buildLinePolygon: 유효하지 않은 좌표 — 도형 무시');
-    return;
-  }
-
+  var result = buildLinePolygon(_gpsPos, clickPos, _lineBuffer);
+  if (!result || !_isValidPolygon(result.polygon)) return;
   result.layer.addTo(_map);
   _shapes.push({ type:'line', layer:result.layer, polygon:result.polygon, endPt:clickPos });
 }
@@ -203,181 +180,354 @@ function _wmAddLine(clickPos) {
 function _wmAddFan(clickPos) {
   if (!_isValidLatLng(clickPos)) return;
   if (!_endPoint) _endPoint = clickPos;
-
-  const result = buildFanPolygon(
-    _gpsPos, _endPoint, _fanR1, _fanR2,
-    calcExternalTangents, calcArcPoints, calcAngle
-  );
-
-  if (!result) {
-    console.warn('[WorkMode] 부채꼴 생성 불가: distance <= |r2-r1|');
+  var result = buildFanPolygon(_gpsPos, _endPoint, _fanR1, _fanR2,
+    calcExternalTangents, calcArcPoints, calcAngle);
+  if (!result || !_isValidPolygon(result.polygon)) {
+    console.warn('[WorkMode] 부채꼴 생성 불가');
     return;
   }
-
-  // [버그4 수정] 유효성 확인
-  if (!_isValidPolygon(result.polygon)) {
-    console.warn('[WorkMode] buildFanPolygon: 유효하지 않은 좌표 — 도형 무시');
-    return;
-  }
-
   result.layer.addTo(_map);
   _shapes.push({ type:'fan', layer:result.layer, polygon:result.polygon, endPt:_endPoint });
 }
 
 // ════════════════════════════════════════════════════════════════
-// 8. 도형 재생성 (GPS 갱신 시)
+// 8. [문제5,6] 이어붙이기 — PUBG 동선핑 방식
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * [문제5] 선 이어붙이기
+ * 마지막 선의 endPt → 새 선의 startPt (GPS 대신)
+ * → 새 도착지점은 다음 지도 클릭으로 결정
+ */
+function _wmAddLineChain() {
+  if (_currentMode !== 'line') return;
+  var lineShapes = _shapes.filter(function(s) { return s.type === 'line'; });
+  if (!lineShapes.length) {
+    alert('먼저 선 모드에서 지도를 클릭해 첫 선을 만드세요.');
+    return;
+  }
+
+  var lastLine = lineShapes[lineShapes.length - 1];
+  var chainStart = lastLine.endPt;  // 이전 선의 끝점 = 새 선의 시작점
+
+  // 새 선의 끝점: GPS 현재 위치 방향으로 임시 미리보기
+  // 다음 클릭 시 확정됨
+  _shapes.push({
+    type:       'line',
+    layer:      null,     // 아직 그리지 않음
+    polygon:    null,
+    endPt:      null,
+    chainFrom:  chainStart,  // 이전 끝점에서 시작
+    pending:    true         // 다음 클릭 대기
+  });
+
+  // 클릭 시 pending 선 처리
+  var origClickFn = _wmClickFn;
+  _map.off('click', _wmClickFn);
+  _wmClickFn = function(e) {
+    _shapes = _shapes.filter(function(s) { return !s.pending; });
+    _map.off('click', _wmClickFn);
+    _wmClickFn = origClickFn;
+    _map.on('click', _wmClickFn);
+
+    // chainFrom → clickPos 선 생성
+    var result = buildLinePolygon(chainStart, e.latlng, _lineBuffer);
+    if (result && _isValidPolygon(result.polygon)) {
+      result.layer.addTo(_map);
+      _shapes.push({ type:'line', layer:result.layer, polygon:result.polygon,
+                     endPt:e.latlng, chainFrom:chainStart });
+      _wmRunIntersect();
+      _wmUpdateUI();
+    }
+  };
+  _map.on('click', _wmClickFn);
+}
+
+/**
+ * [문제6] 부채꼴 이어붙이기
+ * 마지막 부채꼴의 endPt → 새 부채꼴의 시작 기준점
+ * GPS 위치에서 새 끝점으로 부채꼴 생성 (다음 클릭으로 끝점 확정)
+ */
+function _wmAddFanChain() {
+  if (_currentMode !== 'fan') return;
+  var fanShapes = _shapes.filter(function(s) { return s.type === 'fan'; });
+  if (!fanShapes.length) {
+    alert('먼저 부채꼴 모드에서 지도를 클릭해 첫 부채꼴을 만드세요.');
+    return;
+  }
+
+  // 다음 클릭으로 새 끝점 확정
+  _endPoint = null;  // 초기화 → 다음 클릭이 새 끝점
+
+  var origClickFn = _wmClickFn;
+  _map.off('click', _wmClickFn);
+  _wmClickFn = function(e) {
+    _map.off('click', _wmClickFn);
+    _wmClickFn = origClickFn;
+    _map.on('click', _wmClickFn);
+
+    _endPoint = e.latlng;
+    _wmAddFan(e.latlng);
+    _wmRunIntersect();
+    _wmUpdateUI();
+  };
+  _map.on('click', _wmClickFn);
+}
+
+// ════════════════════════════════════════════════════════════════
+// 9. 마지막 도형 교체 (클릭 시 재조정)
+// ════════════════════════════════════════════════════════════════
+
+function _wmReplaceLastLine(clickPos) {
+  var lineShapes = _shapes.filter(function(s) { return s.type === 'line' && !s.chainFrom; });
+  if (!lineShapes.length) { _wmAddLine(clickPos); return; }
+
+  var last = lineShapes[lineShapes.length - 1];
+  var idx  = _shapes.indexOf(last);
+
+  // 기존 레이어 제거
+  if (last.layer) { try { _map.removeLayer(last.layer); } catch(e) {} }
+
+  var result = buildLinePolygon(_gpsPos, clickPos, _lineBuffer);
+  if (!result || !_isValidPolygon(result.polygon)) return;
+
+  result.layer.addTo(_map);
+  _shapes[idx] = { type:'line', layer:result.layer, polygon:result.polygon, endPt:clickPos };
+}
+
+function _wmReplaceLastFan() {
+  var fanShapes = _shapes.filter(function(s) { return s.type === 'fan'; });
+  if (!fanShapes.length) return;
+
+  var last = fanShapes[fanShapes.length - 1];
+  var idx  = _shapes.indexOf(last);
+
+  if (last.layer) { try { _map.removeLayer(last.layer); } catch(e) {} }
+
+  var result = buildFanPolygon(_gpsPos, _endPoint, _fanR1, _fanR2,
+    calcExternalTangents, calcArcPoints, calcAngle);
+  if (!result || !_isValidPolygon(result.polygon)) return;
+
+  result.layer.addTo(_map);
+  _shapes[idx] = { type:'fan', layer:result.layer, polygon:result.polygon, endPt:_endPoint };
+}
+
+// ════════════════════════════════════════════════════════════════
+// 10. GPS 갱신 시 전체 재생성
 // ════════════════════════════════════════════════════════════════
 
 function _wmRebuildAll() {
-  const updated = [];
+  var updated = [];
+  _shapes.forEach(function(shape) {
+    if (!shape.layer && !shape.pending) { updated.push(shape); return; }
+    if (shape.pending) { updated.push(shape); return; }
 
-  for (const shape of _shapes) {
-    if (shape.layer && _map) {
-      try { _map.removeLayer(shape.layer); } catch(e) {}
-    }
+    try { _map.removeLayer(shape.layer); } catch(e) {}
 
-    let result = null;
+    var startPt = shape.chainFrom || _gpsPos;
+    var result = null;
+
     if (shape.type === 'line') {
-      result = buildLinePolygon(_gpsPos, shape.endPt, _lineBuffer);
+      result = buildLinePolygon(startPt, shape.endPt, _lineBuffer);
     } else if (shape.type === 'fan') {
-      result = buildFanPolygon(
-        _gpsPos, shape.endPt, _fanR1, _fanR2,
-        calcExternalTangents, calcArcPoints, calcAngle
-      );
+      result = buildFanPolygon(startPt, shape.endPt, _fanR1, _fanR2,
+        calcExternalTangents, calcArcPoints, calcAngle);
     }
 
     if (result && _isValidPolygon(result.polygon)) {
       result.layer.addTo(_map);
-      updated.push({ type:shape.type, layer:result.layer, polygon:result.polygon, endPt:shape.endPt });
+      updated.push({ type:shape.type, layer:result.layer, polygon:result.polygon,
+                     endPt:shape.endPt, chainFrom:shape.chainFrom });
     }
-  }
-
+  });
   _shapes = updated;
 }
 
 // ════════════════════════════════════════════════════════════════
-// 9. 교차 연산 — 선택된 지역 동 polygon
+// 11. [문제1,2] 동/구 폴리곤 표시 — 퀴즈모드 toggleShowAll 메커니즘 그대로
 // ════════════════════════════════════════════════════════════════
 
-function _wmRunIntersect() {
-  const dongPolygons = _getActiveDongPolygons();
-  if (!dongPolygons.length) {
-    _resultSet = new Set();
+function _wmToggleShowDong() {
+  if (_dongVisible) {
+    _wmClearDongLayers();
+    _dongVisible = false;
+    setShowDongBtn(false);
     return;
   }
 
-  const newSet = new Set();
-  for (const shape of _shapes) {
-    const names = intersectPolygon(shape.polygon, dongPolygons);
-    names.forEach(function(n) { newSet.add(n); });
+  if (!_map || !_isMapAlive()) return;
+  if (typeof POLY_CACHE === 'undefined' || !POLY_CACHE) return;
+  if (typeof getDongGeo !== 'function') return;
+
+  // 활성 지역 dongs 수집 (startWorkMode와 동일 방식)
+  var dongs = _getActiveDongs();
+  if (!dongs.length) { alert('선택된 지역이 없습니다.'); return; }
+
+  // [문제1,2] 퀴즈모드 toggleShowAll과 동일한 렌더링 로직
+  if (typeof isGuQuizMode !== 'undefined' && isGuQuizMode) {
+    // ── 구 모드: 구 폴리곤 + 구 이름 ──────────────────────────
+    var done = new Set();
+    dongs.forEach(function(dong) {
+      var isNoGu = !dong.gu || dong.gu === dong.rn;
+
+      if (isNoGu) {
+        // 구 없는 도시 → 동 폴리곤
+        var node = getDongGeo(dong.rn, dong.gu, dong.d);
+        if (!node) return;
+        var geo = (typeof _geo === 'function') ? _geo(node) : null;
+        if (!geo && node.geometry) geo = node.geometry;
+        if (geo) {
+          var lyr = drawPolygon(geo, '#a29bfe', 0.18);
+          if (lyr) { lyr.addTo(_map); _dongLayers.push(lyr); }
+        }
+        var mk = L.marker([dong.lat, dong.lng], { icon: L.divIcon({
+          className: '',
+          iconAnchor: [0, 0],
+          html: '<div style="display:inline-block;background:rgba(162,155,254,.92);color:#000;padding:3px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;">' + dong.d + '</div>'
+        })}).addTo(_map);
+        _dongLayers.push(mk);
+
+      } else {
+        // 구 있는 도시 → 구 폴리곤 (중복 제거)
+        var gk = dong.rn + '|' + dong.gu;
+        if (done.has(gk)) return;
+        done.add(gk);
+        var guGeo = (typeof getGuGeo === 'function') ? getGuGeo(dong.rn, dong.gu) : null;
+        if (!guGeo) return;
+        var lyr2 = drawPolygon(guGeo, '#a29bfe', 0.18);
+        if (lyr2) { lyr2.addTo(_map); _dongLayers.push(lyr2); }
+        var ctr = (typeof getCenter === 'function') ? getCenter(guGeo) : null;
+        if (ctr) {
+          var mk2 = L.marker([ctr[0], ctr[1]], { icon: L.divIcon({
+            className: '',
+            iconAnchor: [0, 0],
+            html: '<div style="display:inline-block;background:rgba(162,155,254,.92);color:#000;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">' + dong.gu + '</div>'
+          })}).addTo(_map);
+          _dongLayers.push(mk2);
+        }
+      }
+    });
+
+  } else {
+    // ── 동 모드: 동 폴리곤 + 동 이름 ──────────────────────────
+    dongs.forEach(function(dong) {
+      var node = getDongGeo(dong.rn, dong.gu, dong.d);
+      if (!node) return;
+      var geo = (typeof _geo === 'function') ? _geo(node) : null;
+      if (!geo && node.geometry) geo = node.geometry;
+      if (geo) {
+        var lyr = drawPolygon(geo, '#a29bfe', 0.18);
+        if (lyr) { lyr.addTo(_map); _dongLayers.push(lyr); }
+      }
+      var mk = L.marker([dong.lat, dong.lng], { icon: L.divIcon({
+        className: '',
+        iconAnchor: [0, 0],
+        html: '<div style="display:inline-block;background:rgba(162,155,254,.92);color:#000;padding:3px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;">' + dong.d + '</div>'
+      })}).addTo(_map);
+      _dongLayers.push(mk);
+    });
   }
+
+  _dongVisible = true;
+  setShowDongBtn(true);
+}
+
+function _wmClearDongLayers() {
+  _dongLayers.forEach(function(l) {
+    try { _map.removeLayer(l); } catch(e) {}
+  });
+  _dongLayers = [];
+}
+
+// ════════════════════════════════════════════════════════════════
+// 12. 교차 연산
+// ════════════════════════════════════════════════════════════════
+
+function _wmRunIntersect() {
+  var dongPolygons = _getActiveDongPolygons();
+  if (!dongPolygons.length) { _resultSet = new Set(); return; }
+
+  var newSet = new Set();
+  _shapes.forEach(function(shape) {
+    if (!shape.polygon || shape.pending) return;
+    var names = intersectPolygon(shape.polygon, dongPolygons);
+    names.forEach(function(n) { newSet.add(n); });
+  });
   _resultSet = newSet;
 }
 
 /**
- * [버그3 수정] 선택된 지역의 동 GeoJSON 반환
- *
- * 핵심: DB[key].dongs에는 geo 없음
- *       → getDongGeo(dong.rn, dong.gu, dong.d) 로 POLY_CACHE에서 꺼냄
- *       → 퀴즈모드와 동일한 방식 사용
- *
- * 지역 우선순위:
- *   1순위: #rbw .rb.on  (퀴즈 진행 중 buildFilter가 생성)
- *   2순위: .stag.sel    (지역 선택 화면 선택 상태)
+ * 활성 dongs 배열 반환 (표시용 — lat/lng 포함)
  */
-function _getActiveDongPolygons() {
+function _getActiveDongs() {
   try {
     if (typeof DB === 'undefined') return [];
-    if (typeof POLY_CACHE === 'undefined' || !POLY_CACHE) return [];
-    if (typeof getDongGeo !== 'function') return [];
-
-    // ── 활성 지역 key 수집 ───────────────────────────────────
-    var keys = [];
-
-    // 1순위: 퀴즈 진행 중 활성 지역
-    var rbTags = document.querySelectorAll('#rbw .rb.on');
-    if (rbTags.length > 0) {
-      rbTags.forEach(function(tag) {
-        if (tag.dataset.r) keys.push(tag.dataset.r);
-      });
-    } else {
-      // 2순위: 지역 선택 화면
-      var stagTags = document.querySelectorAll('.stag.sel');
-      stagTags.forEach(function(tag) {
-        if (tag.dataset.r) keys.push(tag.dataset.r);
-      });
-    }
-
-    if (!keys.length) return [];
-
-    // ── 각 key의 dong GeoJSON 수집 ──────────────────────────
+    var keys = _getActiveKeys();
     var result = [];
-
     keys.forEach(function(key) {
       var city = DB[key];
       if (!city || !city.dongs) return;
+      city.dongs.forEach(function(d) { result.push(d); });
+    });
+    return result;
+  } catch(e) { return []; }
+}
 
+/**
+ * 활성 지역 key 목록 반환 (교차 연산용 GeoJSON 포함)
+ */
+function _getActiveDongPolygons() {
+  try {
+    if (typeof DB === 'undefined' || typeof POLY_CACHE === 'undefined' || !POLY_CACHE) return [];
+    if (typeof getDongGeo !== 'function') return [];
+
+    var keys = _getActiveKeys();
+    var result = [];
+    keys.forEach(function(key) {
+      var city = DB[key];
+      if (!city || !city.dongs) return;
       city.dongs.forEach(function(dong) {
-        // [버그3 핵심 수정]
-        // 퀴즈모드와 동일: getDongGeo(rn, gu, d) 로 POLY_CACHE 접근
-        // dong.rn = getCityNode가 찾을 수 있는 도시명
-        // dong.gu = 구/군명 (없으면 '' 또는 동명과 동일)
-        // dong.d  = 동/읍/면/리 명
         var node = getDongGeo(dong.rn, dong.gu, dong.d);
         if (!node) return;
-
-        // getDongGeo 반환: Feature 또는 raw node
         var feature = _nodeToFeature(node);
-        if (feature) {
-          result.push({ name: dong.d, geo: feature });
-        }
+        if (feature) result.push({ name: dong.d, geo: feature });
       });
     });
-
     return result;
-
   } catch(e) {
     console.warn('[WorkMode] dong polygon 추출 오류:', e);
     return [];
   }
 }
 
-/**
- * getDongGeo 반환 node → GeoJSON Feature 변환
- * 기존 시스템 _geo() 함수 활용
- */
+/** 활성 지역 key 목록 (rb.on → stag.sel 순) */
+function _getActiveKeys() {
+  var keys = [];
+  var rbTags = document.querySelectorAll('#rbw .rb.on');
+  if (rbTags.length > 0) {
+    rbTags.forEach(function(t) { if (t.dataset.r) keys.push(t.dataset.r); });
+  } else {
+    var stagTags = document.querySelectorAll('.stag.sel');
+    stagTags.forEach(function(t) { if (t.dataset.r) keys.push(t.dataset.r); });
+  }
+  return keys;
+}
+
 function _nodeToFeature(node) {
   if (!node) return null;
-
-  // 이미 Feature
   if (node.type === 'Feature' && node.geometry) return node;
-
-  // Geometry 직접
-  if (node.type === 'Polygon' || node.type === 'MultiPolygon') {
-    return { type:'Feature', geometry:node, properties:{} };
-  }
-
-  // 기존 시스템 _geo() 헬퍼 사용 (index.html에 있음)
-  if (typeof _geo === 'function') {
-    var geom = _geo(node);
-    if (geom) return { type:'Feature', geometry:geom, properties:{} };
-  }
-
-  // geometry 키 직접 접근
-  if (node.geometry) {
-    return { type:'Feature', geometry:node.geometry, properties:{} };
-  }
-
+  if (node.type === 'Polygon' || node.type === 'MultiPolygon') return { type:'Feature', geometry:node, properties:{} };
+  if (typeof _geo === 'function') { var g = _geo(node); if (g) return { type:'Feature', geometry:g, properties:{} }; }
+  if (node.geometry) return { type:'Feature', geometry:node.geometry, properties:{} };
   return null;
 }
 
 // ════════════════════════════════════════════════════════════════
-// 10. UI 갱신 + 자동복사
+// 13. UI 갱신
 // ════════════════════════════════════════════════════════════════
 
 function _wmUpdateUI() {
   updateResultDisplay(_resultSet);
-
   if (_autoCopy) {
     var text = Array.from(_resultSet).join(',');
     _prevResult = autoCopyIfChanged(text, _prevResult);
@@ -385,73 +535,57 @@ function _wmUpdateUI() {
 }
 
 // ════════════════════════════════════════════════════════════════
-// 11. 내부 유틸
+// 14. 내부 유틸
 // ════════════════════════════════════════════════════════════════
 
 function _toggleAutoCopy() {
   _autoCopy = !_autoCopy;
   setAutoCopyBtn(_autoCopy);
   if (_autoCopy && _resultSet.size > 0) {
-    var text = Array.from(_resultSet).join(',');
-    _prevResult = autoCopyIfChanged(text, '');
+    _prevResult = autoCopyIfChanged(Array.from(_resultSet).join(','), '');
   }
 }
 
-/**
- * [버그2 수정] GPS 버튼 — setView 전 null + 지도 생존 이중 체크
- */
 function _focusGps() {
   var pos = getCurrentGPS();
-  if (!pos || typeof pos.lat !== 'number' || typeof pos.lng !== 'number') {
-    console.warn('[WorkMode] GPS 미수신');
-    return;
-  }
-  if (!_isMapAlive()) {
-    console.warn('[WorkMode] 지도 없음');
-    return;
-  }
-  try {
-    _map.setView([pos.lat, pos.lng], _map.getZoom());
-  } catch(e) {
-    console.warn('[WorkMode] setView 오류:', e);
-  }
+  if (!pos || isNaN(pos.lat) || isNaN(pos.lng)) return;
+  if (!_isMapAlive()) return;
+  try { _map.setView([pos.lat, pos.lng], _map.getZoom()); } catch(e) {}
 }
 
-function _wmDestroyAll() {
+function _wmClearAll() {
+  _wmClearDongLayers();
+  _wmDestroyShapes();
+  _dongVisible = false;
+  setShowDongBtn(false);
+}
+
+function _wmDestroyShapes() {
   _wmClearAllLayers();
-  _shapes     = [];
-  _endPoint   = null;
-  _resultSet  = new Set();
+  _shapes    = [];
+  _endPoint  = null;
+  _resultSet = new Set();
   _prevResult = '';
   updateResultDisplay(_resultSet);
 }
 
 function _wmClearAllLayers() {
   if (!_isMapAlive()) return;
-  _shapes.forEach(function(shape) {
-    if (shape.layer) {
-      try { _map.removeLayer(shape.layer); } catch(e) {}
-    }
+  _shapes.forEach(function(s) {
+    if (s.layer) { try { _map.removeLayer(s.layer); } catch(e) {} }
   });
 }
 
-/**
- * [버그2 수정] Leaflet 지도 생존 확인
- * map.remove() 호출 후 _loaded = false
- */
 function _isMapAlive() {
   if (!_map) return false;
   try { return !!_map._loaded; } catch(e) { return false; }
 }
 
-/** LatLng 유효성 검증 */
 function _isValidLatLng(pos) {
-  return pos &&
-         typeof pos.lat === 'number' && !isNaN(pos.lat) &&
-         typeof pos.lng === 'number' && !isNaN(pos.lng);
+  return pos && typeof pos.lat === 'number' && !isNaN(pos.lat) &&
+                typeof pos.lng === 'number' && !isNaN(pos.lng);
 }
 
-/** [버그4] GeoJSON Polygon 좌표 유효성 검증 */
 function _isValidPolygon(polygon) {
   try {
     var coords = polygon.geometry.coordinates[0];
@@ -459,13 +593,11 @@ function _isValidPolygon(polygon) {
       if (isNaN(coords[i][0]) || isNaN(coords[i][1])) return false;
     }
     return coords.length >= 3;
-  } catch(e) {
-    return false;
-  }
+  } catch(e) { return false; }
 }
 
 // ════════════════════════════════════════════════════════════════
-// 12. 권한 확인 (기존 시스템 isActivePremium 활용)
+// 15. 권한 확인
 // ════════════════════════════════════════════════════════════════
 
 function _hasWorkModeAccess() {
@@ -473,44 +605,27 @@ function _hasWorkModeAccess() {
     if (typeof userProfile === 'undefined' || !userProfile) return false;
     if (userProfile.role === 'admin') return true;
     if (typeof isActivePremium === 'function') return isActivePremium();
-    return !!(userProfile.is_premium &&
-              userProfile.premium_until &&
+    return !!(userProfile.is_premium && userProfile.premium_until &&
               new Date(userProfile.premium_until) > new Date());
-  } catch(e) {
-    return false;
-  }
+  } catch(e) { return false; }
 }
 
 // ════════════════════════════════════════════════════════════════
-// 13. 전역 진입점
+// 16. 전역 진입점
 // ════════════════════════════════════════════════════════════════
 
-/**
- * index.html 버튼: onclick="startWorkMode()"
- * 퀴즈모드와 동일한 doStart 패턴 사용
- */
 window.startWorkMode = function() {
-  // 지역 선택 확인
   var selected = document.querySelectorAll('.stag.sel');
-  if (!selected.length) {
-    alert('먼저 지역을 선택해주세요.');
-    return;
-  }
+  if (!selected.length) { alert('먼저 지역을 선택해주세요.'); return; }
 
-  // 퀴즈와 동일: POLY_CACHE 확인 후 doStart 패턴
   var doStart = function() {
-    // map이 살아있으면 바로 진입
     if (typeof map !== 'undefined' && map && _isMapAliveExternal(map)) {
       initWorkMode(map);
       return;
     }
-
-    // map 없거나 파괴됨 → initMap() 후 진입
     var startEl = document.getElementById('start');
     if (startEl) startEl.classList.add('hidden');
-
     if (typeof initMap === 'function') initMap();
-
     setTimeout(function() {
       if (typeof map !== 'undefined' && map) {
         initWorkMode(map);
@@ -521,22 +636,18 @@ window.startWorkMode = function() {
     }, 300);
   };
 
-  // 퀴즈와 동일: POLY_CACHE 없으면 먼저 로드
   if (typeof POLY_CACHE === 'undefined' || !POLY_CACHE) {
     if (typeof loadPolygonCache === 'function') {
       loadPolygonCache().then(doStart);
     } else {
-      alert('데이터 로딩 중입니다. 잠시 후 다시 시도해주세요.');
+      alert('데이터 로딩 중입니다.');
     }
     return;
   }
-
   doStart();
 };
 
-window.stopWorkMode = function() {
-  exitWorkMode();
-};
+window.stopWorkMode = function() { exitWorkMode(); };
 
 function _isMapAliveExternal(m) {
   if (!m) return false;
