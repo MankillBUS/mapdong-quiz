@@ -4390,6 +4390,10 @@ async function signInGoogle(){
    nickname, phone, job 중 하나라도 없으면 미완성으로 판단 */
 function isGoogleProfileIncomplete(){
   if(!currentUser) return false;
+  // admin 계정은 팝업 면제
+  if(userProfile?.role === 'admin') return false;
+  // 이미 완전 인증된 계정도 면제 (is_verified=true + nice_di 존재)
+  if(isFullyVerified()) return false;
   // 구글 OAuth 유저: provider가 google인 경우
   const isGoogleUser = currentUser.app_metadata?.provider === 'google'
     || (currentUser.identities || []).some(i => i.provider === 'google');
