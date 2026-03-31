@@ -1,8 +1,34 @@
 /**
- * index.js — 컨트롤 타워
+ * index.js — 업무모드 컨트롤 타워
+ *
  * ✅ 모든 상태는 여기서만 관리
  * ✅ 모듈 간 연결은 여기서만
  * ❌ 다른 모듈에서 직접 import 금지
+ *
+ * ══ 확인된 버그 목록 및 수정 내역 ══════════════════════════════
+ *
+ * [버그1] onMapClick 함수명 충돌 (가장 심각)
+ *   - index.html: function onMapClick(e) — 퀴즈 클릭 핸들러
+ *   - index.js:   function onMapClick(latlng) — 업무모드 핸들러
+ *   - 결과: index.js 로드 후 index.html의 퀴즈 onMapClick이 덮어써짐
+ *          → LatLng(NaN,NaN) 오류, 퀴즈 클릭 불가, 도형 생성 불가
+ *   - 수정: 업무모드 전용 함수명 _wmMapClick 으로 변경
+ *
+ * [버그2] goHome() 후 업무모드 미초기화
+ *   - goHome() → map.remove() → map=null 하지만 _map은 파괴된 객체 참조
+ *   - 수정: goHome()에 window.stopWorkMode() 호출 추가 (index.html 수정 필요)
+ *          + _isMapAlive() 로 모든 지도 조작 전 생존 확인
+ *
+ * [버그3] 폴리곤 로드 불가 (선택 지역 교차 안 됨)
+ *   - DB[key].dongs에 geo 필드 없음
+ *   - getDongGeo(rn, gu, d) 로 POLY_CACHE에서 꺼내야 함
+ *   - rn 필드: DB[key].dongs[i].rn (buildDBFromCache에서 설정)
+ *   - 수정: _getActiveDongPolygons()에서 getDongGeo() 직접 호출
+ *
+ * [버그4] LatLng(NaN,NaN) — 좌표변환 실패
+ *   - GPS pos가 있어도 tangent 계산 실패 시 arc 포인트에 undefined 혼입
+ *   - 수정: buildFanPolygon/buildLinePolygon 호출 전 GPS 유효성 검증
+ *          + ring 조합 시 NaN 필터링
  */
 
 // ════════════════════════════════════════════════════════════════
@@ -19,7 +45,7 @@ let _prevResult  = '';
 
 let _gpsWatchId  = null;
 let _gpsPos      = null;
-let _mapClickFn  = null;
+let _wmClickFn   = null;   // [버그1] 업무모드 전용 클릭 핸들러
 
 let _lineBuffer  = 0.3;
 let _fanR1       = 0.3;
@@ -40,7 +66,7 @@ function initWorkMode(leafletMap) {
   _map = leafletMap;
 
   _gpsWatchId = initGPS(
-    function(pos) { onGpsUpdate(pos); },
+    function(pos) { _wmOnGpsUpdate(pos); },
     function(err) {
       setGpsDot('error');
       console.warn('[WorkMode] GPS 오류:', err);
@@ -49,34 +75,39 @@ function initWorkMode(leafletMap) {
   setGpsDot('wait');
 
   renderWorkModePanel(
-    function() { switchMode('line'); },
-    function() { switchMode('fan');  },
-    function() { _toggleAutoCopy();  },
-    function() { _focusGps();        }
+    function() { _wmSwitchMode('line'); },
+    function() { _wmSwitchMode('fan');  },
+    function() { _toggleAutoCopy();     },
+    function() { _focusGps();           }
   );
 
-  _mapClickFn = function(e) {
-    if (_currentMode) { onMapClick(e.latlng); }
+  // [버그1 수정] 업무모드 전용 클릭 핸들러 — onMapClick과 다른 이름
+  _wmClickFn = function(e) {
+    if (_currentMode) { _wmMapClick(e.latlng); }
   };
-  _map.on('click', _mapClickFn);
+  _map.on('click', _wmClickFn);
 }
 
 // ════════════════════════════════════════════════════════════════
-// 3. 업무모드 종료
+// 3. 업무모드 종료 — 완전 초기화
 // ════════════════════════════════════════════════════════════════
 
 function exitWorkMode() {
+  // GPS clearWatch
   stopGPS(_gpsWatchId);
   _gpsWatchId = null;
   _gpsPos     = null;
 
-  _clearAllLayers();
+  // 레이어 제거
+  _wmClearAllLayers();
 
-  if (_map && _mapClickFn) {
-    try { _map.off('click', _mapClickFn); } catch(e) {}
-    _mapClickFn = null;
+  // [버그1 수정] 클릭 핸들러 제거 (퀴즈 onMapClick과 완전 분리)
+  if (_map && _wmClickFn) {
+    try { _map.off('click', _wmClickFn); } catch(e) {}
+    _wmClickFn = null;
   }
 
+  // 상태 초기화
   _shapes      = [];
   _currentMode = null;
   _endPoint    = null;
@@ -84,74 +115,93 @@ function exitWorkMode() {
   _autoCopy    = false;
   _prevResult  = '';
 
+  // UI 패널 제거
   removeWorkModePanel();
-  _map = null;  // 지도 참조 해제 (goHome 후 파괴된 지도 참조 방지)
+
+  // [버그2 수정] 지도 참조 해제
+  _map = null;
 }
 
 // ════════════════════════════════════════════════════════════════
 // 4. 모드 전환
 // ════════════════════════════════════════════════════════════════
 
-function switchMode(mode) {
+function _wmSwitchMode(mode) {
   if (_currentMode === mode) return;
-  _destroyAll();
+  _wmDestroyAll();
   _currentMode = mode;
   setActiveModeBtn(mode);
   if (mode === 'fan') _endPoint = null;
 }
 
 // ════════════════════════════════════════════════════════════════
-// 5. GPS 업데이트
+// 5. GPS 업데이트 (업무모드 전용)
 // ════════════════════════════════════════════════════════════════
 
-function onGpsUpdate(pos) {
+function _wmOnGpsUpdate(pos) {
   _gpsPos = pos;
   setGpsDot('active');
 
-  // ── [버그1] 지도가 파괴된 경우 안전 처리 ─────────────────────
+  // [버그2 수정] goHome 후 지도 파괴 감지 → 자동 종료
   if (!_isMapAlive()) {
-    console.warn('[WorkMode] 지도가 파괴됨. 업무모드 자동 종료.');
+    console.warn('[WorkMode] 지도 파괴됨 → 업무모드 자동 종료');
     exitWorkMode();
     return;
   }
 
   if (_shapes.length === 0) return;
 
-  _rebuildAllShapes();
-  _runIntersect();
-  _updateUI();
+  _wmRebuildAll();
+  _wmRunIntersect();
+  _wmUpdateUI();
 }
 
 // ════════════════════════════════════════════════════════════════
-// 6. 지도 클릭 처리
+// 6. 지도 클릭 처리 (업무모드 전용 — [버그1] onMapClick과 분리)
 // ════════════════════════════════════════════════════════════════
 
-function onMapClick(latlng) {
-  if (!_currentMode || !_gpsPos) return;
+function _wmMapClick(latlng) {
+  if (!_currentMode) return;
   if (!_isMapAlive()) return;
 
-  if (_currentMode === 'line') {
-    _addLineShape(latlng);
-  } else if (_currentMode === 'fan') {
-    _addFanShape(latlng);
+  // [버그4 수정] GPS 유효성 검증
+  if (!_gpsPos || typeof _gpsPos.lat !== 'number' || typeof _gpsPos.lng !== 'number') {
+    console.warn('[WorkMode] GPS 미수신 — 클릭 무시');
+    return;
   }
 
-  _runIntersect();
-  _updateUI();
+  if (_currentMode === 'line') {
+    _wmAddLine(latlng);
+  } else if (_currentMode === 'fan') {
+    _wmAddFan(latlng);
+  }
+
+  _wmRunIntersect();
+  _wmUpdateUI();
 }
 
 // ════════════════════════════════════════════════════════════════
 // 7. 도형 생성
 // ════════════════════════════════════════════════════════════════
 
-function _addLineShape(clickPos) {
+function _wmAddLine(clickPos) {
+  if (!_isValidLatLng(clickPos)) return;
+
   const result = buildLinePolygon(_gpsPos, clickPos, _lineBuffer);
   if (!result) return;
+
+  // [버그4 수정] 결과 유효성 확인
+  if (!_isValidPolygon(result.polygon)) {
+    console.warn('[WorkMode] buildLinePolygon: 유효하지 않은 좌표 — 도형 무시');
+    return;
+  }
+
   result.layer.addTo(_map);
   _shapes.push({ type:'line', layer:result.layer, polygon:result.polygon, endPt:clickPos });
 }
 
-function _addFanShape(clickPos) {
+function _wmAddFan(clickPos) {
+  if (!_isValidLatLng(clickPos)) return;
   if (!_endPoint) _endPoint = clickPos;
 
   const result = buildFanPolygon(
@@ -163,6 +213,13 @@ function _addFanShape(clickPos) {
     console.warn('[WorkMode] 부채꼴 생성 불가: distance <= |r2-r1|');
     return;
   }
+
+  // [버그4 수정] 유효성 확인
+  if (!_isValidPolygon(result.polygon)) {
+    console.warn('[WorkMode] buildFanPolygon: 유효하지 않은 좌표 — 도형 무시');
+    return;
+  }
+
   result.layer.addTo(_map);
   _shapes.push({ type:'fan', layer:result.layer, polygon:result.polygon, endPt:_endPoint });
 }
@@ -171,7 +228,7 @@ function _addFanShape(clickPos) {
 // 8. 도형 재생성 (GPS 갱신 시)
 // ════════════════════════════════════════════════════════════════
 
-function _rebuildAllShapes() {
+function _wmRebuildAll() {
   const updated = [];
 
   for (const shape of _shapes) {
@@ -189,7 +246,7 @@ function _rebuildAllShapes() {
       );
     }
 
-    if (result) {
+    if (result && _isValidPolygon(result.polygon)) {
       result.layer.addTo(_map);
       updated.push({ type:shape.type, layer:result.layer, polygon:result.polygon, endPt:shape.endPt });
     }
@@ -202,7 +259,7 @@ function _rebuildAllShapes() {
 // 9. 교차 연산 — 선택된 지역 동 polygon
 // ════════════════════════════════════════════════════════════════
 
-function _runIntersect() {
+function _wmRunIntersect() {
   const dongPolygons = _getActiveDongPolygons();
   if (!dongPolygons.length) {
     _resultSet = new Set();
@@ -218,30 +275,33 @@ function _runIntersect() {
 }
 
 /**
- * 선택된 지역의 동 polygon 목록 반환
+ * [버그3 수정] 선택된 지역의 동 GeoJSON 반환
  *
- * ✅ DB[key].dongs 에는 geo 없음 → getDongGeo(rn,gu,d) 로 POLY_CACHE에서 꺼냄
- * ✅ 퀴즈 진행 중: #rbw .rb.on (buildFilter 생성)
- * ✅ 퀴즈 전 업무모드: .stag.sel (지역 선택 화면)
+ * 핵심: DB[key].dongs에는 geo 없음
+ *       → getDongGeo(dong.rn, dong.gu, dong.d) 로 POLY_CACHE에서 꺼냄
+ *       → 퀴즈모드와 동일한 방식 사용
+ *
+ * 지역 우선순위:
+ *   1순위: #rbw .rb.on  (퀴즈 진행 중 buildFilter가 생성)
+ *   2순위: .stag.sel    (지역 선택 화면 선택 상태)
  */
 function _getActiveDongPolygons() {
   try {
-    if (typeof DB === 'undefined' || typeof POLY_CACHE === 'undefined' || !POLY_CACHE) return [];
+    if (typeof DB === 'undefined') return [];
+    if (typeof POLY_CACHE === 'undefined' || !POLY_CACHE) return [];
     if (typeof getDongGeo !== 'function') return [];
 
-    var result = [];
-
-    // ── 활성 지역 키 목록 수집 ────────────────────────────────
+    // ── 활성 지역 key 수집 ───────────────────────────────────
     var keys = [];
 
-    // 1순위: 퀴즈 진행 중 활성 지역 (.rb.on)
+    // 1순위: 퀴즈 진행 중 활성 지역
     var rbTags = document.querySelectorAll('#rbw .rb.on');
     if (rbTags.length > 0) {
       rbTags.forEach(function(tag) {
         if (tag.dataset.r) keys.push(tag.dataset.r);
       });
     } else {
-      // 2순위: 지역 선택 화면 (.stag.sel)
+      // 2순위: 지역 선택 화면
       var stagTags = document.querySelectorAll('.stag.sel');
       stagTags.forEach(function(tag) {
         if (tag.dataset.r) keys.push(tag.dataset.r);
@@ -250,18 +310,24 @@ function _getActiveDongPolygons() {
 
     if (!keys.length) return [];
 
-    // ── 각 지역의 동 GeoJSON 수집 ─────────────────────────────
+    // ── 각 key의 dong GeoJSON 수집 ──────────────────────────
+    var result = [];
+
     keys.forEach(function(key) {
       var city = DB[key];
       if (!city || !city.dongs) return;
 
       city.dongs.forEach(function(dong) {
-        // ✅ 핵심: getDongGeo(rn, gu, d) 로 POLY_CACHE에서 GeoJSON 꺼냄
-        var geo = getDongGeo(dong.rn, dong.gu, dong.d);
-        if (!geo) return;
+        // [버그3 핵심 수정]
+        // 퀴즈모드와 동일: getDongGeo(rn, gu, d) 로 POLY_CACHE 접근
+        // dong.rn = getCityNode가 찾을 수 있는 도시명
+        // dong.gu = 구/군명 (없으면 '' 또는 동명과 동일)
+        // dong.d  = 동/읍/면/리 명
+        var node = getDongGeo(dong.rn, dong.gu, dong.d);
+        if (!node) return;
 
-        // getDongGeo는 raw node 반환 → GeoJSON Feature로 래핑
-        var feature = _toGeoJsonFeature(geo);
+        // getDongGeo 반환: Feature 또는 raw node
+        var feature = _nodeToFeature(node);
         if (feature) {
           result.push({ name: dong.d, geo: feature });
         }
@@ -277,35 +343,29 @@ function _getActiveDongPolygons() {
 }
 
 /**
- * getDongGeo 반환값(raw node)을 GeoJSON Feature로 변환
- * POLY_CACHE 구조: node = { type, coordinates, ... } 또는 GeoJSON
+ * getDongGeo 반환 node → GeoJSON Feature 변환
+ * 기존 시스템 _geo() 함수 활용
  */
-function _toGeoJsonFeature(node) {
+function _nodeToFeature(node) {
   if (!node) return null;
 
-  // 이미 GeoJSON Feature 형태
-  if (node.type === 'Feature') return node;
+  // 이미 Feature
+  if (node.type === 'Feature' && node.geometry) return node;
 
-  // GeoJSON Geometry 형태 (type = Polygon / MultiPolygon)
+  // Geometry 직접
   if (node.type === 'Polygon' || node.type === 'MultiPolygon') {
-    return { type: 'Feature', geometry: node, properties: {} };
+    return { type:'Feature', geometry:node, properties:{} };
   }
 
-  // raw node에 geometry 키가 있는 경우
-  if (node.geometry) {
-    return { type: 'Feature', geometry: node.geometry, properties: {} };
-  }
-
-  // _geo() 헬퍼가 있으면 사용 (기존 시스템 함수)
+  // 기존 시스템 _geo() 헬퍼 사용 (index.html에 있음)
   if (typeof _geo === 'function') {
     var geom = _geo(node);
-    if (geom) return { type: 'Feature', geometry: geom, properties: {} };
+    if (geom) return { type:'Feature', geometry:geom, properties:{} };
   }
 
-  // coordinates 직접 있는 경우
-  if (node.coordinates) {
-    var type = Array.isArray(node.coordinates[0][0][0]) ? 'MultiPolygon' : 'Polygon';
-    return { type: 'Feature', geometry: { type: type, coordinates: node.coordinates }, properties: {} };
+  // geometry 키 직접 접근
+  if (node.geometry) {
+    return { type:'Feature', geometry:node.geometry, properties:{} };
   }
 
   return null;
@@ -315,7 +375,7 @@ function _toGeoJsonFeature(node) {
 // 10. UI 갱신 + 자동복사
 // ════════════════════════════════════════════════════════════════
 
-function _updateUI() {
+function _wmUpdateUI() {
   updateResultDisplay(_resultSet);
 
   if (_autoCopy) {
@@ -338,24 +398,18 @@ function _toggleAutoCopy() {
 }
 
 /**
- * [버그2 수정] GPS 위치로 지도 이동
- * - GPS null 체크 (첫 수신 전)
- * - 지도 파괴 여부 체크 (goHome 후)
+ * [버그2 수정] GPS 버튼 — setView 전 null + 지도 생존 이중 체크
  */
 function _focusGps() {
-  // GPS 아직 없으면 무시
   var pos = getCurrentGPS();
-  if (!pos) {
-    console.warn('[WorkMode] GPS 아직 수신 안 됨');
+  if (!pos || typeof pos.lat !== 'number' || typeof pos.lng !== 'number') {
+    console.warn('[WorkMode] GPS 미수신');
     return;
   }
-
-  // 지도 파괴 여부 확인
   if (!_isMapAlive()) {
-    console.warn('[WorkMode] 지도 없음 — 업무모드 재시작 필요');
+    console.warn('[WorkMode] 지도 없음');
     return;
   }
-
   try {
     _map.setView([pos.lat, pos.lng], _map.getZoom());
   } catch(e) {
@@ -363,22 +417,8 @@ function _focusGps() {
   }
 }
 
-/**
- * [버그1,2 공통] 지도 인스턴스가 살아있는지 확인
- * goHome() 후 map.remove() 호출 시 _map이 파괴된 상태 감지
- */
-function _isMapAlive() {
-  if (!_map) return false;
-  try {
-    // Leaflet 내부 상태 확인: _loaded가 false면 제거된 지도
-    return !!_map._loaded;
-  } catch(e) {
-    return false;
-  }
-}
-
-function _destroyAll() {
-  _clearAllLayers();
+function _wmDestroyAll() {
+  _wmClearAllLayers();
   _shapes     = [];
   _endPoint   = null;
   _resultSet  = new Set();
@@ -386,7 +426,7 @@ function _destroyAll() {
   updateResultDisplay(_resultSet);
 }
 
-function _clearAllLayers() {
+function _wmClearAllLayers() {
   if (!_isMapAlive()) return;
   _shapes.forEach(function(shape) {
     if (shape.layer) {
@@ -395,8 +435,37 @@ function _clearAllLayers() {
   });
 }
 
+/**
+ * [버그2 수정] Leaflet 지도 생존 확인
+ * map.remove() 호출 후 _loaded = false
+ */
+function _isMapAlive() {
+  if (!_map) return false;
+  try { return !!_map._loaded; } catch(e) { return false; }
+}
+
+/** LatLng 유효성 검증 */
+function _isValidLatLng(pos) {
+  return pos &&
+         typeof pos.lat === 'number' && !isNaN(pos.lat) &&
+         typeof pos.lng === 'number' && !isNaN(pos.lng);
+}
+
+/** [버그4] GeoJSON Polygon 좌표 유효성 검증 */
+function _isValidPolygon(polygon) {
+  try {
+    var coords = polygon.geometry.coordinates[0];
+    for (var i = 0; i < coords.length; i++) {
+      if (isNaN(coords[i][0]) || isNaN(coords[i][1])) return false;
+    }
+    return coords.length >= 3;
+  } catch(e) {
+    return false;
+  }
+}
+
 // ════════════════════════════════════════════════════════════════
-// 12. 권한 확인
+// 12. 권한 확인 (기존 시스템 isActivePremium 활용)
 // ════════════════════════════════════════════════════════════════
 
 function _hasWorkModeAccess() {
@@ -416,46 +485,59 @@ function _hasWorkModeAccess() {
 // 13. 전역 진입점
 // ════════════════════════════════════════════════════════════════
 
+/**
+ * index.html 버튼: onclick="startWorkMode()"
+ * 퀴즈모드와 동일한 doStart 패턴 사용
+ */
 window.startWorkMode = function() {
-  // ── 지역 선택 확인 ───────────────────────────────────────────
+  // 지역 선택 확인
   var selected = document.querySelectorAll('.stag.sel');
-  if (selected.length === 0) {
+  if (!selected.length) {
     alert('먼저 지역을 선택해주세요.');
     return;
   }
 
-  if (typeof POLY_CACHE === 'undefined' || !POLY_CACHE) {
-    alert('데이터 로딩 중입니다. 잠시 후 다시 시도해주세요.');
-    return;
-  }
-
-  // ── map이 있고 살아있으면 바로 진입 ─────────────────────────
-  if (typeof map !== 'undefined' && map && _isMapAliveExternal(map)) {
-    initWorkMode(map);
-    return;
-  }
-
-  // ── map 없거나 파괴됨 → 새로 초기화 ────────────────────────
-  var startEl = document.getElementById('start');
-  if (startEl) startEl.classList.add('hidden');
-
-  if (typeof initMap === 'function') initMap();
-
-  setTimeout(function() {
-    if (typeof map !== 'undefined' && map) {
+  // 퀴즈와 동일: POLY_CACHE 확인 후 doStart 패턴
+  var doStart = function() {
+    // map이 살아있으면 바로 진입
+    if (typeof map !== 'undefined' && map && _isMapAliveExternal(map)) {
       initWorkMode(map);
-    } else {
-      alert('지도 초기화 실패. 퀴즈 시작 후 이용해주세요.');
-      if (startEl) startEl.classList.remove('hidden');
+      return;
     }
-  }, 300);
+
+    // map 없거나 파괴됨 → initMap() 후 진입
+    var startEl = document.getElementById('start');
+    if (startEl) startEl.classList.add('hidden');
+
+    if (typeof initMap === 'function') initMap();
+
+    setTimeout(function() {
+      if (typeof map !== 'undefined' && map) {
+        initWorkMode(map);
+      } else {
+        alert('지도 초기화 실패. 다시 시도해주세요.');
+        if (startEl) startEl.classList.remove('hidden');
+      }
+    }, 300);
+  };
+
+  // 퀴즈와 동일: POLY_CACHE 없으면 먼저 로드
+  if (typeof POLY_CACHE === 'undefined' || !POLY_CACHE) {
+    if (typeof loadPolygonCache === 'function') {
+      loadPolygonCache().then(doStart);
+    } else {
+      alert('데이터 로딩 중입니다. 잠시 후 다시 시도해주세요.');
+    }
+    return;
+  }
+
+  doStart();
 };
 
 window.stopWorkMode = function() {
   exitWorkMode();
 };
 
-/** 외부 map 인스턴스 생존 확인 */
 function _isMapAliveExternal(m) {
   if (!m) return false;
   try { return !!m._loaded; } catch(e) { return false; }
