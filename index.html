@@ -3431,6 +3431,11 @@ window.goHome = function(){
     queue = [];
     allDongs = [];
     totC=0; totW=0; streak=0; qCnt=0; sessAns=0;
+    // ── 업무모드 종료 (map.remove() 전에 반드시 실행) ──────────
+    if(typeof exitWorkMode === 'function') {
+      try { exitWorkMode(); } catch(e) {}
+    }
+
     // 레이어 정리
     if(map){
       try {
