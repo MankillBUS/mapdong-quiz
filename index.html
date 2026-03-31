@@ -1682,13 +1682,17 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     </div>
   </div>
 
-  <!-- 퀴즈 시작 버튼 영역 -->
-  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;">
-    <button class="sbtn" onclick="startQuiz()">퀴즈 시작! 🚀</button>
-    <button id="btn-ranking-start" class="sbtn" onclick="startRankingMode()"
-      style="background:linear-gradient(135deg,var(--gold),#e6a800);color:#000;opacity:.4;cursor:not-allowed;"
-      disabled>🏆 랭킹 시작</button>
-  </div>
+<!-- 퀴즈 시작 버튼 영역 -->
+<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;">
+  <button class="sbtn" onclick="startQuiz()">퀴즈 시작! 🚀</button>
+  <button id="btn-ranking-start" class="sbtn" onclick="startRankingMode()"
+    style="background:linear-gradient(135deg,var(--gold),#e6a800);color:#000;opacity:.4;cursor:not-allowed;"
+    disabled>🏆 랭킹 시작</button>
+  <button class="sbtn" onclick="startWorkMode()"
+    style="background:linear-gradient(135deg,#6c5ce7,#a29bfe);color:#fff;">
+    🗂 업무모드
+  </button>
+</div>
 
   <!-- [4단계] 지도 다운로드 진행률 UI -->
   <div id="map-dl-bar" style="display:none!important;
@@ -8716,5 +8720,12 @@ function copyAuthLog() {
 /* ⚠️ [임시 디버그 끝] */
 </script>
 <!-- ⚠️ [임시 디버그 모달 끝] -->
+<script src="gps/tangent.js"></script>
+<script src="gps/gps.js"></script>
+<script src="gps/drawLine.js"></script>
+<script src="gps/drawFan.js"></script>
+<script src="gps/spatial.js"></script>
+<script src="gps/ui.js"></script>
+<script src="gps/index.js"></script>
 </body>
 </html>
