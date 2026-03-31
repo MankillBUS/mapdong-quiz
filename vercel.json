@@ -20,6 +20,8 @@
     { "src": "/debug_ranking.html",                         "dest": "/debug_ranking.html"                         },
     { "src": "/debug_auth.html",                            "dest": "/debug_auth.html"                            },
     { "src": "/naverd74e0774a3bb384baca98d24f92dfb30.html", "dest": "/naverd74e0774a3bb384baca98d24f92dfb30.html" },
+    { "src": "/workmode",                                   "dest": "/gps/index.js"                               },
+    { "src": "/gps/(.*)",                                   "dest": "/gps/$1"                                     },
     { "src": "/(.*)",                                       "dest": "/index.html"                                 }
   ]
 }
