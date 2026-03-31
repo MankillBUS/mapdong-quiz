@@ -18,6 +18,9 @@ let _gpsWatchId  = null;
 let _gpsPos      = null;
 let _wmClickFn   = null;        // 업무모드 전용 클릭핸들러 (퀴즈 onMapClick과 완전 분리)
 
+let _gpsTracking = true;        // GPS 실시간 추적 ON/OFF
+let _gpsAutoTimer = null;       // 5초 자동 이동 타이머
+
 // 슬라이더 값
 let _lineBuffer  = 0.3;
 let _fanR1       = 0.3;
@@ -46,20 +49,24 @@ function initWorkMode(leafletMap) {
   );
   setGpsDot('wait');
 
-  // ui.js의 확장된 renderWorkModePanel 호출 (11개 콜백)
+  // ui.js의 renderWorkModePanel 호출 (12개 콜백)
   renderWorkModePanel(
     function() { _wmSwitchMode('line'); },          // 선 모드
     function() { _wmSwitchMode('fan'); },           // 부채꼴 모드
     function() { _toggleAutoCopy(); },              // 자동복사
-    function() { _focusGps(); },                    // GPS 이동
-    function() { _wmAddLineChain(); },              // [문제5] 선 이어붙이기
-    function() { _wmAddFanChain(); },               // [문제6] 부채꼴 이어붙이기
-    function() { _wmToggleShowDong(); },            // [문제1,2] 동/구 표시
-    function() { _wmClearAll(); },                  // 전체 초기화
-    function(v) { _lineBuffer = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },  // [문제3] 선 버퍼
-    function(v) { _fanR1 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },       // [문제4] r1
-    function(v) { _fanR2 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); }        // [문제4] r2
+    function() { _focusGps(); },                    // GPS 수동 이동
+    function() { _toggleGpsTracking(); },           // GPS 추적 ON/OFF
+    function() { _wmAddLineChain(); },              // 선 이어붙이기
+    function() { _wmAddFanChain(); },               // 부채꼴 이어붙이기
+    function() { _wmToggleShowDong(); },            // 동/구 표시
+    function() { _wmClearShapesOnly(); },           // 도형만 초기화 (동/구 표시 유지)
+    function(v) { _lineBuffer = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },
+    function(v) { _fanR1 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },
+    function(v) { _fanR2 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); }
   );
+
+  // GPS 5초 자동이동 타이머 시작
+  _startGpsAutoTimer();
 
   // 업무모드 전용 클릭핸들러 (퀴즈 onMapClick 덮어쓰기 방지)
   _wmClickFn = function(e) {
@@ -73,9 +80,13 @@ function initWorkMode(leafletMap) {
 // ════════════════════════════════════════════════════════════════
 
 function exitWorkMode() {
+  // GPS 자동이동 타이머 정리
+  _stopGpsAutoTimer();
+
   stopGPS(_gpsWatchId);
-  _gpsWatchId = null;
-  _gpsPos     = null;
+  _gpsWatchId  = null;
+  _gpsPos      = null;
+  _gpsTracking = true;
 
   _wmClearDongLayers();
   _wmClearAllLayers();
@@ -85,14 +96,16 @@ function exitWorkMode() {
     _wmClickFn = null;
   }
 
-  _shapes      = [];
-  _currentMode = null;
-  _endPoint    = null;
-  _resultSet   = new Set();
-  _autoCopy    = false;
-  _prevResult  = '';
-  _dongLayers  = [];
-  _dongVisible = false;
+  _shapes       = [];
+  _currentMode  = null;
+  _endPoint     = null;
+  _resultSet    = new Set();
+  _autoCopy     = false;
+  _prevResult   = '';
+  _dongLayers   = [];
+  _dongVisible  = false;
+  _gpsTracking  = true;
+  _gpsAutoTimer = null;
 
   removeWorkModePanel();
   _map = null;
@@ -588,13 +601,69 @@ function _toggleAutoCopy() {
   }
 }
 
+/**
+ * GPS 위치로 지도 이동 (수동 + 자동 공용)
+ * 확대/축소 레벨은 변경하지 않고 center만 이동
+ */
 function _focusGps() {
+  if (!_gpsTracking) return;
   var pos = getCurrentGPS();
   if (!pos || isNaN(pos.lat) || isNaN(pos.lng)) return;
   if (!_isMapAlive()) return;
-  try { _map.setView([pos.lat, pos.lng], _map.getZoom()); } catch(e) {}
+  try {
+    // setView 대신 panTo — 줌 레벨 절대 변경하지 않음
+    _map.panTo([pos.lat, pos.lng], { animate: true, duration: 0.5 });
+  } catch(e) {}
 }
 
+/**
+ * GPS 5초 자동이동 타이머 시작
+ * GPS 추적이 ON일 때 5초마다 panTo 실행
+ * 지도 확대/축소와 완전히 독립 (줌 변경 없음)
+ */
+function _startGpsAutoTimer() {
+  _stopGpsAutoTimer();
+  _gpsAutoTimer = setInterval(function() {
+    if (_gpsTracking) _focusGps();
+  }, 5000);
+}
+
+function _stopGpsAutoTimer() {
+  if (_gpsAutoTimer) {
+    clearInterval(_gpsAutoTimer);
+    _gpsAutoTimer = null;
+  }
+}
+
+/**
+ * GPS 추적 ON/OFF 토글
+ * OFF: 자동이동 중단 + GPS 수신은 계속 (교차 연산용)
+ * ON: 자동이동 재개
+ */
+function _toggleGpsTracking() {
+  _gpsTracking = !_gpsTracking;
+  setGpsTrackBtn(_gpsTracking);
+  if (_gpsTracking) {
+    setGpsDot('active');
+    _focusGps();  // 즉시 한 번 이동
+  } else {
+    setGpsDot('wait');  // 추적 OFF 표시
+  }
+}
+
+/**
+ * 도형만 초기화 — 동/구 폴리곤 표시는 유지
+ * 초기화 버튼 클릭 시 호출
+ */
+function _wmClearShapesOnly() {
+  _wmDestroyShapes();
+  // 동/구 표시는 그대로 유지 (_dongLayers, _dongVisible 건드리지 않음)
+}
+
+/**
+ * 전체 초기화 — 도형 + 동/구 표시 모두 제거
+ * 처음으로 가기(goHome) + exitWorkMode 에서만 호출
+ */
 function _wmClearAll() {
   _wmClearDongLayers();
   _wmDestroyShapes();
