@@ -151,14 +151,12 @@ function _wmMapClick(latlng) {
       _wmReplaceLastLine(latlng);
     }
   } else if (_currentMode === 'fan') {
-    // [문제6 수정] 첫 클릭만 끝점 설정. 이후 추가는 "부채꼴 추가" 버튼으로
-    if (!_endPoint) {
-      _endPoint = latlng;
-      _wmAddFan(latlng);
-    } else {
-      // 이미 끝점 있으면 현재 부채꼴 교체 (끝점 고정 유지)
-      _wmReplaceLastFan();
-    }
+    // 선모드와 동일한 방식:
+    //   첫 클릭  → 끝점 설정 + 부채꼴 생성
+    //   이후 클릭 → 끝점 교체 + 부채꼴 교체 (방향 변경)
+    //   "부채꼴 추가" 버튼 → 현재 끝점 기준으로 새 부채꼴 추가 (다음 클릭으로 끝점 확정)
+    _endPoint = latlng;
+    _wmReplaceLastFan();
   }
 
   _wmRunIntersect();
@@ -250,26 +248,51 @@ function _wmAddLineChain() {
  */
 function _wmAddFanChain() {
   if (_currentMode !== 'fan') return;
-  var fanShapes = _shapes.filter(function(s) { return s.type === 'fan'; });
+
+  // 현재 부채꼴이 있어야 추가 가능
+  var fanShapes = _shapes.filter(function(s) { return s.type === 'fan' && !s.pending; });
   if (!fanShapes.length) {
     alert('먼저 부채꼴 모드에서 지도를 클릭해 첫 부채꼴을 만드세요.');
     return;
   }
 
-  // 다음 클릭으로 새 끝점 확정
-  _endPoint = null;  // 초기화 → 다음 클릭이 새 끝점
+  // 현재 _endPoint(마지막 부채꼴 끝점)를 새 부채꼴의 chainFrom으로 고정
+  var chainFrom = _endPoint;
 
+  // pending 마커 추가 (다음 클릭 대기 중임을 표시)
+  _shapes.push({ type:'fan', layer:null, polygon:null, endPt:null,
+                 chainFrom:chainFrom, pending:true });
+
+  // 원래 클릭 핸들러 보관 후 1회용 핸들러로 교체
   var origClickFn = _wmClickFn;
   _map.off('click', _wmClickFn);
+
   _wmClickFn = function(e) {
+    // pending 제거
+    _shapes = _shapes.filter(function(s) { return !s.pending; });
+
+    // 핸들러 복원
     _map.off('click', _wmClickFn);
     _wmClickFn = origClickFn;
     _map.on('click', _wmClickFn);
 
+    // 새 끝점 설정
     _endPoint = e.latlng;
-    _wmAddFan(e.latlng);
-    _wmRunIntersect();
-    _wmUpdateUI();
+
+    // chainFrom → 새끝점 부채꼴 생성
+    var result = buildFanPolygon(
+      chainFrom, e.latlng, _fanR1, _fanR2,
+      calcExternalTangents, calcArcPoints, calcAngle
+    );
+    if (result && _isValidPolygon(result.polygon)) {
+      result.layer.addTo(_map);
+      _shapes.push({ type:'fan', layer:result.layer, polygon:result.polygon,
+                     endPt:e.latlng, chainFrom:chainFrom });
+      _wmRunIntersect();
+      _wmUpdateUI();
+    } else {
+      console.warn('[WorkMode] 부채꼴 추가 생성 불가: 두 점이 너무 가깝습니다.');
+    }
   };
   _map.on('click', _wmClickFn);
 }
@@ -296,20 +319,36 @@ function _wmReplaceLastLine(clickPos) {
 }
 
 function _wmReplaceLastFan() {
-  var fanShapes = _shapes.filter(function(s) { return s.type === 'fan'; });
-  if (!fanShapes.length) return;
+  var fanShapes = _shapes.filter(function(s) { return s.type === 'fan' && !s.pending; });
+
+  // 부채꼴이 없으면 새로 추가
+  if (!fanShapes.length) {
+    if (!_endPoint) return;
+    _wmAddFan(_endPoint);
+    return;
+  }
 
   var last = fanShapes[fanShapes.length - 1];
   var idx  = _shapes.indexOf(last);
 
   if (last.layer) { try { _map.removeLayer(last.layer); } catch(e) {} }
 
-  var result = buildFanPolygon(_gpsPos, _endPoint, _fanR1, _fanR2,
+  // chainFrom이 있으면 그 점에서 시작, 없으면 GPS에서 시작
+  var startPt = last.chainFrom || _gpsPos;
+
+  var result = buildFanPolygon(startPt, _endPoint, _fanR1, _fanR2,
     calcExternalTangents, calcArcPoints, calcAngle);
-  if (!result || !_isValidPolygon(result.polygon)) return;
+  if (!result || !_isValidPolygon(result.polygon)) {
+    // 같은 점 클릭 등으로 생성 불가 시 이전 shape 유지
+    console.warn('[WorkMode] _wmReplaceLastFan: 생성 불가');
+    // 레이어 제거했으므로 이전 shape 제거
+    _shapes.splice(idx, 1);
+    return;
+  }
 
   result.layer.addTo(_map);
-  _shapes[idx] = { type:'fan', layer:result.layer, polygon:result.polygon, endPt:_endPoint };
+  _shapes[idx] = { type:'fan', layer:result.layer, polygon:result.polygon,
+                   endPt:_endPoint, chainFrom:last.chainFrom };
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -319,11 +358,14 @@ function _wmReplaceLastFan() {
 function _wmRebuildAll() {
   var updated = [];
   _shapes.forEach(function(shape) {
-    if (!shape.layer && !shape.pending) { updated.push(shape); return; }
+    // pending(클릭 대기) 상태는 건너뜀
     if (shape.pending) { updated.push(shape); return; }
+    // layer 없고 pending도 아닌 건 잘못된 state → 제거
+    if (!shape.layer) return;
 
     try { _map.removeLayer(shape.layer); } catch(e) {}
 
+    // chainFrom: 이어붙이기 체인의 고정 시작점 → GPS와 무관하게 유지
     var startPt = shape.chainFrom || _gpsPos;
     var result = null;
 
