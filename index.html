@@ -4335,7 +4335,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    storageKey: 'mapdong-auth-token',
+    storageKey: 'sb-emgsueepzioudqnitkyn-auth-token',
   }
 });
 
@@ -5001,27 +5001,38 @@ const TRIAL_MAX_CHECKS   = 13;
    토큰이 만료됐거나 곧 만료될 경우 Supabase SDK로 자동 갱신을 시도합니다.
    갱신이 불가하면 null을 반환합니다 (SUPABASE_KEY와 혼용하지 않음). */
 async function _getTokenWithRefresh(){
-  // 1차: localStorage에서 읽기
+  // 1차: SDK getSession() 우선 (구글 OAuth 등 storageKey 차이 무관하게 정확히 읽음)
+  try{
+    const { data: sessionData, error: sessionErr } = await sb.auth.getSession();
+    if(!sessionErr && sessionData?.session?.access_token){
+      const expiresAt = sessionData.session.expires_at || 0;
+      // 만료까지 60초 이상 남아 있으면 바로 사용
+      if(expiresAt && (expiresAt * 1000) > (Date.now() + 60000)){
+        return sessionData.session.access_token;
+      }
+    }
+  }catch(e){}
+
+  // 2차: localStorage에서 직접 읽기 (SDK Lock 충돌 우회용)
   try{
     const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
     if(raw){
       const p = JSON.parse(raw);
       const token = p?.access_token || p?.currentSession?.access_token;
       const expiresAt = p?.expires_at || p?.currentSession?.expires_at || 0;
-      // 만료까지 60초 이상 남아 있으면 그대로 사용
       if(token && expiresAt && (expiresAt * 1000) > (Date.now() + 60000)){
         return token;
       }
     }
   }catch(e){}
 
-  // 2차: Supabase SDK 세션 갱신 시도
+  // 3차: SDK refreshSession() 으로 강제 갱신
   try{
-    const { data, error } = await supabase.auth.refreshSession();
+    const { data, error } = await sb.auth.refreshSession();
     if(!error && data?.session?.access_token){
       return data.session.access_token;
     }
-  }catch(e){ console.warn('[trial] 세션 갱신 실패:', e); }
+  }catch(e){ console.warn('[token] 세션 갱신 실패:', e); }
 
   return null; // 갱신 불가
 }
@@ -7316,13 +7327,18 @@ async function startNiceAuthSignup() {
        - sb.auth.getSession() 호출 안 함 (Lock 충돌 방지) */
     let token = SUPABASE_KEY; // 기본값: anon key
     if(currentUser) {
-      // localStorage에서 Supabase 세션 직접 읽기
+      // SDK getSession() 우선 → localStorage 폴백 (storageKey 불일치 방지)
       try {
-        const raw = localStorage.getItem('mapdong-auth-token');
-        if(raw) {
-          const parsed = JSON.parse(raw);
-          const accessToken = parsed?.access_token || parsed?.currentSession?.access_token;
-          if(accessToken) token = accessToken;
+        const { data: sd } = await sb.auth.getSession();
+        if(sd?.session?.access_token) {
+          token = sd.session.access_token;
+        } else {
+          const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
+          if(raw) {
+            const parsed = JSON.parse(raw);
+            const accessToken = parsed?.access_token || parsed?.currentSession?.access_token;
+            if(accessToken) token = accessToken;
+          }
         }
       } catch(e) { /* 파싱 실패시 anon key 사용 */ }
     }
