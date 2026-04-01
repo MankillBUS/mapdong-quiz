@@ -30,6 +30,10 @@ let _fanR2       = 0.8;
 let _dongLayers     = [];
 let _dongVisible    = false;
 
+// dong이름 → utype 매핑 (정규식 정리용)
+// { "서초1동": "동", "화전읍": "읍", ... }
+let _dongNameMap    = {};
+
 // ════════════════════════════════════════════════════════════════
 // 2. 업무모드 진입
 // ════════════════════════════════════════════════════════════════
@@ -104,6 +108,7 @@ function exitWorkMode() {
   _prevResult   = '';
   _dongLayers   = [];
   _dongVisible  = false;
+  _dongNameMap  = {};
   _gpsTracking  = true;
   _gpsAutoTimer = null;
 
@@ -538,6 +543,9 @@ function _getActiveDongPolygons() {
 
     var keys = _getActiveKeys();
     var result = [];
+    // _dongNameMap도 동시에 갱신 (정규식 정리용)
+    _dongNameMap = {};
+
     keys.forEach(function(key) {
       var city = DB[key];
       if (!city || !city.dongs) return;
@@ -545,7 +553,11 @@ function _getActiveDongPolygons() {
         var node = getDongGeo(dong.rn, dong.gu, dong.d);
         if (!node) return;
         var feature = _nodeToFeature(node);
-        if (feature) result.push({ name: dong.d, geo: feature });
+        if (feature) {
+          result.push({ name: dong.d, geo: feature });
+          // utype 매핑 저장: "서초1동" → "동", "화전읍" → "읍" 등
+          _dongNameMap[dong.d] = dong.utype || '동';
+        }
       });
     });
     return result;
@@ -594,17 +606,18 @@ function _wmUpdateUI() {
 /**
  * 클립보드 저장 전 정규식 정리
  *
- * 규칙:
- *   1. 숫자 제거: "서초1동" → "서초동"
- *   2. 행정구역 접미어 제거: "서초동" → "서초"
- *      대상: 동,읍,면,리 (리는 앞에 도로가 있을 수 있어 마지막만)
- *   3. 중복 제거 후 쉼표 결합
+ * 처리 방식:
+ *   1. _dongNameMap[name] → utype 조회 (정확한 접미어 파악)
+ *   2. 숫자 제거: "서초1동" → "서초동"
+ *   3. 해당 utype 접미어만 정확히 제거: "서초동" → "서초"
+ *   4. 중복 제거 후 쉼표 결합
  *
  * 예시:
- *   서초1동,서초2동,잠실1동,잠실2동 → 서초,잠실
+ *   서초1동(동), 서초2동(동), 잠실1동(동), 잠실2동(동) → 서초,잠실
  *   상계1동,상계2동,상계3동 → 상계
+ *   화전읍,화전1리 → 화전
  *   신당동,황학동 → 신당,황학
- *   가락본동 → 가락본  (숫자 없어도 접미어만 제거)
+ *   가락본동,가락1동 → 가락본,가락
  *
  * @param {Set<string>} resultSet
  * @returns {string}
@@ -614,13 +627,25 @@ function _normalizeForClipboard(resultSet) {
   var out  = [];
 
   resultSet.forEach(function(name) {
-    // 1. 숫자 제거 (한자 숫자 포함)
-    var base = name.replace(/[0-9０-９一二三四五六七八九十]+/g, '');
-    // 2. 끝의 행정구역 접미어 제거 (동/읍/면/리)
-    base = base.replace(/(동|읍|면|리)$/, '');
-    // 3. 빈 문자열 방지
-    if (!base) base = name;
-    // 4. 중복 제거
+    // 1. _dongNameMap에서 utype 조회 (DB에서 수집한 정확한 값)
+    var utype = _dongNameMap[name] || '';
+
+    // 2. 숫자 제거 (아라비아 숫자)
+    var base = name.replace(/[0-9]+/g, '');
+
+    // 3. utype 접미어 제거
+    //    - utype이 있으면 정확히 그 글자만 제거
+    //    - utype 없으면 동/읍/면/리 중 맞는 것 제거
+    if (utype && ['동','읍','면','리'].includes(utype)) {
+      base = base.replace(new RegExp(utype + '$'), '');
+    } else {
+      base = base.replace(/(동|읍|면|리)$/, '');
+    }
+
+    // 4. 빈 문자열 방지 (제거 후 아무것도 안 남으면 원본 유지)
+    if (!base || base.length === 0) base = name;
+
+    // 5. 중복 제거
     if (!seen.has(base)) {
       seen.add(base);
       out.push(base);
