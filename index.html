@@ -4709,6 +4709,14 @@ function getAuthStatus(){
 }
 
 function quizActive(){
+  // ── 업무모드 활성 중이면 퀴즈 중으로 간주 ──────────────────────
+  // _currentMode(선/부채꼴) 또는 _gpsWatchId(GPS 추적) 가 있으면 업무모드 중
+  // → 탭 전환 시 routeUser() 호출 차단 (퀴즈 시작점 강제 이동 방지)
+  try {
+    if (typeof _currentMode !== 'undefined' && _currentMode !== null) return true;
+    if (typeof _gpsWatchId  !== 'undefined' && _gpsWatchId  !== null) return true;
+  } catch(e) {}
+
   // cur(현재 문제)이 있거나 allDongs가 로드돼 있으면 퀴즈 진행 중
   // DOM 가시성(offsetParent)은 탭 전환 시 false가 되므로 신뢰하지 않음
   if(cur || (allDongs && allDongs.length > 0)) {
