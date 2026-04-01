@@ -584,9 +584,50 @@ function _nodeToFeature(node) {
 function _wmUpdateUI() {
   updateResultDisplay(_resultSet);
   if (_autoCopy) {
-    var text = Array.from(_resultSet).join(',');
-    _prevResult = autoCopyIfChanged(text, _prevResult);
+    // 화면 표시용: 원본 동 이름
+    // 클립보드 저장용: 정규식 정리 후 중복 제거
+    var clipText = _normalizeForClipboard(_resultSet);
+    _prevResult = autoCopyIfChanged(clipText, _prevResult);
   }
+}
+
+/**
+ * 클립보드 저장 전 정규식 정리
+ *
+ * 규칙:
+ *   1. 숫자 제거: "서초1동" → "서초동"
+ *   2. 행정구역 접미어 제거: "서초동" → "서초"
+ *      대상: 동,읍,면,리 (리는 앞에 도로가 있을 수 있어 마지막만)
+ *   3. 중복 제거 후 쉼표 결합
+ *
+ * 예시:
+ *   서초1동,서초2동,잠실1동,잠실2동 → 서초,잠실
+ *   상계1동,상계2동,상계3동 → 상계
+ *   신당동,황학동 → 신당,황학
+ *   가락본동 → 가락본  (숫자 없어도 접미어만 제거)
+ *
+ * @param {Set<string>} resultSet
+ * @returns {string}
+ */
+function _normalizeForClipboard(resultSet) {
+  var seen = new Set();
+  var out  = [];
+
+  resultSet.forEach(function(name) {
+    // 1. 숫자 제거 (한자 숫자 포함)
+    var base = name.replace(/[0-9０-９一二三四五六七八九十]+/g, '');
+    // 2. 끝의 행정구역 접미어 제거 (동/읍/면/리)
+    base = base.replace(/(동|읍|면|리)$/, '');
+    // 3. 빈 문자열 방지
+    if (!base) base = name;
+    // 4. 중복 제거
+    if (!seen.has(base)) {
+      seen.add(base);
+      out.push(base);
+    }
+  });
+
+  return out.join(',');
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -597,7 +638,8 @@ function _toggleAutoCopy() {
   _autoCopy = !_autoCopy;
   setAutoCopyBtn(_autoCopy);
   if (_autoCopy && _resultSet.size > 0) {
-    _prevResult = autoCopyIfChanged(Array.from(_resultSet).join(','), '');
+    // ON으로 켤 때 즉시 복사 — 정규식 적용
+    _prevResult = autoCopyIfChanged(_normalizeForClipboard(_resultSet), '');
   }
 }
 
@@ -759,6 +801,97 @@ window.startWorkMode = function() {
 };
 
 window.stopWorkMode = function() { exitWorkMode(); };
+
+// ════════════════════════════════════════════════════════════════
+// 지역 검색 — DB + CITY_META_V4 통합 검색
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * 지역명(도/시/군/구/동/읍/면/리) 검색
+ * ui.js의 검색 입력창에서 호출됨
+ *
+ * 검색 대상:
+ *   1. CITY_META_V4 — 시/군 단위 (center 좌표 있음)
+ *   2. DB[key].dongs — 동/읍/면/리 단위 (lat/lng 있음)
+ *
+ * @param {string} query  검색어
+ * @returns {{ label:string, lat:number, lng:number, zoom:number }[]}
+ */
+function _searchRegion(query) {
+  if (!query || query.trim().length < 1) return [];
+
+  var q = query.trim();
+  var results = [];
+  var seen = new Set();
+
+  function add(label, lat, lng, zoom) {
+    var key = label + '|' + lat.toFixed(4) + '|' + lng.toFixed(4);
+    if (seen.has(key)) return;
+    seen.add(key);
+    results.push({ label: label, lat: lat, lng: lng, zoom: zoom || 13 });
+  }
+
+  // ── 1. 시/군 단위 검색 (CITY_META_V4) ──────────────────────
+  if (typeof CITY_META_V4 !== 'undefined') {
+    CITY_META_V4.forEach(function(meta) {
+      if (!meta.center) return;
+      // 도시명 또는 도명 포함
+      if (meta.name.includes(q) || (meta.do_ && meta.do_.includes(q))) {
+        add(
+          (meta.do_ ? meta.do_ + ' ' : '') + meta.name,
+          meta.center[0], meta.center[1],
+          meta.zoom || 12
+        );
+      }
+    });
+  }
+
+  // ── 2. 동/읍/면/리 단위 검색 (DB) ──────────────────────────
+  if (typeof DB !== 'undefined') {
+    Object.keys(DB).forEach(function(key) {
+      var city = DB[key];
+      if (!city || !city.dongs) return;
+      city.dongs.forEach(function(dong) {
+        // 동 이름 또는 구 이름 포함
+        var dongMatch = dong.d && dong.d.includes(q);
+        var guMatch   = dong.gu && dong.gu !== dong.rn && dong.gu.includes(q);
+        if (dongMatch) {
+          var label = city.name + (dong.gu && dong.gu !== dong.rn ? ' ' + dong.gu : '') + ' ' + dong.d;
+          add(label, dong.lat, dong.lng, 14);
+        } else if (guMatch) {
+          // 구 검색: 구 중심 좌표는 dong들의 평균으로 근사
+          add(city.name + ' ' + dong.gu, dong.lat, dong.lng, 13);
+        }
+      });
+    });
+  }
+
+  // 최대 15개로 제한
+  return results.slice(0, 15);
+}
+
+/**
+ * 검색 결과 위치로 지도 이동
+ * @param {number} lat
+ * @param {number} lng
+ * @param {number} zoom
+ */
+function _flyToRegion(lat, lng, zoom) {
+  if (!_isMapAlive()) return;
+  try {
+    _map.flyTo([lat, lng], zoom || 14, { animate: true, duration: 0.8 });
+  } catch(e) {
+    console.warn('[WorkMode] flyTo 오류:', e);
+  }
+}
+
+// ui.js의 검색창이 호출하는 전역 함수
+window._wmSearch = function(query) {
+  return _searchRegion(query);
+};
+window._wmFlyTo = function(lat, lng, zoom) {
+  _flyToRegion(lat, lng, zoom);
+};
 
 function _isMapAliveExternal(m) {
   if (!m) return false;
