@@ -838,27 +838,89 @@ function _wmToggleDongFilter() {
  * 교차된 동/구만 표시, 나머지 숨김
  * _dongLayers 각 레이어에 dong 이름 태그(_wmDongName)가 있어야 함
  */
+/**
+ * 교차된 동/구만 표시, 나머지 숨김
+ *
+ * drawPolygon = L.geoJSON() 반환 → L.GeoJSON(레이어그룹)
+ * L.Marker(네임태그) = getElement()로 DOM 접근
+ *
+ * 필터 대상: _wmDongName 태그가 붙은 레이어
+ *   - 폴리곤(L.GeoJSON): eachLayer → _path.style.display
+ *   - 마커(L.Marker):    getElement().style.display
+ */
 function _wmApplyDongFilter() {
   if (!_dongVisible || !_dongLayers.length) return;
 
   _dongLayers.forEach(function(layer) {
     var name = layer._wmDongName;
-    if (!name) {
-      // 이름 태그 없는 레이어(마커 라벨 등) - 폴리곤 레이어만 필터
+    // 이름 태그 없는 레이어(라벨 마커 등)는 폴리곤에 연동해서 처리하므로 skip
+    if (!name) return;
+
+    var show = _resultSet.has(name);
+    _wmSetLayerVisible(layer, show);
+  });
+
+  // 라벨 마커도 동기화: _wmDongName 없는 마커는 직전 폴리곤(이름태그 있음)의 상태를 따름
+  // 구현: _dongLayers를 순서대로 순회하면서 마지막 폴리곤의 show 상태를 다음 마커에 적용
+  var lastShow = true;
+  _dongLayers.forEach(function(layer) {
+    if (layer._wmDongName) {
+      lastShow = _resultSet.has(layer._wmDongName);
+    } else {
+      // 이름 없는 마커(라벨) → 직전 폴리곤 상태 따름
+      _wmSetLayerVisible(layer, lastShow);
+    }
+  });
+}
+
+/**
+ * 레이어 종류에 따라 show/hide 처리
+ * @param {object} layer  Leaflet 레이어 (L.GeoJSON 또는 L.Marker)
+ * @param {boolean} show
+ */
+/**
+ * 레이어 종류에 따라 show/hide + z-order 처리
+ *
+ * 마커(네임태그):
+ *   show=true  → zIndex 높게 (선/부채꼴 위, 교차 라벨 앞)
+ *   show=false → zIndex 낮게 (선/부채꼴 아래로)
+ *
+ * @param {object}  layer  Leaflet 레이어
+ * @param {boolean} show
+ * @param {boolean} [isMarker] 마커 여부
+ */
+function _wmSetLayerVisible(layer, show, isMarker) {
+  try {
+    var disp = show ? '' : 'none';
+
+    // ── L.Marker (네임태그 마커) ─────────────────────────────
+    if (layer.getElement && typeof layer.getElement === 'function') {
+      var el = layer.getElement();
+      if (el) {
+        el.style.display = disp;
+        // 교차 마커: z-index 높여서 선/부채꼴 위에 표시
+        // 비교차 마커: z-index 낮춰서 선/부채꼴 아래로
+        var wrapper = el.parentElement; // Leaflet marker div wrapper
+        if (wrapper) {
+          wrapper.style.zIndex = show ? '610' : '390';
+        }
+        return;
+      }
+    }
+
+    // ── L.GeoJSON (drawPolygon 반환값) ───────────────────────
+    if (layer.eachLayer && typeof layer.eachLayer === 'function') {
+      layer.eachLayer(function(subLayer) {
+        if (subLayer._path) subLayer._path.style.display = disp;
+      });
       return;
     }
-    var isInResult = _resultSet.has(name);
-    try {
-      var el = layer.getElement ? layer.getElement() : null;
-      if (el) {
-        el.style.display = isInResult ? '' : 'none';
-      } else {
-        // SVG 폴리곤 레이어
-        var container = layer._path || (layer._renderer && layer._renderer._container);
-        if (container) container.style.display = isInResult ? '' : 'none';
-      }
-    } catch(e) {}
-  });
+
+    // ── L.Path 직접 (fallback) ───────────────────────────────
+    if (layer._path) {
+      layer._path.style.display = disp;
+    }
+  } catch(e) {}
 }
 
 /**
@@ -866,15 +928,7 @@ function _wmApplyDongFilter() {
  */
 function _wmShowAllDongLayers() {
   _dongLayers.forEach(function(layer) {
-    try {
-      var el = layer.getElement ? layer.getElement() : null;
-      if (el) {
-        el.style.display = '';
-      } else {
-        var container = layer._path || (layer._renderer && layer._renderer._container);
-        if (container) container.style.display = '';
-      }
-    } catch(e) {}
+    _wmSetLayerVisible(layer, true);
   });
 }
 
@@ -1055,6 +1109,18 @@ window.stopWorkMode = function() { exitWorkMode(); };
  * @param {string} query  검색어
  * @returns {{ label:string, lat:number, lng:number, zoom:number }[]}
  */
+/**
+ * 지역 통합 검색
+ *
+ * 검색 대상 (3단계):
+ *   1. CITY_META_V4 — 시/군 (도시 레벨)
+ *   2. DB[*].dongs  — 구/동 (선택 지역만, 빠름)
+ *   3. POLY_CACHE   — 전체 동/읍/면/리 (선택 무관, 정확)
+ *      DB에서 못 찾은 동은 POLY_CACHE에서 직접 탐색
+ *
+ * 문제 원인: DB는 선택된 지역만 포함
+ * 해결: POLY_CACHE 전체를 getCityNode + _all_list로 탐색
+ */
 function _searchRegion(query) {
   if (!query || query.trim().length < 1) return [];
 
@@ -1069,11 +1135,29 @@ function _searchRegion(query) {
     results.push({ label: label, lat: lat, lng: lng, zoom: zoom || 13 });
   }
 
+  function getCenter(node) {
+    if (!node) return null;
+    if (node.center) return node.center;  // [lat, lng]
+    // geometry에서 중심 계산
+    try {
+      var geo = (typeof _geo === 'function') ? _geo(node) : node.geometry;
+      if (!geo) return null;
+      if (typeof getCenter === 'function' && geo !== node) return null;
+      var coords = geo.coordinates;
+      if (!coords) return null;
+      // Polygon: coordinates[0] = 외곽 ring
+      var ring = (geo.type === 'Polygon') ? coords[0] : coords[0][0];
+      if (!ring || !ring.length) return null;
+      var sumLat = 0, sumLng = 0;
+      ring.forEach(function(c) { sumLng += c[0]; sumLat += c[1]; });
+      return [sumLat / ring.length, sumLng / ring.length];
+    } catch(e) { return null; }
+  }
+
   // ── 1. 시/군 단위 검색 (CITY_META_V4) ──────────────────────
   if (typeof CITY_META_V4 !== 'undefined') {
     CITY_META_V4.forEach(function(meta) {
       if (!meta.center) return;
-      // 도시명 또는 도명 포함
       if (meta.name.includes(q) || (meta.do_ && meta.do_.includes(q))) {
         add(
           (meta.do_ ? meta.do_ + ' ' : '') + meta.name,
@@ -1084,28 +1168,70 @@ function _searchRegion(query) {
     });
   }
 
-  // ── 2. 동/읍/면/리 단위 검색 (DB) ──────────────────────────
+  // ── 2. 구 단위 검색 (CITY_META_V4에서 구 이름 추출) ─────────
   if (typeof DB !== 'undefined') {
     Object.keys(DB).forEach(function(key) {
       var city = DB[key];
       if (!city || !city.dongs) return;
+      var guSeen = new Set();
       city.dongs.forEach(function(dong) {
-        // 동 이름 또는 구 이름 포함
-        var dongMatch = dong.d && dong.d.includes(q);
-        var guMatch   = dong.gu && dong.gu !== dong.rn && dong.gu.includes(q);
-        if (dongMatch) {
-          var label = city.name + (dong.gu && dong.gu !== dong.rn ? ' ' + dong.gu : '') + ' ' + dong.d;
-          add(label, dong.lat, dong.lng, 14);
-        } else if (guMatch) {
-          // 구 검색: 구 중심 좌표는 dong들의 평균으로 근사
+        var guMatch = dong.gu && dong.gu !== dong.rn && dong.gu.includes(q);
+        if (guMatch && !guSeen.has(dong.gu)) {
+          guSeen.add(dong.gu);
           add(city.name + ' ' + dong.gu, dong.lat, dong.lng, 13);
         }
       });
     });
   }
 
-  // 최대 15개로 제한
-  return results.slice(0, 15);
+  // ── 3. 동/읍/면/리 전체 검색 (POLY_CACHE 직접 탐색) ─────────
+  // DB는 선택된 지역만 → POLY_CACHE 전체에서 탐색
+  if (typeof POLY_CACHE !== 'undefined' && POLY_CACHE &&
+      typeof CITY_META_V4 !== 'undefined') {
+    CITY_META_V4.forEach(function(meta) {
+      if (results.length >= 30) return; // 과도한 탐색 방지
+      try {
+        var cn = (typeof getCityNode === 'function') ? getCityNode(meta.name) : null;
+        if (!cn) return;
+
+        var hasGu = meta.hasGu;
+        if (hasGu) {
+          // 구 있는 도시: cn[구명]._all_list
+          var guTypes = new Set(['구', '군']);
+          Object.keys(cn).forEach(function(guKey) {
+            if (guKey.startsWith('_')) return;
+            var guNode = cn[guKey];
+            if (!guNode || typeof guNode !== 'object') return;
+            var guType = guNode._type || '';
+            if (!guTypes.has(guType)) return;
+            var list = guNode._all_list || [];
+            list.forEach(function(unitName) {
+              if (!unitName.includes(q)) return;
+              var unitNode = guNode[unitName];
+              if (!unitNode) return;
+              var ctr = unitNode.center || getCenter(unitNode);
+              if (!ctr) return;
+              add(meta.name + ' ' + guKey + ' ' + unitName, ctr[0], ctr[1], 15);
+            });
+          });
+        } else {
+          // 구 없는 도시: cn._all_list
+          var list2 = cn._all_list || [];
+          list2.forEach(function(unitName) {
+            if (!unitName.includes(q)) return;
+            var unitNode = cn[unitName];
+            if (!unitNode) return;
+            var ctr = unitNode.center || getCenter(unitNode);
+            if (!ctr) return;
+            add(meta.name + ' ' + unitName, ctr[0], ctr[1], 15);
+          });
+        }
+      } catch(e) {}
+    });
+  }
+
+  // 최대 20개로 제한
+  return results.slice(0, 20);
 }
 
 /**
