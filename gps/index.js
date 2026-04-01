@@ -642,8 +642,15 @@ function _normalizeForClipboard(resultSet) {
       base = base.replace(/(동|읍|면|리)$/, '');
     }
 
-    // 4. 빈 문자열 방지 (제거 후 아무것도 안 남으면 원본 유지)
-    if (!base || base.length === 0) base = name;
+    // 4. 접미어 제거 후 1글자만 남으면 접미어를 다시 붙임
+    //    예: "제1동" → "제동" (숫자만 제거, 접미어 유지)
+    //        "서초1동" → "서초" (2글자 이상 → 접미어 제거 유지)
+    //    빈 문자열이면 원본 유지
+    if (!base || base.length === 0) {
+      base = name;
+    } else if (base.length === 1 && utype && ['동','읍','면','리'].includes(utype)) {
+      base = base + utype;
+    }
 
     // 5. 중복 제거
     if (!seen.has(base)) {
