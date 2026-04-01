@@ -352,7 +352,8 @@ function _wmAddFanChain() {
 // ════════════════════════════════════════════════════════════════
 
 function _wmReplaceLastLine(clickPos) {
-  var lineShapes = _shapes.filter(function(s) { return s.type === 'line' && !s.chainFrom; });
+  // pending 아닌 마지막 선 (chainFrom 유무 무관 — 부채꼴과 동일 방식)
+  var lineShapes = _shapes.filter(function(s) { return s.type === 'line' && !s.pending; });
   if (!lineShapes.length) { _wmAddLine(clickPos); return; }
 
   var last = lineShapes[lineShapes.length - 1];
@@ -361,12 +362,16 @@ function _wmReplaceLastLine(clickPos) {
   // 기존 레이어 제거
   if (last.layer) { try { _map.removeLayer(last.layer); } catch(e) {} }
 
-  var result = buildLinePolygon(_gpsPos, clickPos, _lineBuffer);
+  // chainFrom 있으면 체인 시작점 유지, 없으면 GPS
+  var startPt = last.chainFrom || _gpsPos;
+
+  var result = buildLinePolygon(startPt, clickPos, _lineBuffer);
   if (!result || !_isValidPolygon(result.polygon)) return;
 
   result.layer.options.pane = _SHAPE_PANE;
   result.layer.addTo(_map);
-  _shapes[idx] = { type:'line', layer:result.layer, polygon:result.polygon, endPt:clickPos };
+  _shapes[idx] = { type:'line', layer:result.layer, polygon:result.polygon,
+                   endPt:clickPos, chainFrom:last.chainFrom };
 }
 
 function _wmReplaceLastFan() {
@@ -1159,25 +1164,6 @@ function _searchRegion(query) {
     results.push({ label: label, lat: lat, lng: lng, zoom: zoom || 13 });
   }
 
-  function getCenter(node) {
-    if (!node) return null;
-    if (node.center) return node.center;  // [lat, lng]
-    // geometry에서 중심 계산
-    try {
-      var geo = (typeof _geo === 'function') ? _geo(node) : node.geometry;
-      if (!geo) return null;
-      if (typeof getCenter === 'function' && geo !== node) return null;
-      var coords = geo.coordinates;
-      if (!coords) return null;
-      // Polygon: coordinates[0] = 외곽 ring
-      var ring = (geo.type === 'Polygon') ? coords[0] : coords[0][0];
-      if (!ring || !ring.length) return null;
-      var sumLat = 0, sumLng = 0;
-      ring.forEach(function(c) { sumLng += c[0]; sumLat += c[1]; });
-      return [sumLat / ring.length, sumLng / ring.length];
-    } catch(e) { return null; }
-  }
-
   // ── 1. 시/군 단위 검색 (CITY_META_V4) ──────────────────────
   if (typeof CITY_META_V4 !== 'undefined') {
     CITY_META_V4.forEach(function(meta) {
@@ -1210,10 +1196,31 @@ function _searchRegion(query) {
 
   // ── 3. 동/읍/면/리 전체 검색 (POLY_CACHE 직접 탐색) ─────────
   // DB는 선택된 지역만 → POLY_CACHE 전체에서 탐색
+  // 핵심: _m(node, key) 사용 — 메타 필드가 node._meta 안에 있을 수 있음
   if (typeof POLY_CACHE !== 'undefined' && POLY_CACHE &&
-      typeof CITY_META_V4 !== 'undefined') {
+      typeof CITY_META_V4 !== 'undefined' &&
+      typeof _m === 'function') {
+
+    // POLY_CACHE node에서 center 좌표 추출
+    function _getNodeCenter(node) {
+      if (!node) return null;
+      // 1. node.center 직접
+      var c = node.center || _m(node, 'center');
+      if (c && Array.isArray(c) && c.length >= 2) return c;
+      // 2. geometry에서 계산
+      var geo = (typeof _geo === 'function') ? _geo(node) : null;
+      if (!geo || !geo.coordinates) return null;
+      try {
+        var ring = (geo.type === 'Polygon') ? geo.coordinates[0] : geo.coordinates[0][0];
+        if (!ring || !ring.length) return null;
+        var sumLat = 0, sumLng = 0;
+        ring.forEach(function(c) { sumLng += c[0]; sumLat += c[1]; });
+        return [sumLat / ring.length, sumLng / ring.length];
+      } catch(e) { return null; }
+    }
+
     CITY_META_V4.forEach(function(meta) {
-      if (results.length >= 30) return; // 과도한 탐색 방지
+      if (results.length >= 30) return;
       try {
         var cn = (typeof getCityNode === 'function') ? getCityNode(meta.name) : null;
         if (!cn) return;
@@ -1221,31 +1228,34 @@ function _searchRegion(query) {
         var hasGu = meta.hasGu;
         if (hasGu) {
           // 구 있는 도시: cn[구명]._all_list
+          // _m() 으로 메타 필드 안전하게 접근
           var guTypes = new Set(['구', '군']);
           Object.keys(cn).forEach(function(guKey) {
             if (guKey.startsWith('_')) return;
             var guNode = cn[guKey];
             if (!guNode || typeof guNode !== 'object') return;
-            var guType = guNode._type || '';
+            var guType = _m(guNode, '_type') || '';
             if (!guTypes.has(guType)) return;
-            var list = guNode._all_list || [];
+            var list = _m(guNode, '_all_list') || [];
             list.forEach(function(unitName) {
+              if (results.length >= 30) return;
               if (!unitName.includes(q)) return;
               var unitNode = guNode[unitName];
               if (!unitNode) return;
-              var ctr = unitNode.center || getCenter(unitNode);
+              var ctr = _getNodeCenter(unitNode);
               if (!ctr) return;
               add(meta.name + ' ' + guKey + ' ' + unitName, ctr[0], ctr[1], 15);
             });
           });
         } else {
           // 구 없는 도시: cn._all_list
-          var list2 = cn._all_list || [];
+          var list2 = _m(cn, '_all_list') || [];
           list2.forEach(function(unitName) {
+            if (results.length >= 30) return;
             if (!unitName.includes(q)) return;
             var unitNode = cn[unitName];
             if (!unitNode) return;
-            var ctr = unitNode.center || getCenter(unitNode);
+            var ctr = _getNodeCenter(unitNode);
             if (!ctr) return;
             add(meta.name + ' ' + unitName, ctr[0], ctr[1], 15);
           });
