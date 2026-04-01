@@ -2091,7 +2091,7 @@ const FE_VALIDATION = {
 let CITY_META_V4 = [];  // [{name, key, do_, center, zoom, color, hasGu, quizLevel, total}]
 
 // 도시명 → DB키 변환 (한글 → slug)
-function cityNameToKey(name) {
+function cityNameToKey(name, doName) {
   const map = {
     // 광역시·특별시·특별자치시 (최상위 cityName)
     '서울특별시':'seoul',     '부산광역시':'busan',
@@ -2163,6 +2163,13 @@ function cityNameToKey(name) {
     // 제주특별자치도
     '제주시':'jeju',     '서귀포시':'seogwipo',
   };
+  // 동명이지만 다른 도(道)인 경우: doName으로 구분
+  const DO_OVERRIDES = {
+    '고성군|강원특별자치도': 'goseong_g',
+    '고성군|경상남도':       'goseong_n',
+  };
+  const doKey = name + '|' + (doName || '');
+  if (DO_OVERRIDES[doKey]) return DO_OVERRIDES[doKey];
   return map[name] || name.replace(/[^\w가-힣]/g,'').toLowerCase();
 }
 
@@ -2297,7 +2304,7 @@ function buildCityMetaFromCache(polyCache) {
 
     CITY_META_V4.push({
       name:       cityName,
-      key:        cityNameToKey(cityName),
+      key:        cityNameToKey(cityName, doName),
       do_:        doName,
       center,
       zoom,
@@ -2346,11 +2353,16 @@ function buildCityMetaFromCache(polyCache) {
 }
 
 // ── getCityNode (v4: 동일 로직 유지) ────────────────────────────
-function getCityNode(cityName) {
+function getCityNode(cityName, doName) {
   if (!POLY_CACHE) return null;
   // 1) 최상위 직접 (서울특별시, 부산광역시, 세종특별자치시 등)
   if (POLY_CACHE[cityName]) return POLY_CACHE[cityName];
-  // 2) 도/특별자치도/특별자치시 아래 탐색 (수원시, 강릉시, 세종시 등)
+  // 2) doName 지정 시: 해당 도(道) 아래에서 직접 찾기
+  //    고성군처럼 동일 이름이 여러 도에 존재할 때 정확한 도 지정
+  if (doName && POLY_CACHE[doName] && POLY_CACHE[doName][cityName]) {
+    return POLY_CACHE[doName][cityName];
+  }
+  // 3) 도/특별자치도/특별자치시 아래 탐색 (수원시, 강릉시, 세종시 등)
   const parentTypes = new Set(['도','특별자치도','특별자치시']);
   for (const [, tv] of Object.entries(POLY_CACHE)) {
     const t = _m(tv, '_type') || '';
@@ -2369,8 +2381,8 @@ function getCityNode(cityName) {
  * @param {string} dong     — 단위명
  * @returns {object|null}   — GeoJSON or null
  */
-function getDongGeo(cityName, gu, dong) {
-  const cn = getCityNode(cityName);
+function getDongGeo(cityName, gu, dong, doName) {
+  const cn = getCityNode(cityName, doName || null);
   if (!cn) return null;
 
   let node;
@@ -2492,7 +2504,7 @@ function buildDBFromCache() {
 
   for (const meta of CITY_META_V4) {
     const { name: cityName, key, do_: doName, center, zoom, color, hasGu, quizLevel } = meta;
-    const cn = getCityNode(cityName);
+    const cn = getCityNode(cityName, doName);  // doName 전달 → 동명이시(同名異市) 정확 구분
     if (!cn) {
       FE_VALIDATION.warn('CITY_NODE_NOT_FOUND', `${cityName}: 캐시에서 노드 없음`, { cityName });
       continue;
@@ -3830,7 +3842,7 @@ function onMapClick(e){
       const isNoGu = !cur.gu || cur.gu === cur.rn;
       if(isNoGu){
         // 구 없는 도시 → 동 폴리곤 기준
-        const dongPoly = getDongGeo(cur.rn, cur.gu, cur.d);
+        const dongPoly = getDongGeo(cur.rn, cur.gu, cur.d, cur.do_);
         if(dongPoly && isInsidePolygon(clickLat, clickLng, dongPoly)){
           const dist = getDist(clickLat, clickLng, cur.lat, cur.lng);
           doOk(dist, null, null);
@@ -3857,7 +3869,7 @@ function onMapClick(e){
       // cur.d   = 정답 단위名 (동/읍/면/리)
       // cur.lat / cur.lng = 단위 중심 좌표
       // 마우스로 단위 중심 근처를 클릭하면 정답
-      const dongPoly = getDongGeo(cur.rn, cur.gu, cur.d);
+      const dongPoly = getDongGeo(cur.rn, cur.gu, cur.d, cur.do_);
       if(dongPoly && isInsidePolygon(clickLat, clickLng, dongPoly)){
         // 폴리곤 안 클릭 → 즉시 정답
         const dist = getDist(clickLat, clickLng, cur.lat, cur.lng);
@@ -3976,7 +3988,7 @@ window.toggleShowAll = function(){
       const isNoGu = !dong.gu || dong.gu === dong.rn;
       if(isNoGu){
         // 구 없는 도시: 동 폴리곤 + 동/읍/면 이름
-        const node = POLY_CACHE ? getDongGeo(dong.rn, dong.gu, dong.d) : null;
+        const node = POLY_CACHE ? getDongGeo(dong.rn, dong.gu, dong.d, dong.do_) : null;
         if(!node) return;
         const geo = _geo(node);
         if(geo){
@@ -4018,7 +4030,7 @@ window.toggleShowAll = function(){
   } else {
     // 동 모드: 동 폴리곤 + 동 이름
     allDongs.forEach(dong=>{
-      const node = POLY_CACHE ? getDongGeo(dong.rn, dong.gu, dong.d) : null;
+      const node = POLY_CACHE ? getDongGeo(dong.rn, dong.gu, dong.d, dong.do_) : null;
       if(!node) return;
       // node는 전체 노드 객체 — geometry 필드 추출
       const geo = _geo(node);
@@ -4103,7 +4115,7 @@ function doOk(dist, clickLat, clickLng){
       geo  = node || null;
     } else {
       // 구 없는 도시 or 동퀴즈: 동 폴리곤
-      node = getDongGeo(cur.rn, cur.gu, cur.d);
+      node = getDongGeo(cur.rn, cur.gu, cur.d, cur.do_);
       geo  = _geo(node) || null;
     }
     if(geo){
@@ -4208,7 +4220,7 @@ function doNo(dist, clickLat, clickLng){
         node = getGuGeo(snapCur.rn, snapCur.gu);
         geo  = node || null;
       } else {
-        node = getDongGeo(snapCur.rn, snapCur.gu, snapCur.d);
+        node = getDongGeo(snapCur.rn, snapCur.gu, snapCur.d, snapCur.do_);
         geo  = _geo(node) || null;
       }
       if(geo){
