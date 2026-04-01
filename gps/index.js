@@ -34,6 +34,10 @@ let _dongVisible    = false;
 // { "서초1동": "동", "화전읍": "읍", ... }
 let _dongNameMap    = {};
 
+// 내 위치 마커 레이어 (GPS 실시간 표시용)
+let _gpsMarkerDot   = null;   // 내 위치 원형 마커
+let _gpsMarkerRing  = null;   // 정확도 표시 반경 원
+
 // ════════════════════════════════════════════════════════════════
 // 2. 업무모드 진입
 // ════════════════════════════════════════════════════════════════
@@ -94,6 +98,7 @@ function exitWorkMode() {
 
   _wmClearDongLayers();
   _wmClearAllLayers();
+  _wmClearGpsMarker();
 
   if (_map && _wmClickFn) {
     try { _map.off('click', _wmClickFn); } catch(e) {}
@@ -109,6 +114,8 @@ function exitWorkMode() {
   _dongLayers   = [];
   _dongVisible  = false;
   _dongNameMap  = {};
+  _gpsMarkerDot  = null;
+  _gpsMarkerRing = null;
   _gpsTracking  = true;
   _gpsAutoTimer = null;
 
@@ -141,6 +148,9 @@ function _wmOnGpsUpdate(pos) {
     exitWorkMode();
     return;
   }
+
+  // ── 내 위치 마커 갱신 ────────────────────────────────────────
+  _wmUpdateGpsMarker(pos);
 
   if (_shapes.length === 0) return;
 
@@ -759,6 +769,68 @@ function _wmClearAllLayers() {
   _shapes.forEach(function(s) {
     if (s.layer) { try { _map.removeLayer(s.layer); } catch(e) {} }
   });
+}
+
+/**
+ * 내 위치 마커 갱신
+ * - 파란 원: 현재 GPS 위치
+ * - 흰 테두리 + 그림자로 지도 위에서 잘 보이게
+ * - 기존 퀴즈 마커와 시각 구분 (청록색 대신 파란색)
+ *
+ * @param {{ lat, lng }} pos
+ */
+function _wmUpdateGpsMarker(pos) {
+  if (!_isMapAlive() || !pos) return;
+
+  // ── 기존 마커 제거 ──────────────────────────────────────────
+  _wmClearGpsMarker();
+
+  // ── 내 위치 원형 마커 (파란 점) ─────────────────────────────
+  _gpsMarkerDot = L.circleMarker([pos.lat, pos.lng], {
+    radius:      10,
+    fillColor:   '#2979ff',     // 구글 지도 스타일 파란색
+    fillOpacity: 1,
+    color:       '#ffffff',     // 흰 테두리
+    weight:      3,
+    interactive: false,         // 클릭 이벤트 차단 (지도 클릭과 분리)
+  }).addTo(_map);
+
+  // ── 내 위치 라벨 (내 위치) ───────────────────────────────────
+  var icon = L.divIcon({
+    className: '',
+    iconAnchor: [-14, 8],
+    html: '<div style="'
+      + 'display:inline-block;'
+      + 'background:rgba(41,121,255,.92);'
+      + 'color:#fff;'
+      + 'padding:2px 6px;'
+      + 'border-radius:4px;'
+      + 'font-size:10px;'
+      + 'font-weight:700;'
+      + 'white-space:nowrap;'
+      + 'box-shadow:0 1px 4px rgba(0,0,0,.4);'
+      + 'pointer-events:none;'
+      + '">📍 내 위치</div>',
+  });
+
+  _gpsMarkerRing = L.marker([pos.lat, pos.lng], {
+    icon:        icon,
+    interactive: false,
+  }).addTo(_map);
+}
+
+/**
+ * 내 위치 마커 제거
+ */
+function _wmClearGpsMarker() {
+  if (_gpsMarkerDot) {
+    try { _map.removeLayer(_gpsMarkerDot); } catch(e) {}
+    _gpsMarkerDot = null;
+  }
+  if (_gpsMarkerRing) {
+    try { _map.removeLayer(_gpsMarkerRing); } catch(e) {}
+    _gpsMarkerRing = null;
+  }
 }
 
 function _isMapAlive() {
