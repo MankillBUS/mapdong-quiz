@@ -475,7 +475,8 @@ function _wmToggleShowDong() {
         if (geo) {
           var lyr = drawPolygon(geo, '#a29bfe', 0.18);
           if (lyr) {
-            lyr._wmDongName = dong.d;  // 교차필터용 이름 태그
+            // uniqueName으로 태그: 도시가 다른 같은 이름 동 구분
+            lyr._wmDongName = dong.rn + '|' + (dong.gu && dong.gu !== dong.rn ? dong.gu : '') + '|' + dong.d;
             lyr.addTo(_map);
             _dongLayers.push(lyr);
           }
@@ -485,6 +486,7 @@ function _wmToggleShowDong() {
           iconAnchor: [0, 0],
           html: '<div style="display:inline-block;background:rgba(162,155,254,.92);color:#000;padding:3px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;">' + dong.d + '</div>'
         })}).addTo(_map);
+        mk._wmDongName = dong.rn + '|' + (dong.gu && dong.gu !== dong.rn ? dong.gu : '') + '|' + dong.d;
         _dongLayers.push(mk);
 
       } else {
@@ -496,7 +498,8 @@ function _wmToggleShowDong() {
         if (!guGeo) return;
         var lyr2 = drawPolygon(guGeo, '#a29bfe', 0.18);
         if (lyr2) {
-          lyr2._wmDongName = dong.gu;  // 교차필터용 이름 태그 (구 이름)
+          // 구 모드: "도시명|구명|" 형태로 uniqueName
+          lyr2._wmDongName = dong.rn + '|' + dong.gu + '|';
           lyr2.addTo(_map);
           _dongLayers.push(lyr2);
         }
@@ -507,6 +510,7 @@ function _wmToggleShowDong() {
             iconAnchor: [0, 0],
             html: '<div style="display:inline-block;background:rgba(162,155,254,.92);color:#000;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">' + dong.gu + '</div>'
           })}).addTo(_map);
+          mk2._wmDongName = dong.rn + '|' + dong.gu + '|';
           _dongLayers.push(mk2);
         }
       }
@@ -522,7 +526,8 @@ function _wmToggleShowDong() {
       if (geo) {
         var lyr = drawPolygon(geo, '#a29bfe', 0.18);
         if (lyr) {
-          lyr._wmDongName = dong.d;  // 교차필터용 이름 태그
+          // uniqueName으로 태그
+          lyr._wmDongName = dong.rn + '|' + (dong.gu && dong.gu !== dong.rn ? dong.gu : '') + '|' + dong.d;
           lyr.addTo(_map);
           _dongLayers.push(lyr);
         }
@@ -532,6 +537,7 @@ function _wmToggleShowDong() {
         iconAnchor: [0, 0],
         html: '<div style="display:inline-block;background:rgba(162,155,254,.92);color:#000;padding:3px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;">' + dong.d + '</div>'
       })}).addTo(_map);
+      mk._wmDongName = dong.rn + '|' + (dong.gu && dong.gu !== dong.rn ? dong.gu : '') + '|' + dong.d;
       _dongLayers.push(mk);
     });
   }
@@ -563,6 +569,7 @@ function _wmRunIntersect() {
   var newSet = new Set();
   _shapes.forEach(function(shape) {
     if (!shape.polygon || shape.pending) return;
+    // intersectPolygon은 name(=uniqueName)을 반환
     var names = intersectPolygon(shape.polygon, dongPolygons);
     names.forEach(function(n) { newSet.add(n); });
   });
@@ -607,9 +614,14 @@ function _getActiveDongPolygons() {
         if (!node) return;
         var feature = _nodeToFeature(node);
         if (feature) {
-          result.push({ name: dong.d, geo: feature });
-          // utype 매핑 저장: "서초1동" → "동", "화전읍" → "읍" 등
-          _dongNameMap[dong.d] = dong.utype || '동';
+          // 고유명: "도시명|구명|동명" 형태로 동 이름 중복 방지
+          // 예: "이천시||신촌동", "서울특별시|서초구|서초1동"
+          var uniqueName = dong.rn + '|' + (dong.gu && dong.gu !== dong.rn ? dong.gu : '') + '|' + dong.d;
+          result.push({ name: uniqueName, displayName: dong.d, geo: feature });
+          // utype 매핑: uniqueName 기준으로 저장
+          _dongNameMap[uniqueName] = dong.utype || '동';
+          // displayName 기준도 저장 (정규식용 보조)
+          if (!_dongNameMap[dong.d]) _dongNameMap[dong.d] = dong.utype || '동';
         }
       });
     });
@@ -647,7 +659,8 @@ function _nodeToFeature(node) {
 // ════════════════════════════════════════════════════════════════
 
 function _wmUpdateUI() {
-  updateResultDisplay(_resultSet);
+  // _resultSet은 uniqueName("이천시||신촌동") → 화면 표시 시 동명만 추출
+  updateResultDisplay(_extractDisplayNames(_resultSet));
 
   // 동/구 교차필터 모드 활성 시 교차 결과 변경마다 자동 갱신
   if (_dongFilterMode && _dongVisible) {
@@ -655,8 +668,6 @@ function _wmUpdateUI() {
   }
 
   if (_autoCopy) {
-    // 화면 표시용: 원본 동 이름
-    // 클립보드 저장용: 정규식 정리 후 중복 제거
     var clipText = _normalizeForClipboard(_resultSet);
     _prevResult = autoCopyIfChanged(clipText, _prevResult);
   }
@@ -681,13 +692,38 @@ function _wmUpdateUI() {
  * @param {Set<string>} resultSet
  * @returns {string}
  */
+/**
+ * uniqueName("이천시||신촌동")에서 동명만 추출한 Set 반환 (화면 표시용)
+ * @param {Set<string>} resultSet  uniqueName Set
+ * @returns {Set<string>}          동명 Set
+ */
+/**
+ * uniqueName → 화면 표시용 이름 변환
+ * "이천시||신촌동" → "이천시 신촌동"
+ * "서울특별시|서초구|서초1동" → "서초구 서초1동"
+ * 도시명을 포함해 사용자가 어느 도시 동인지 식별 가능하게 함
+ */
+function _extractDisplayNames(resultSet) {
+  var out = new Set();
+  resultSet.forEach(function(uniqueName) {
+    var parts = uniqueName.split('|');
+    // 화면 표시는 동명만 (도시명 불필요)
+    out.add(parts[2] || uniqueName);
+  });
+  return out;
+}
+
 function _normalizeForClipboard(resultSet) {
   var seen = new Set();
   var out  = [];
 
-  resultSet.forEach(function(name) {
-    // 1. _dongNameMap에서 utype 조회 (DB에서 수집한 정확한 값)
-    var utype = _dongNameMap[name] || '';
+  resultSet.forEach(function(uniqueName) {
+    // uniqueName → 동명 추출
+    var parts = uniqueName.split('|');
+    var name = parts[2] || uniqueName;
+
+    // 1. _dongNameMap에서 utype 조회
+    var utype = _dongNameMap[uniqueName] || _dongNameMap[name] || '';
 
     // 2. 숫자 제거 (아라비아 숫자)
     var base = name.replace(/[0-9]+/g, '');
@@ -851,25 +887,13 @@ function _wmToggleDongFilter() {
 function _wmApplyDongFilter() {
   if (!_dongVisible || !_dongLayers.length) return;
 
+  // 폴리곤과 마커 모두 _wmDongName(uniqueName)이 있으므로 직접 비교
+  // uniqueName = "도시명|구명|동명" → 도시별 정확한 교차 판정
   _dongLayers.forEach(function(layer) {
     var name = layer._wmDongName;
-    // 이름 태그 없는 레이어(라벨 마커 등)는 폴리곤에 연동해서 처리하므로 skip
-    if (!name) return;
-
+    if (!name) return;  // 이름 없는 레이어는 건너뜀
     var show = _resultSet.has(name);
     _wmSetLayerVisible(layer, show);
-  });
-
-  // 라벨 마커도 동기화: _wmDongName 없는 마커는 직전 폴리곤(이름태그 있음)의 상태를 따름
-  // 구현: _dongLayers를 순서대로 순회하면서 마지막 폴리곤의 show 상태를 다음 마커에 적용
-  var lastShow = true;
-  _dongLayers.forEach(function(layer) {
-    if (layer._wmDongName) {
-      lastShow = _resultSet.has(layer._wmDongName);
-    } else {
-      // 이름 없는 마커(라벨) → 직전 폴리곤 상태 따름
-      _wmSetLayerVisible(layer, lastShow);
-    }
   });
 }
 
