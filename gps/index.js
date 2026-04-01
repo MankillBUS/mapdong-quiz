@@ -38,6 +38,14 @@ let _dongNameMap    = {};
 let _gpsMarkerDot   = null;   // 내 위치 원형 마커
 let _gpsMarkerRing  = null;   // 정확도 표시 반경 원
 
+// 교차 지역만 Show 필터 모드
+// true = 동/구표시 중 교차된 것만 보이고 나머지 숨김
+// false = 전체 표시 (기본)
+let _dongFilterMode = false;
+
+// Leaflet 커스텀 pane 이름 (선/부채꼴 항상 최상단)
+const _SHAPE_PANE = 'wm-shape-pane';
+
 // ════════════════════════════════════════════════════════════════
 // 2. 업무모드 진입
 // ════════════════════════════════════════════════════════════════
@@ -51,22 +59,30 @@ function initWorkMode(leafletMap) {
 
   _map = leafletMap;
 
+  // ── 선/부채꼴 전용 pane 생성 (동/구 레이어보다 항상 위) ──────
+  if (!_map.getPane(_SHAPE_PANE)) {
+    _map.createPane(_SHAPE_PANE);
+    _map.getPane(_SHAPE_PANE).style.zIndex = 450;
+    // 클릭 이벤트는 지도로 투과 (클릭 차단 방지)
+    _map.getPane(_SHAPE_PANE).style.pointerEvents = 'none';
+  }
+
   _gpsWatchId = initGPS(
     function(pos) { _wmOnGpsUpdate(pos); },
     function(err) { setGpsDot('error'); console.warn('[WorkMode] GPS 오류:', err); }
   );
   setGpsDot('wait');
 
-  // ui.js의 renderWorkModePanel 호출 (12개 콜백)
+  // ui.js의 renderWorkModePanel 호출 (12개 콜백, GPS이동버튼 제거)
   renderWorkModePanel(
     function() { _wmSwitchMode('line'); },          // 선 모드
     function() { _wmSwitchMode('fan'); },           // 부채꼴 모드
     function() { _toggleAutoCopy(); },              // 자동복사
-    function() { _focusGps(); },                    // GPS 수동 이동
-    function() { _toggleGpsTracking(); },           // GPS 추적 ON/OFF
+    function() { _toggleGpsTracking(); },           // GPS 추적 ON/OFF (이동버튼 위치)
     function() { _wmAddLineChain(); },              // 선 이어붙이기
     function() { _wmAddFanChain(); },               // 부채꼴 이어붙이기
     function() { _wmToggleShowDong(); },            // 동/구 표시
+    function() { _wmToggleDongFilter(); },          // 교차지역만 Show
     function() { _wmClearShapesOnly(); },           // 도형만 초기화 (동/구 표시 유지)
     function(v) { _lineBuffer = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },
     function(v) { _fanR1 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },
@@ -111,9 +127,10 @@ function exitWorkMode() {
   _resultSet    = new Set();
   _autoCopy     = false;
   _prevResult   = '';
-  _dongLayers   = [];
-  _dongVisible  = false;
-  _dongNameMap  = {};
+  _dongLayers    = [];
+  _dongVisible   = false;
+  _dongNameMap   = {};
+  _dongFilterMode = false;
   _gpsMarkerDot  = null;
   _gpsMarkerRing = null;
   _gpsTracking  = true;
@@ -199,6 +216,8 @@ function _wmAddLine(clickPos) {
   if (!_isValidLatLng(clickPos)) return;
   var result = buildLinePolygon(_gpsPos, clickPos, _lineBuffer);
   if (!result || !_isValidPolygon(result.polygon)) return;
+  // 커스텀 pane에 추가 → 동/구 레이어보다 항상 위
+  result.layer.options.pane = _SHAPE_PANE;
   result.layer.addTo(_map);
   _shapes.push({ type:'line', layer:result.layer, polygon:result.polygon, endPt:clickPos });
 }
@@ -212,6 +231,7 @@ function _wmAddFan(clickPos) {
     console.warn('[WorkMode] 부채꼴 생성 불가');
     return;
   }
+  result.layer.options.pane = _SHAPE_PANE;
   result.layer.addTo(_map);
   _shapes.push({ type:'fan', layer:result.layer, polygon:result.polygon, endPt:_endPoint });
 }
@@ -259,6 +279,7 @@ function _wmAddLineChain() {
     // chainFrom → clickPos 선 생성
     var result = buildLinePolygon(chainStart, e.latlng, _lineBuffer);
     if (result && _isValidPolygon(result.polygon)) {
+      result.layer.options.pane = _SHAPE_PANE;
       result.layer.addTo(_map);
       _shapes.push({ type:'line', layer:result.layer, polygon:result.polygon,
                      endPt:e.latlng, chainFrom:chainStart });
@@ -313,6 +334,7 @@ function _wmAddFanChain() {
       calcExternalTangents, calcArcPoints, calcAngle
     );
     if (result && _isValidPolygon(result.polygon)) {
+      result.layer.options.pane = _SHAPE_PANE;
       result.layer.addTo(_map);
       _shapes.push({ type:'fan', layer:result.layer, polygon:result.polygon,
                      endPt:e.latlng, chainFrom:chainFrom });
@@ -342,6 +364,7 @@ function _wmReplaceLastLine(clickPos) {
   var result = buildLinePolygon(_gpsPos, clickPos, _lineBuffer);
   if (!result || !_isValidPolygon(result.polygon)) return;
 
+  result.layer.options.pane = _SHAPE_PANE;
   result.layer.addTo(_map);
   _shapes[idx] = { type:'line', layer:result.layer, polygon:result.polygon, endPt:clickPos };
 }
@@ -374,6 +397,7 @@ function _wmReplaceLastFan() {
     return;
   }
 
+  result.layer.options.pane = _SHAPE_PANE;
   result.layer.addTo(_map);
   _shapes[idx] = { type:'fan', layer:result.layer, polygon:result.polygon,
                    endPt:_endPoint, chainFrom:last.chainFrom };
@@ -405,6 +429,8 @@ function _wmRebuildAll() {
     }
 
     if (result && _isValidPolygon(result.polygon)) {
+      // 재생성 시에도 커스텀 pane 유지
+      result.layer.options.pane = _SHAPE_PANE;
       result.layer.addTo(_map);
       updated.push({ type:shape.type, layer:result.layer, polygon:result.polygon,
                      endPt:shape.endPt, chainFrom:shape.chainFrom });
@@ -448,7 +474,11 @@ function _wmToggleShowDong() {
         if (!geo && node.geometry) geo = node.geometry;
         if (geo) {
           var lyr = drawPolygon(geo, '#a29bfe', 0.18);
-          if (lyr) { lyr.addTo(_map); _dongLayers.push(lyr); }
+          if (lyr) {
+            lyr._wmDongName = dong.d;  // 교차필터용 이름 태그
+            lyr.addTo(_map);
+            _dongLayers.push(lyr);
+          }
         }
         var mk = L.marker([dong.lat, dong.lng], { icon: L.divIcon({
           className: '',
@@ -465,7 +495,11 @@ function _wmToggleShowDong() {
         var guGeo = (typeof getGuGeo === 'function') ? getGuGeo(dong.rn, dong.gu) : null;
         if (!guGeo) return;
         var lyr2 = drawPolygon(guGeo, '#a29bfe', 0.18);
-        if (lyr2) { lyr2.addTo(_map); _dongLayers.push(lyr2); }
+        if (lyr2) {
+          lyr2._wmDongName = dong.gu;  // 교차필터용 이름 태그 (구 이름)
+          lyr2.addTo(_map);
+          _dongLayers.push(lyr2);
+        }
         var ctr = (typeof getCenter === 'function') ? getCenter(guGeo) : null;
         if (ctr) {
           var mk2 = L.marker([ctr[0], ctr[1]], { icon: L.divIcon({
@@ -487,7 +521,11 @@ function _wmToggleShowDong() {
       if (!geo && node.geometry) geo = node.geometry;
       if (geo) {
         var lyr = drawPolygon(geo, '#a29bfe', 0.18);
-        if (lyr) { lyr.addTo(_map); _dongLayers.push(lyr); }
+        if (lyr) {
+          lyr._wmDongName = dong.d;  // 교차필터용 이름 태그
+          lyr.addTo(_map);
+          _dongLayers.push(lyr);
+        }
       }
       var mk = L.marker([dong.lat, dong.lng], { icon: L.divIcon({
         className: '',
@@ -500,6 +538,11 @@ function _wmToggleShowDong() {
 
   _dongVisible = true;
   setShowDongBtn(true);
+
+  // 재표시 시 교차필터 모드였으면 자동 적용
+  if (_dongFilterMode) {
+    _wmApplyDongFilter();
+  }
 }
 
 function _wmClearDongLayers() {
@@ -605,6 +648,12 @@ function _nodeToFeature(node) {
 
 function _wmUpdateUI() {
   updateResultDisplay(_resultSet);
+
+  // 동/구 교차필터 모드 활성 시 교차 결과 변경마다 자동 갱신
+  if (_dongFilterMode && _dongVisible) {
+    _wmApplyDongFilter();
+  }
+
   if (_autoCopy) {
     // 화면 표시용: 원본 동 이름
     // 클립보드 저장용: 정규식 정리 후 중복 제거
@@ -741,7 +790,92 @@ function _toggleGpsTracking() {
  */
 function _wmClearShapesOnly() {
   _wmDestroyShapes();
-  // 동/구 표시는 그대로 유지 (_dongLayers, _dongVisible 건드리지 않음)
+  // 도형 초기화 시 교차필터 모드 해제 (교차할 도형 없으므로)
+  if (_dongFilterMode) {
+    _dongFilterMode = false;
+    setDongFilterBtn(false);
+    // 동/구 표시 중이면 전체 다시 보이기
+    if (_dongVisible) {
+      _wmShowAllDongLayers();
+    }
+  }
+  // 동/구 표시 자체는 그대로 유지
+}
+
+// ════════════════════════════════════════════════════════════════
+// 교차필터 — 겹치는 동/구만 Show, 나머지 Hide
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * 교차필터 ON/OFF 토글
+ * ON: _resultSet에 있는 동/구 레이어만 표시, 나머지 숨김
+ * OFF: 모든 동/구 레이어 다시 표시
+ *
+ * 충돌 방지 설계:
+ *   - _dongFilterMode 상태는 _wmToggleShowDong()에서 재표시할 때 참조
+ *   - 동/구 표시 OFF → ON 시: _dongFilterMode=true면 필터 재적용 (전체 표시 안 됨)
+ *   - 동/구 표시 OFF → ON 시: _dongFilterMode=false면 전체 표시 (필터 없음)
+ *   - 도형 초기화 시: _dongFilterMode 자동 OFF + 전체 표시 복원
+ */
+function _wmToggleDongFilter() {
+  // 동/구 표시가 꺼져있으면 안내
+  if (!_dongVisible) {
+    alert('먼저 [동/구 표시] 버튼을 켜주세요.');
+    return;
+  }
+
+  _dongFilterMode = !_dongFilterMode;
+  setDongFilterBtn(_dongFilterMode);
+
+  if (_dongFilterMode) {
+    _wmApplyDongFilter();
+  } else {
+    _wmShowAllDongLayers();
+  }
+}
+
+/**
+ * 교차된 동/구만 표시, 나머지 숨김
+ * _dongLayers 각 레이어에 dong 이름 태그(_wmDongName)가 있어야 함
+ */
+function _wmApplyDongFilter() {
+  if (!_dongVisible || !_dongLayers.length) return;
+
+  _dongLayers.forEach(function(layer) {
+    var name = layer._wmDongName;
+    if (!name) {
+      // 이름 태그 없는 레이어(마커 라벨 등) - 폴리곤 레이어만 필터
+      return;
+    }
+    var isInResult = _resultSet.has(name);
+    try {
+      var el = layer.getElement ? layer.getElement() : null;
+      if (el) {
+        el.style.display = isInResult ? '' : 'none';
+      } else {
+        // SVG 폴리곤 레이어
+        var container = layer._path || (layer._renderer && layer._renderer._container);
+        if (container) container.style.display = isInResult ? '' : 'none';
+      }
+    } catch(e) {}
+  });
+}
+
+/**
+ * 모든 동/구 레이어 다시 표시 (필터 해제)
+ */
+function _wmShowAllDongLayers() {
+  _dongLayers.forEach(function(layer) {
+    try {
+      var el = layer.getElement ? layer.getElement() : null;
+      if (el) {
+        el.style.display = '';
+      } else {
+        var container = layer._path || (layer._renderer && layer._renderer._container);
+        if (container) container.style.display = '';
+      }
+    } catch(e) {}
+  });
 }
 
 /**
