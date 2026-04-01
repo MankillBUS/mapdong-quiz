@@ -9,7 +9,7 @@ const RESULT_ID       = 'work-mode-result';
 const BTN_LINE_ID     = 'wm-btn-line';
 const BTN_FAN_ID      = 'wm-btn-fan';
 const BTN_COPY_ID     = 'wm-btn-autocopy';
-const BTN_GPS_MOVE_ID = 'wm-btn-gps-move';    // GPS 위치로 이동
+// BTN_GPS_MOVE_ID 제거됨 (이동 버튼 삭제)
 const BTN_GPS_TRK_ID  = 'wm-btn-gps-track';   // GPS 추적 ON/OFF
 const GPS_DOT_ID      = 'wm-gps-dot';
 const RESULT_TEXT_ID  = 'wm-result-text';
@@ -25,9 +25,10 @@ const BTN_SHOW_ID     = 'wm-btn-show-dong';
 const BTN_CLEAR_ID    = 'wm-btn-clear';
 const BTN_COLLAPSE_ID = 'wm-btn-collapse';     // 접기/펼치기 토글
 const COLLAPSIBLE_ID  = 'wm-collapsible';      // 접히는 영역
-const SEARCH_INPUT_ID = 'wm-search-input';     // 지역 검색 입력
-const SEARCH_BTN_ID   = 'wm-search-btn';       // 검색 버튼
-const SEARCH_LIST_ID  = 'wm-search-list';      // 검색 결과 목록
+const SEARCH_INPUT_ID   = 'wm-search-input';      // 지역 검색 입력
+const SEARCH_BTN_ID     = 'wm-search-btn';        // 검색 버튼
+const SEARCH_LIST_ID    = 'wm-search-list';        // 검색 결과 목록
+const BTN_DONG_FILTER_ID = 'wm-btn-dong-filter';  // 교차지역만 Show
 
 // ── 공개 함수 ────────────────────────────────────────────────────
 
@@ -48,8 +49,10 @@ const SEARCH_LIST_ID  = 'wm-search-list';      // 검색 결과 목록
  */
 function renderWorkModePanel(
   onLineFn, onFanFn, onAutoCopyFn,
-  onGpsMoveFn, onGpsTrackFn,
-  onAddLineFn, onAddFanFn, onShowDongFn, onClearFn,
+  onGpsTrackFn,                           // GPS 추적 ON/OFF (이동버튼 제거)
+  onAddLineFn, onAddFanFn, onShowDongFn,
+  onDongFilterFn,                         // 교차지역만 Show
+  onClearFn,
   onBufChangeFn, onR1ChangeFn, onR2ChangeFn
 ) {
   if (document.getElementById(PANEL_ID)) return;
@@ -81,16 +84,17 @@ function renderWorkModePanel(
     '      <span class="wm-badge wm-badge--off">OFF</span>',
     '    </button>',
 
-    '    <!-- GPS 추적 ON/OFF -->',
+    '    <!-- GPS 추적 ON/OFF (이동버튼 제거, 이 자리로 이동) -->',
     '    <button id="' + BTN_GPS_TRK_ID + '" class="wm-btn wm-btn--gps-track wm-btn--active" title="GPS 실시간 추적 ON/OFF">',
     '      <span id="' + GPS_DOT_ID + '" class="wm-gps-dot wm-gps-dot--wait"></span>',
-    '      <span class="wm-lbl">추적</span>',
+    '      <span class="wm-lbl">GPS추적</span>',
     '      <span class="wm-badge wm-badge--on">ON</span>',
     '    </button>',
 
-    '    <!-- GPS 위치로 이동 (수동, 5초 자동 포함) -->',
-    '    <button id="' + BTN_GPS_MOVE_ID + '" class="wm-btn" title="현재 GPS 위치로 이동">',
-    '      <span class="wm-icon">📍</span><span class="wm-lbl">이동</span>',
+    '    <!-- 교차지역만 Show 필터 -->',
+    '    <button id="' + BTN_DONG_FILTER_ID + '" class="wm-btn wm-btn--filter" title="교차 지역만 표시 / 전체 표시">',
+    '      <span class="wm-icon">🔎</span><span class="wm-lbl">교차만</span>',
+    '      <span class="wm-badge wm-badge--off">OFF</span>',
     '    </button>',
 
     '    <button id="' + BTN_CLEAR_ID + '" class="wm-btn wm-btn--danger" title="도형 초기화 (동/구 표시 유지)">',
@@ -182,11 +186,11 @@ function renderWorkModePanel(
   panel.querySelector('#' + BTN_LINE_ID).addEventListener('click', onLineFn);
   panel.querySelector('#' + BTN_FAN_ID).addEventListener('click', onFanFn);
   panel.querySelector('#' + BTN_COPY_ID).addEventListener('click', onAutoCopyFn);
-  panel.querySelector('#' + BTN_GPS_MOVE_ID).addEventListener('click', onGpsMoveFn);
   panel.querySelector('#' + BTN_GPS_TRK_ID).addEventListener('click', onGpsTrackFn);
   panel.querySelector('#' + BTN_ADD_LINE_ID).addEventListener('click', onAddLineFn);
   panel.querySelector('#' + BTN_ADD_FAN_ID).addEventListener('click', onAddFanFn);
   panel.querySelector('#' + BTN_SHOW_ID).addEventListener('click', onShowDongFn);
+  panel.querySelector('#' + BTN_DONG_FILTER_ID).addEventListener('click', onDongFilterFn);
   panel.querySelector('#' + BTN_CLEAR_ID).addEventListener('click', onClearFn);
 
   // 지역 검색 이벤트
@@ -304,6 +308,17 @@ function setShowDongBtn(isOn) {
   if (!btn) return;
   btn.classList.toggle('wm-btn--active', isOn);
   btn.querySelector('.wm-lbl').textContent = isOn ? '동/구 숨기기' : '동/구 표시';
+}
+
+/** 교차필터 버튼 상태 갱신 */
+function setDongFilterBtn(isOn) {
+  var btn   = document.getElementById(BTN_DONG_FILTER_ID);
+  var badge = btn ? btn.querySelector('.wm-badge') : null;
+  if (!btn || !badge) return;
+  btn.classList.toggle('wm-btn--active', isOn);
+  badge.textContent = isOn ? 'ON' : 'OFF';
+  badge.classList.toggle('wm-badge--on',  isOn);
+  badge.classList.toggle('wm-badge--off', !isOn);
 }
 
 /** 결과 텍스트 갱신 */
@@ -568,6 +583,9 @@ function _injectStyles() {
     .wm-btn--show  { border-color: #a29bfe; color: #a29bfe; }
     .wm-btn--show:hover { background: rgba(162,155,254,.1); }
     .wm-btn--gps-track { }
+    .wm-btn--filter { border-color: #fdcb6e; color: #fdcb6e; }
+    .wm-btn--filter:hover { background: rgba(253,203,110,.1); }
+    .wm-btn--filter.wm-btn--active { border-color: #fdcb6e !important; color: #fdcb6e !important; background: rgba(253,203,110,.15) !important; box-shadow: 0 0 6px rgba(253,203,110,.3); }
     .wm-btn--danger:hover { border-color: var(--accent2,#ff3c6e); color: var(--accent2,#ff3c6e); }
     .wm-icon { font-size: .82rem; }
     .wm-lbl  { font-size: .7rem; }
