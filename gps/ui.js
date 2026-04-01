@@ -25,6 +25,9 @@ const BTN_SHOW_ID     = 'wm-btn-show-dong';
 const BTN_CLEAR_ID    = 'wm-btn-clear';
 const BTN_COLLAPSE_ID = 'wm-btn-collapse';     // 접기/펼치기 토글
 const COLLAPSIBLE_ID  = 'wm-collapsible';      // 접히는 영역
+const SEARCH_INPUT_ID = 'wm-search-input';     // 지역 검색 입력
+const SEARCH_BTN_ID   = 'wm-search-btn';       // 검색 버튼
+const SEARCH_LIST_ID  = 'wm-search-list';      // 검색 결과 목록
 
 // ── 공개 함수 ────────────────────────────────────────────────────
 
@@ -95,6 +98,14 @@ function renderWorkModePanel(
     '    </button>',
 
     '  </div>',
+    '</div>',
+
+    /* ══ 지역 검색창 (항상 보임) ════════════════════════════════ */
+    '<div class="wm-search-bar">',
+    '  <input type="text" id="' + SEARCH_INPUT_ID + '" class="wm-search-input"',
+    '    placeholder="지역 검색 (동/읍/면/시/구...)" autocomplete="off">',
+    '  <button id="' + SEARCH_BTN_ID + '" class="wm-search-btn">🔍</button>',
+    '  <ul id="' + SEARCH_LIST_ID + '" class="wm-search-list"></ul>',
     '</div>',
 
     /* ══ 결과 표시 (항상 보임) ════════════════════════════════════ */
@@ -177,6 +188,9 @@ function renderWorkModePanel(
   panel.querySelector('#' + BTN_ADD_FAN_ID).addEventListener('click', onAddFanFn);
   panel.querySelector('#' + BTN_SHOW_ID).addEventListener('click', onShowDongFn);
   panel.querySelector('#' + BTN_CLEAR_ID).addEventListener('click', onClearFn);
+
+  // 지역 검색 이벤트
+  _bindSearchEvents(panel);
 
   // 접기/펼치기 토글
   panel.querySelector('#' + BTN_COLLAPSE_ID).addEventListener('click', function() {
@@ -328,6 +342,66 @@ function autoCopyIfChanged(text, prevText) {
 function removeWorkModePanel() {
   var panel = document.getElementById(PANEL_ID);
   if (panel) panel.remove();
+}
+
+// ── 검색 이벤트 바인딩 ──────────────────────────────────────────
+
+function _bindSearchEvents(panel) {
+  var input = panel.querySelector('#' + SEARCH_INPUT_ID);
+  var btn   = panel.querySelector('#' + SEARCH_BTN_ID);
+  var list  = panel.querySelector('#' + SEARCH_LIST_ID);
+  if (!input || !btn || !list) return;
+
+  // 검색 실행
+  function doSearch() {
+    var q = input.value.trim();
+    if (!q) { list.innerHTML = ''; list.style.display = 'none'; return; }
+
+    // index.js의 _wmSearch 호출
+    var results = (typeof window._wmSearch === 'function') ? window._wmSearch(q) : [];
+
+    if (!results.length) {
+      list.innerHTML = '<li class="wm-search-empty">검색 결과 없음</li>';
+      list.style.display = 'block';
+      return;
+    }
+
+    list.innerHTML = results.map(function(r, i) {
+      return '<li class="wm-search-item" data-i="' + i + '">' + _escHtml(r.label) + '</li>';
+    }).join('');
+    list.style.display = 'block';
+
+    // 결과 클릭 → 지도 이동
+    list.querySelectorAll('.wm-search-item').forEach(function(li, i) {
+      li.addEventListener('click', function() {
+        var r = results[i];
+        if (typeof window._wmFlyTo === 'function') {
+          window._wmFlyTo(r.lat, r.lng, r.zoom);
+        }
+        list.style.display = 'none';
+        input.value = r.label;
+      });
+    });
+  }
+
+  btn.addEventListener('click', doSearch);
+
+  // Enter 키 검색
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doSearch();
+    if (e.key === 'Escape') { list.innerHTML = ''; list.style.display = 'none'; }
+  });
+
+  // 검색창 외부 클릭 시 결과 닫기
+  document.addEventListener('click', function(e) {
+    if (!panel.contains(e.target)) {
+      list.style.display = 'none';
+    }
+  });
+}
+
+function _escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 // ── 내부 헬퍼 ────────────────────────────────────────────────────
@@ -519,6 +593,74 @@ function _injectStyles() {
     .wm-sl-min, .wm-sl-max { font-size: .56rem; color: var(--text-dim,#7a9bb5); white-space: nowrap; }
     .wm-sl-val { font-size: .66rem; font-weight: 700; color: var(--accent,#00d4ff); min-width: 36px; text-align: right; }
 
+    /* ── 지역 검색 ── */
+    .wm-search-bar {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-top: 1px solid var(--border,#1e3a5f);
+    }
+    .wm-search-input {
+      flex: 1;
+      background: var(--surface2,#1a2235);
+      border: 1px solid var(--border,#1e3a5f);
+      border-radius: 6px;
+      color: var(--text,#e8f4fd);
+      padding: 4px 9px;
+      font-size: .76rem;
+      font-family: 'Noto Sans KR', sans-serif;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .wm-search-input:focus { border-color: var(--accent,#00d4ff); }
+    .wm-search-input::placeholder { color: var(--text-dim,#7a9bb5); font-size: .72rem; }
+    .wm-search-btn {
+      background: var(--surface2,#1a2235);
+      border: 1px solid var(--border,#1e3a5f);
+      border-radius: 6px;
+      color: var(--accent,#00d4ff);
+      padding: 4px 8px;
+      font-size: .85rem;
+      cursor: pointer;
+      transition: all .15s;
+      flex-shrink: 0;
+    }
+    .wm-search-btn:hover { background: rgba(0,212,255,.1); border-color: var(--accent,#00d4ff); }
+    .wm-search-list {
+      display: none;
+      position: absolute;
+      top: calc(100% - 4px);
+      left: 10px;
+      right: 10px;
+      background: var(--surface,#111827);
+      border: 1px solid var(--border,#1e3a5f);
+      border-radius: 0 0 8px 8px;
+      list-style: none;
+      margin: 0; padding: 0;
+      z-index: 9999;
+      max-height: 220px;
+      overflow-y: auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    }
+    .wm-search-item {
+      padding: 7px 12px;
+      font-size: .76rem;
+      color: var(--text-dim,#7a9bb5);
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      transition: background .1s;
+    }
+    .wm-search-item:hover { background: var(--surface2,#1a2235); color: var(--accent,#00d4ff); }
+    .wm-search-item:last-child { border-bottom: none; }
+    .wm-search-empty {
+      padding: 8px 12px;
+      font-size: .73rem;
+      color: var(--text-dim,#7a9bb5);
+      text-align: center;
+    }
+
     /* ── 모바일 480px 이하 ── */
     @media (max-width: 480px) {
       .wm-lbl   { display: none; }
@@ -526,6 +668,7 @@ function _injectStyles() {
       .wm-btn   { padding: 4px 6px; }
       .wm-fixed-bar { gap: 4px; padding: 4px 7px; }
       .wm-collapse-lbl { display: none; }
+      .wm-search-input::placeholder { font-size: .65rem; }
     }
   `;
   document.head.appendChild(style);
