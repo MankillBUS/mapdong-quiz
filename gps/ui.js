@@ -196,30 +196,38 @@ function renderWorkModePanel(
   // 지역 검색 이벤트
   _bindSearchEvents(panel);
 
-  // 접기/펼치기 토글
+  // 접기/펼치기 토글 (설정 + 검색창 + 교차결과 모두 함께)
   panel.querySelector('#' + BTN_COLLAPSE_ID).addEventListener('click', function() {
-    var coll = document.getElementById(COLLAPSIBLE_ID);
+    var coll       = document.getElementById(COLLAPSIBLE_ID);
+    var searchBar  = panel.querySelector('.wm-search-bar');
+    var resultArea = panel.querySelector('#' + RESULT_ID);
     var icon = this.querySelector('.wm-collapse-icon');
     var lbl  = this.querySelector('.wm-collapse-lbl');
     if (!coll) return;
     var isOpen = !coll.classList.contains('wm-collapsed');
     if (isOpen) {
+      // 접기: 설정 + 검색 + 교차결과 숨김
       coll.classList.add('wm-collapsed');
+      if (searchBar)  searchBar.classList.add('wm-collapsed');
+      if (resultArea) resultArea.classList.add('wm-collapsed');
       icon.textContent = '▼';
-      lbl.textContent  = '설정';
-      this.title = '설정 펼치기';
+      lbl.textContent  = '펼치기';
+      this.title = '전체 펼치기';
     } else {
+      // 펼치기
       coll.classList.remove('wm-collapsed');
+      if (searchBar)  searchBar.classList.remove('wm-collapsed');
+      if (resultArea) resultArea.classList.remove('wm-collapsed');
       icon.textContent = '▲';
       lbl.textContent  = '접기';
-      this.title = '설정 접기';
+      this.title = '전체 접기';
     }
-    // 지도 리사이즈 (지도 영역 크기 변경 시 필요)
+    // 지도 리사이즈
     setTimeout(function() {
       if (typeof map !== 'undefined' && map && map.invalidateSize) {
         map.invalidateSize({ animate: false });
       }
-    }, 200);
+    }, 250);
   });
 
   // 슬라이더 이벤트
@@ -391,7 +399,7 @@ function _bindSearchEvents(panel) {
       li.addEventListener('click', function() {
         var r = results[i];
         if (typeof window._wmFlyTo === 'function') {
-          window._wmFlyTo(r.lat, r.lng, r.zoom);
+          window._wmFlyTo(r.lat, r.lng, r.zoom, r.nodes || []);
         }
         list.style.display = 'none';
         input.value = r.label;
@@ -520,7 +528,17 @@ function _injectStyles() {
       border-top: 1px solid var(--border,#1e3a5f);
       border-bottom: none;
       padding: 5px 10px;
-      transition: border-color .2s;
+      overflow: hidden;
+      transition: max-height .25s ease, opacity .2s, padding .2s, border-color .2s;
+      max-height: 200px;
+      opacity: 1;
+    }
+    .wm-result.wm-collapsed {
+      max-height: 0;
+      opacity: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      border-top-width: 0;
     }
     .wm-result--copied { border-color: var(--accent3,#39ff14) !important; }
     .wm-result-header {
@@ -619,6 +637,17 @@ function _injectStyles() {
       gap: 5px;
       padding: 4px 10px;
       border-top: 1px solid var(--border,#1e3a5f);
+      overflow: hidden;
+      transition: max-height .25s ease, opacity .2s, padding .2s;
+      max-height: 120px;
+      opacity: 1;
+    }
+    .wm-search-bar.wm-collapsed {
+      max-height: 0;
+      opacity: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      border-top-width: 0;
     }
     .wm-search-input {
       flex: 1;
