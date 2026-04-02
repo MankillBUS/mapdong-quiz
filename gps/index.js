@@ -20,6 +20,7 @@ let _wmClickFn   = null;        // 업무모드 전용 클릭핸들러 (퀴즈 o
 
 let _gpsTracking = true;        // GPS 실시간 추적 ON/OFF
 let _gpsAutoTimer = null;       // 5초 자동 이동 타이머
+let _wmVisibilityFn = null;     // 탭 전환 자동복사 핸들러
 
 // 슬라이더 값
 let _lineBuffer  = 0.3;
@@ -101,6 +102,15 @@ function initWorkMode(leafletMap) {
     if (_currentMode) { _wmMapClick(e.latlng); }
   };
   _map.on('click', _wmClickFn);
+
+  // 탭 복귀 시 자동복사 갱신 (다른 탭 갔다 올 때)
+  _wmVisibilityFn = function() {
+    if (document.visibilityState === 'visible' && _autoCopy && _resultSet.size > 0) {
+      var clipText = _normalizeForClipboard(_resultSet);
+      _prevResult = autoCopyIfChanged(clipText, ''); // 강제 재복사
+    }
+  };
+  document.addEventListener('visibilitychange', _wmVisibilityFn);
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -123,6 +133,12 @@ function exitWorkMode() {
   if (_map && _wmClickFn) {
     try { _map.off('click', _wmClickFn); } catch(e) {}
     _wmClickFn = null;
+  }
+
+  // 탭 전환 핸들러 제거
+  if (_wmVisibilityFn) {
+    document.removeEventListener('visibilitychange', _wmVisibilityFn);
+    _wmVisibilityFn = null;
   }
 
   _shapes       = [];
