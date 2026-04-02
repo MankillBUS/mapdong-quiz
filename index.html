@@ -2760,8 +2760,38 @@ function buildCityMenu() {
   const defaultSelected = new Set();
 
   // meta를 이름 기준으로 빠르게 찾기 위한 맵
-  const metaByName = new Map(CITY_META_V4.map(m => [m.name, m]));
+  // 동일 이름(고성군 등)이 여러 도에 존재하는 경우 → List로 저장
+  const metaByName = new Map();
+  for (const m of CITY_META_V4) {
+    if (!metaByName.has(m.name)) metaByName.set(m.name, []);
+    metaByName.get(m.name).push(m);
+  }
   const assignedNames = new Set();
+
+  // 그룹 라벨에서 도(道) 이름 추론 (예: "🏔 경상남도" → "경상남도")
+  function inferDoFromLabel(label) {
+    const doNames = ['강원특별자치도','경기도','경상남도','경상북도','전라남도',
+                     '전북특별자치도','제주특별자치도','충청남도','충청북도','세종'];
+    for (const d of doNames) { if (label.includes(d)) return d; }
+    return null;
+  }
+
+  // 이름 + 그룹 도명으로 정확한 meta 선택
+  function getMetaForGroup(name, groupLabel) {
+    const metas = metaByName.get(name);
+    if (!metas || metas.length === 0) return undefined;
+    if (metas.length === 1) return metas[0];
+    // 중복명: 그룹 라벨의 도명과 meta.do_ 비교
+    const inferredDo = inferDoFromLabel(groupLabel);
+    if (inferredDo) {
+      const match = metas.find(m => m.do_ && m.do_.includes(inferredDo.replace('특별자치도','').replace('특별자치시','')));
+      if (match) return match;
+      // 정확히 일치하는 것 우선
+      const exact = metas.find(m => m.do_ === inferredDo);
+      if (exact) return exact;
+    }
+    return metas[0]; // fallback
+  }
 
   // CITY_GROUPS에 정의된 순서로 그룹 빌드
   const groupEntries = Object.entries(CITY_GROUPS);
@@ -2815,8 +2845,9 @@ function buildCityMenu() {
 
   for (const [groupLabel, cityNames] of allGroups) {
     // 이 그룹에 실제로 데이터 있는 도시만 필터
+    // getMetaForGroup: 중복 도시명의 경우 그룹 도명 기준으로 올바른 meta 선택
     const groupMetas = cityNames
-      .map(name => metaByName.get(name))
+      .map(name => getMetaForGroup(name, groupLabel))
       .filter(m => !!m);
 
     if (groupMetas.length === 0) continue;
