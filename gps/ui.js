@@ -182,22 +182,34 @@ function renderWorkModePanel(
 
   _injectStyles();
 
+  // ── DOM에 먼저 삽입 후 이벤트 연결 ─────────────────────────
+  // (DOM 삽입 전 querySelector는 일부 환경에서 이벤트 미연결 발생)
+  var header = document.getElementById('header');
+  if (header && header.parentNode) {
+    header.parentNode.insertBefore(panel, header.nextSibling);
+  } else {
+    document.body.prepend(panel);
+  }
+
+  // 이제 DOM에 있으므로 getElementById로 안전하게 접근
+  function _$$(id) { return document.getElementById(id); }
+
   // ── 이벤트 연결 ─────────────────────────────────────────────
-  panel.querySelector('#' + BTN_LINE_ID).addEventListener('click', onLineFn);
-  panel.querySelector('#' + BTN_FAN_ID).addEventListener('click', onFanFn);
-  panel.querySelector('#' + BTN_COPY_ID).addEventListener('click', onAutoCopyFn);
-  panel.querySelector('#' + BTN_GPS_TRK_ID).addEventListener('click', onGpsTrackFn);
-  panel.querySelector('#' + BTN_ADD_LINE_ID).addEventListener('click', onAddLineFn);
-  panel.querySelector('#' + BTN_ADD_FAN_ID).addEventListener('click', onAddFanFn);
-  panel.querySelector('#' + BTN_SHOW_ID).addEventListener('click', onShowDongFn);
-  panel.querySelector('#' + BTN_DONG_FILTER_ID).addEventListener('click', onDongFilterFn);
-  panel.querySelector('#' + BTN_CLEAR_ID).addEventListener('click', onClearFn);
+  _$$(BTN_LINE_ID).addEventListener('click', onLineFn);
+  _$$(BTN_FAN_ID).addEventListener('click', onFanFn);
+  _$$(BTN_COPY_ID).addEventListener('click', onAutoCopyFn);
+  _$$(BTN_GPS_TRK_ID).addEventListener('click', onGpsTrackFn);
+  _$$(BTN_ADD_LINE_ID).addEventListener('click', onAddLineFn);
+  _$$(BTN_ADD_FAN_ID).addEventListener('click', onAddFanFn);
+  _$$(BTN_SHOW_ID).addEventListener('click', onShowDongFn);
+  _$$(BTN_DONG_FILTER_ID).addEventListener('click', onDongFilterFn);
+  _$$(BTN_CLEAR_ID).addEventListener('click', onClearFn);
 
   // 지역 검색 이벤트
   _bindSearchEvents(panel);
 
   // 접기/펼치기 토글 (설정 + 검색창 + 교차결과 모두 함께)
-  panel.querySelector('#' + BTN_COLLAPSE_ID).addEventListener('click', function() {
+  _$$(BTN_COLLAPSE_ID).addEventListener('click', function() {
     var coll       = document.getElementById(COLLAPSIBLE_ID);
     var searchBar  = panel.querySelector('.wm-search-bar');
     var resultArea = panel.querySelector('#' + RESULT_ID);
@@ -230,27 +242,21 @@ function renderWorkModePanel(
     }, 250);
   });
 
-  // 슬라이더 이벤트
-  panel.querySelector('#' + SLIDER_BUF_ID).addEventListener('input', function() {
+  // 슬라이더 이벤트 (getElementById - DOM 삽입 후이므로 안전)
+  _$$(SLIDER_BUF_ID).addEventListener('input', function() {
     document.getElementById('wm-buf-val').textContent = parseFloat(this.value).toFixed(1) + 'km';
     onBufChangeFn(parseFloat(this.value));
   });
-  panel.querySelector('#' + SLIDER_R1_ID).addEventListener('input', function() {
+  _$$(SLIDER_R1_ID).addEventListener('input', function() {
     document.getElementById('wm-r1-val').textContent = parseFloat(this.value).toFixed(1) + 'km';
     onR1ChangeFn(parseFloat(this.value));
   });
-  panel.querySelector('#' + SLIDER_R2_ID).addEventListener('input', function() {
+  _$$(SLIDER_R2_ID).addEventListener('input', function() {
     document.getElementById('wm-r2-val').textContent = parseFloat(this.value).toFixed(1) + 'km';
     onR2ChangeFn(parseFloat(this.value));
   });
 
-  // 헤더 아래 삽입
-  var header = document.getElementById('header');
-  if (header && header.parentNode) {
-    header.parentNode.insertBefore(panel, header.nextSibling);
-  } else {
-    document.body.prepend(panel);
-  }
+  // (DOM 삽입은 이벤트 연결 전으로 이동됨 - 위 코드 참조)
 
   // 초기 슬라이더 숨김
   _showSliderRows(null);
@@ -370,10 +376,14 @@ function removeWorkModePanel() {
 // ── 검색 이벤트 바인딩 ──────────────────────────────────────────
 
 function _bindSearchEvents(panel) {
-  var input = panel.querySelector('#' + SEARCH_INPUT_ID);
-  var btn   = panel.querySelector('#' + SEARCH_BTN_ID);
-  var list  = panel.querySelector('#' + SEARCH_LIST_ID);
-  if (!input || !btn || !list) return;
+  // DOM에 삽입된 이후이므로 getElementById로 안전하게 접근
+  var input = document.getElementById(SEARCH_INPUT_ID);
+  var btn   = document.getElementById(SEARCH_BTN_ID);
+  var list  = document.getElementById(SEARCH_LIST_ID);
+  if (!input || !btn || !list) {
+    console.warn('[WorkMode] 검색 요소 없음:', SEARCH_INPUT_ID, SEARCH_BTN_ID, SEARCH_LIST_ID);
+    return;
+  }
 
   // 검색 실행
   function doSearch() {
