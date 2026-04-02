@@ -1429,10 +1429,16 @@ function _searchRegionSmart(query) {
       var cn = (typeof getCityNode === 'function') ? getCityNode(meta.name, meta.do_) : null;
       if (!cn) return;
 
+      // 검색어에서 접미어 제거 → qbase (예: '잠실동' → '잠실', '서초' → '서초')
+      var qbase = q.replace(/(동|읍|면|리)$/, '');
+
       function addUnit(unitName, node, guLabel) {
         var base = _getBaseName(unitName);
-        // 검색어가 베이스명에 포함되거나 베이스명이 검색어에 포함
-        if (!base.includes(q) && !q.includes(base) && !unitName.includes(q)) return;
+        // 동 베이스 = 검색어 베이스 이거나, 검색어가 단위명에 직접 포함
+        var matched = (base === qbase)          // 정확한 베이스 일치 (잠실=잠실)
+                   || (qbase.length >= 2 && base.includes(qbase))  // qbase가 base의 일부 (선릉→선릉)
+                   || (unitName.includes(q));   // 직접 포함 (잠실1동 includes '잠실1동')
+        if (!matched) return;
         var groupKey = meta.name + '|' + (guLabel || '') + '|' + base;
         if (!groups[groupKey]) {
           groups[groupKey] = {
@@ -1481,7 +1487,10 @@ function _searchRegionSmart(query) {
     var avgLng = sumLng / g.centers.length;
 
     // 레이블: "서울특별시 서초구 서초동 (1~4동)"
-    var dongLabel = g.base + (g.units.length > 1 ? '동 (' + g.units.length + '개)' : (g.units[0] || ''));
+    // units=1개: units[0] 그대로(예:'신촌동'), 복수: base+'동 (N개)'
+    var dongLabel = g.units.length > 1
+      ? (g.base + '동 (' + g.units.length + '개)')
+      : (g.units[0] || g.base + '동');
     var label = [g.cityName, g.guLabel, dongLabel].filter(Boolean).join(' ');
 
     results.push({
