@@ -1345,40 +1345,75 @@ function _wmShowSearchPolygons(nodes) {
  */
 function _getBaseName(dongName) {
   return dongName
-    .replace(/[0-9]+/g, '')          // 숫자 제거
-    .replace(/(동|읍|면|리)$/, '');    // 접미어 제거
+    .replace(/[0-9]+/g, '')
+    .replace(/(동|읍|면|리)$/, '');
 }
 
 /**
- * 스마트 검색: 베이스명 → 같은 베이스를 가진 모든 동 그룹화
- * 예: "잠실" 검색 → 잠실1동,2동,3동,4동,5동,6동,7동 묶어서 1건으로 반환
- *
- * @param {string} query
- * @returns {{ label, lat, lng, zoom, nodes, baseLabel }[]}
+ * 스마트 검색: 베이스명 기준 그룹화
+ * - '잠실동' → 잠실1~7동 묶음
+ * - '서초동' → 서초1~4동 묶음
+ * - '서초' → 서초1~4동 묶음
+ * - _m 의존성 없음 (직접 fallback 내장)
+ * - 고성군 분리: getCityNode(name, do_) 로 도별 정확 탐색
  */
 function _searchRegionSmart(query) {
   if (!query || query.trim().length < 1) return [];
   var q = query.trim();
 
-  // 일반 검색(시/군/구 레벨)은 기존 방식 유지
-  var baseResults = [];
+  // ── 내부 헬퍼: _m 없어도 작동하는 meta 접근 ──────────────
+  function _mLocal(node, key) {
+    if (!node || typeof node !== 'object') return undefined;
+    if (key in node) return node[key];
+    var meta = node._meta;
+    if (meta && key in meta) return meta[key];
+    var meta2 = meta && meta._meta;
+    if (meta2 && key in meta2) return meta2[key];
+    return undefined;
+  }
 
-  // 1. 시/군 검색 (기존과 동일)
-  if (typeof CITY_META_V4 !== 'undefined') {
+  // ── 내부 헬퍼: 동 노드 center 추출 ────────────────────────
+  function _getCenter(node) {
+    if (!node) return null;
+    var c = node.center || _mLocal(node, 'center');
+    if (c && Array.isArray(c) && c.length >= 2) return c;
+    try {
+      var geoFn = (typeof _geo === 'function') ? _geo : null;
+      var geo = geoFn ? geoFn(node) : (node.geometry || null);
+      if (!geo || !geo.coordinates) return null;
+      var ring = (geo.type === 'Polygon') ? geo.coordinates[0] : geo.coordinates[0][0];
+      if (!ring || !ring.length) return null;
+      var sLat = 0, sLng = 0;
+      ring.forEach(function(p) { sLng += p[0]; sLat += p[1]; });
+      return [sLat / ring.length, sLng / ring.length];
+    } catch(e) { return null; }
+  }
+
+  // ── 내부 헬퍼: getCityNode safe wrapper ─────────────────────
+  // doName 있으면 해당 도에서 직접(고성군 분리), 없으면 기존 탐색
+  function _getCN(meta) {
+    if (typeof getCityNode !== 'function') return null;
+    try {
+      return getCityNode(meta.name, meta.do_ || undefined);
+    } catch(e) { return null; }
+  }
+
+  // ── 1. 시/군 단위 검색 ──────────────────────────────────────
+  var baseResults = [];
+  if (typeof CITY_META_V4 !== 'undefined' && CITY_META_V4.length) {
     CITY_META_V4.forEach(function(meta) {
       if (!meta.center) return;
       if (meta.name.includes(q) || (meta.do_ && meta.do_.includes(q))) {
         baseResults.push({
           label: (meta.do_ ? meta.do_ + ' ' : '') + meta.name,
           lat: meta.center[0], lng: meta.center[1],
-          zoom: meta.zoom || 12,
-          nodes: [], baseLabel: meta.name
+          zoom: meta.zoom || 12, nodes: []
         });
       }
     });
   }
 
-  // 2. 구 검색
+  // ── 2. 구 단위 검색 ─────────────────────────────────────────
   if (typeof DB !== 'undefined') {
     var guSeen = new Set();
     Object.keys(DB).forEach(function(key) {
@@ -1386,13 +1421,13 @@ function _searchRegionSmart(query) {
       if (!city || !city.dongs) return;
       city.dongs.forEach(function(dong) {
         var guMatch = dong.gu && dong.gu !== dong.rn && dong.gu.includes(q);
-        var guKey2 = city.name + '|' + dong.gu;
+        var guKey2  = city.name + '|' + dong.gu;
         if (guMatch && !guSeen.has(guKey2)) {
           guSeen.add(guKey2);
           baseResults.push({
             label: city.name + ' ' + dong.gu,
             lat: dong.lat, lng: dong.lng,
-            zoom: 13, nodes: [], baseLabel: dong.gu
+            zoom: 13, nodes: []
           });
         }
       });
@@ -1401,114 +1436,100 @@ function _searchRegionSmart(query) {
 
   if (baseResults.length > 0) return baseResults.slice(0, 20);
 
-  // 3. 동/읍/면/리 스마트 그룹 검색 (POLY_CACHE 전체)
+  // ── 3. 동/읍/면/리 스마트 그룹 검색 (POLY_CACHE 전체) ───────
   if (typeof POLY_CACHE === 'undefined' || !POLY_CACHE) return [];
-  if (typeof CITY_META_V4 === 'undefined') return [];
-  if (typeof _m !== 'function') return [];
+  if (typeof CITY_META_V4 === 'undefined' || !CITY_META_V4.length) return [];
 
-  // 베이스명 기준 그룹 맵: "잠실" → [{ cityName, guKey, unitName, node, center }]
-  var groups = {};  // key = "cityName|baseKey"
+  // 검색어에서 접미어 제거 → qbase ('잠실동'→'잠실', '서초'→'서초')
+  var qbase = q.replace(/(동|읍|면|리)$/, '');
 
-  function _getNodeCenter(node) {
-    if (!node) return null;
-    var c = node.center || _m(node, 'center');
-    if (c && Array.isArray(c) && c.length >= 2) return c;
-    try {
-      var geo = (typeof _geo === 'function') ? _geo(node) : null;
-      if (!geo || !geo.coordinates) return null;
-      var ring = (geo.type === 'Polygon') ? geo.coordinates[0] : geo.coordinates[0][0];
-      if (!ring || !ring.length) return null;
-      var sumLat = 0, sumLng = 0;
-      ring.forEach(function(c) { sumLng += c[0]; sumLat += c[1]; });
-      return [sumLat / ring.length, sumLng / ring.length];
-    } catch(e) { return null; }
+  var groups = {};
+
+  function addUnit(meta, guLabel, unitName, unitNode) {
+    if (!unitNode || typeof unitNode !== 'object') return;
+
+    var base = _getBaseName(unitName);
+    // 베이스 일치 OR 직접 포함
+    var matched = (base === qbase)
+               || (qbase.length >= 2 && base.includes(qbase))
+               || (unitName.includes(q));
+    if (!matched) return;
+
+    var ctr = _getCenter(unitNode);
+    if (!ctr) return;  // center 없으면 skip
+
+    var groupKey = meta.name + '|' + (guLabel || '') + '|' + base;
+    if (!groups[groupKey]) {
+      groups[groupKey] = {
+        cityName: meta.name, guLabel: guLabel || '',
+        base: base, units: [], nodes: [], centers: []
+      };
+    }
+    groups[groupKey].units.push(unitName);
+    groups[groupKey].nodes.push(unitNode);
+    groups[groupKey].centers.push(ctr);
   }
 
   CITY_META_V4.forEach(function(meta) {
     try {
-      var cn = (typeof getCityNode === 'function') ? getCityNode(meta.name, meta.do_) : null;
+      var cn = _getCN(meta);
       if (!cn) return;
 
-      // 검색어에서 접미어 제거 → qbase (예: '잠실동' → '잠실', '서초' → '서초')
-      var qbase = q.replace(/(동|읍|면|리)$/, '');
-
-      function addUnit(unitName, node, guLabel) {
-        var base = _getBaseName(unitName);
-        // 동 베이스 = 검색어 베이스 이거나, 검색어가 단위명에 직접 포함
-        var matched = (base === qbase)          // 정확한 베이스 일치 (잠실=잠실)
-                   || (qbase.length >= 2 && base.includes(qbase))  // qbase가 base의 일부 (선릉→선릉)
-                   || (unitName.includes(q));   // 직접 포함 (잠실1동 includes '잠실1동')
-        if (!matched) return;
-        var groupKey = meta.name + '|' + (guLabel || '') + '|' + base;
-        if (!groups[groupKey]) {
-          groups[groupKey] = {
-            cityName: meta.name, do_: meta.do_ || '',
-            guLabel: guLabel || '', base: base,
-            units: [], nodes: [], centers: []
-          };
-        }
-        var ctr = _getNodeCenter(node);
-        groups[groupKey].units.push(unitName);
-        groups[groupKey].nodes.push(node);
-        if (ctr) groups[groupKey].centers.push(ctr);
-      }
-
       if (meta.hasGu) {
-        var guTypes = new Set(['구', '군']);
+        // 구 있는 도시: 구 노드 순회
+        var GU_TYPES = new Set(['구', '군']);
         Object.keys(cn).forEach(function(guKey) {
           if (guKey.startsWith('_')) return;
           var guNode = cn[guKey];
           if (!guNode || typeof guNode !== 'object') return;
-          if (!guTypes.has(_m(guNode, '_type') || '')) return;
-          var list = _m(guNode, '_all_list') || [];
+          // _type 접근: 직접 or _meta
+          var guType = guNode._type || _mLocal(guNode, '_type') || '';
+          if (!GU_TYPES.has(guType)) return;
+          // _all_list 접근: 직접 or _meta
+          var list = guNode._all_list || _mLocal(guNode, '_all_list') || [];
           list.forEach(function(unitName) {
-            addUnit(unitName, guNode[unitName], guKey);
+            addUnit(meta, guKey, unitName, guNode[unitName]);
           });
         });
       } else {
-        var list2 = _m(cn, '_all_list') || [];
+        // 구 없는 도시: 직접 탐색
+        var list2 = cn._all_list || _mLocal(cn, '_all_list') || [];
         list2.forEach(function(unitName) {
-          addUnit(unitName, cn[unitName], '');
+          addUnit(meta, '', unitName, cn[unitName]);
         });
       }
     } catch(e) {}
   });
 
-  // 그룹별 결과 생성
+  // 그룹 → 결과 변환
   var results = [];
   Object.keys(groups).forEach(function(gk) {
     var g = groups[gk];
     if (!g.centers.length) return;
 
-    // 중심점 = 그룹 내 모든 동의 평균
     var sumLat = 0, sumLng = 0;
     g.centers.forEach(function(c) { sumLat += c[0]; sumLng += c[1]; });
-    var avgLat = sumLat / g.centers.length;
-    var avgLng = sumLng / g.centers.length;
 
-    // 레이블: "서울특별시 서초구 서초동 (1~4동)"
-    // units=1개: units[0] 그대로(예:'신촌동'), 복수: base+'동 (N개)'
+    // 레이블: units=1개면 그대로, 복수면 '베이스동 (N개)'
     var dongLabel = g.units.length > 1
       ? (g.base + '동 (' + g.units.length + '개)')
       : (g.units[0] || g.base + '동');
     var label = [g.cityName, g.guLabel, dongLabel].filter(Boolean).join(' ');
 
     results.push({
-      label:     label,
-      lat:       avgLat,
-      lng:       avgLng,
-      zoom:      15,
-      nodes:     g.nodes,   // 폴리곤 표시용
-      baseLabel: g.base + '동'
+      label:  label,
+      lat:    sumLat / g.centers.length,
+      lng:    sumLng / g.centers.length,
+      zoom:   15,
+      nodes:  g.nodes
     });
   });
 
-  // 결과 정렬: 단위 수 많은 순 (잠실1~7동 같은 묶음이 상단)
   results.sort(function(a, b) { return b.nodes.length - a.nodes.length; });
   return results.slice(0, 20);
 }
 
-// ui.js의 검색창이 호출하는 전역 함수
+
 window._wmSearch = function(query) {
   return _searchRegionSmart(query);
 };
