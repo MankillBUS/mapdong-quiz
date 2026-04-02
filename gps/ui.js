@@ -647,17 +647,18 @@ function _injectStyles() {
       gap: 5px;
       padding: 4px 10px;
       border-top: 1px solid var(--border,#1e3a5f);
-      overflow: hidden;
+      overflow: visible;          /* 드롭다운이 부모 밖으로 나올 수 있게 */
       transition: max-height .25s ease, opacity .2s, padding .2s;
       max-height: 120px;
       opacity: 1;
     }
     .wm-search-bar.wm-collapsed {
-      max-height: 0;
+      max-height: 0 !important;
       opacity: 0;
       padding-top: 0;
       padding-bottom: 0;
       border-top-width: 0;
+      pointer-events: none;
     }
     .wm-search-input {
       flex: 1;
