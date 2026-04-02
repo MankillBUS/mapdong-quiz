@@ -5033,8 +5033,13 @@ async function clickIndexNotif(notifId, postId){
 setInterval(()=>{ if(currentUser) loadIndexNotifications(); }, 30000);
 
 function isActivePremium(){
-  return userProfile?.is_premium && userProfile?.premium_until
-      && new Date(userProfile.premium_until) > new Date();
+  // 1) 정식 프리미엄
+  if(userProfile?.is_premium && userProfile?.premium_until
+     && new Date(userProfile.premium_until) > new Date()) return true;
+  // 2) 신규 가입 2주 트라이얼 (trial_until이 현재 시각 이후)
+  if(userProfile?.trial_until
+     && new Date(userProfile.trial_until) > new Date()) return true;
+  return false;
 }
 
 /* ── 신규 가입 24시간 이내 여부 ────────────────────────────
