@@ -46,6 +46,10 @@ let _dongFilterMode = false;
 // Leaflet 커스텀 pane 이름 (선/부채꼴 항상 최상단)
 const _SHAPE_PANE = 'wm-shape-pane';
 
+// 검색 결과 폴리곤 임시 표시 (5초 후 자동 제거)
+let _searchPolyLayers = [];  // 현재 표시 중인 검색 폴리곤 레이어
+let _searchPolyTimer  = null; // 5초 타이머
+
 // ════════════════════════════════════════════════════════════════
 // 2. 업무모드 진입
 // ════════════════════════════════════════════════════════════════
@@ -133,6 +137,7 @@ function exitWorkMode() {
   _dongFilterMode = false;
   _gpsMarkerDot  = null;
   _gpsMarkerRing = null;
+  _wmClearSearchPolygons();
   _gpsTracking  = true;
   _gpsAutoTimer = null;
 
@@ -1283,12 +1288,227 @@ function _flyToRegion(lat, lng, zoom) {
   }
 }
 
+// ── 검색 폴리곤 임시 표시 헬퍼 ──────────────────────────────────
+
+/**
+ * 현재 표시 중인 검색 폴리곤 모두 제거
+ */
+function _wmClearSearchPolygons() {
+  if (_searchPolyTimer) { clearTimeout(_searchPolyTimer); _searchPolyTimer = null; }
+  _searchPolyLayers.forEach(function(lyr) {
+    if (_isMapAlive()) {
+      try { _map.removeLayer(lyr); } catch(e) {}
+    }
+  });
+  _searchPolyLayers = [];
+}
+
+/**
+ * 검색된 동 노드들의 폴리곤을 5초간 지도에 표시
+ * @param {object[]} nodes  POLY_CACHE 동 노드 배열
+ */
+function _wmShowSearchPolygons(nodes) {
+  _wmClearSearchPolygons();
+  if (!_isMapAlive() || !nodes || !nodes.length) return;
+
+  nodes.forEach(function(node) {
+    if (!node) return;
+    try {
+      var geo = (typeof _geo === 'function') ? _geo(node) : null;
+      if (!geo) return;
+      var lyr = L.geoJSON({ type:'Feature', geometry: geo }, {
+        style: {
+          color:       '#00d4ff',
+          fillColor:   '#00d4ff',
+          fillOpacity: 0.22,
+          weight:      2,
+          dashArray:   '6 4',
+        }
+      });
+      lyr.addTo(_map);
+      _searchPolyLayers.push(lyr);
+    } catch(e) {}
+  });
+
+  // 5초 후 자동 제거
+  _searchPolyTimer = setTimeout(function() {
+    _wmClearSearchPolygons();
+  }, 5000);
+}
+
+// ── 스마트 그룹 검색 (베이스명 기반) ─────────────────────────────
+
+/**
+ * 동 이름에서 숫자·접미어를 제거한 베이스명 반환
+ * "잠실1동" → "잠실", "서초2동" → "서초", "화전읍" → "화전"
+ * 숫자 없는 경우: "신촌동" → "신촌", "오포면" → "오포"
+ */
+function _getBaseName(dongName) {
+  return dongName
+    .replace(/[0-9]+/g, '')          // 숫자 제거
+    .replace(/(동|읍|면|리)$/, '');    // 접미어 제거
+}
+
+/**
+ * 스마트 검색: 베이스명 → 같은 베이스를 가진 모든 동 그룹화
+ * 예: "잠실" 검색 → 잠실1동,2동,3동,4동,5동,6동,7동 묶어서 1건으로 반환
+ *
+ * @param {string} query
+ * @returns {{ label, lat, lng, zoom, nodes, baseLabel }[]}
+ */
+function _searchRegionSmart(query) {
+  if (!query || query.trim().length < 1) return [];
+  var q = query.trim();
+
+  // 일반 검색(시/군/구 레벨)은 기존 방식 유지
+  var baseResults = [];
+
+  // 1. 시/군 검색 (기존과 동일)
+  if (typeof CITY_META_V4 !== 'undefined') {
+    CITY_META_V4.forEach(function(meta) {
+      if (!meta.center) return;
+      if (meta.name.includes(q) || (meta.do_ && meta.do_.includes(q))) {
+        baseResults.push({
+          label: (meta.do_ ? meta.do_ + ' ' : '') + meta.name,
+          lat: meta.center[0], lng: meta.center[1],
+          zoom: meta.zoom || 12,
+          nodes: [], baseLabel: meta.name
+        });
+      }
+    });
+  }
+
+  // 2. 구 검색
+  if (typeof DB !== 'undefined') {
+    var guSeen = new Set();
+    Object.keys(DB).forEach(function(key) {
+      var city = DB[key];
+      if (!city || !city.dongs) return;
+      city.dongs.forEach(function(dong) {
+        var guMatch = dong.gu && dong.gu !== dong.rn && dong.gu.includes(q);
+        var guKey2 = city.name + '|' + dong.gu;
+        if (guMatch && !guSeen.has(guKey2)) {
+          guSeen.add(guKey2);
+          baseResults.push({
+            label: city.name + ' ' + dong.gu,
+            lat: dong.lat, lng: dong.lng,
+            zoom: 13, nodes: [], baseLabel: dong.gu
+          });
+        }
+      });
+    });
+  }
+
+  if (baseResults.length > 0) return baseResults.slice(0, 20);
+
+  // 3. 동/읍/면/리 스마트 그룹 검색 (POLY_CACHE 전체)
+  if (typeof POLY_CACHE === 'undefined' || !POLY_CACHE) return [];
+  if (typeof CITY_META_V4 === 'undefined') return [];
+  if (typeof _m !== 'function') return [];
+
+  // 베이스명 기준 그룹 맵: "잠실" → [{ cityName, guKey, unitName, node, center }]
+  var groups = {};  // key = "cityName|baseKey"
+
+  function _getNodeCenter(node) {
+    if (!node) return null;
+    var c = node.center || _m(node, 'center');
+    if (c && Array.isArray(c) && c.length >= 2) return c;
+    try {
+      var geo = (typeof _geo === 'function') ? _geo(node) : null;
+      if (!geo || !geo.coordinates) return null;
+      var ring = (geo.type === 'Polygon') ? geo.coordinates[0] : geo.coordinates[0][0];
+      if (!ring || !ring.length) return null;
+      var sumLat = 0, sumLng = 0;
+      ring.forEach(function(c) { sumLng += c[0]; sumLat += c[1]; });
+      return [sumLat / ring.length, sumLng / ring.length];
+    } catch(e) { return null; }
+  }
+
+  CITY_META_V4.forEach(function(meta) {
+    try {
+      var cn = (typeof getCityNode === 'function') ? getCityNode(meta.name, meta.do_) : null;
+      if (!cn) return;
+
+      function addUnit(unitName, node, guLabel) {
+        var base = _getBaseName(unitName);
+        // 검색어가 베이스명에 포함되거나 베이스명이 검색어에 포함
+        if (!base.includes(q) && !q.includes(base) && !unitName.includes(q)) return;
+        var groupKey = meta.name + '|' + (guLabel || '') + '|' + base;
+        if (!groups[groupKey]) {
+          groups[groupKey] = {
+            cityName: meta.name, do_: meta.do_ || '',
+            guLabel: guLabel || '', base: base,
+            units: [], nodes: [], centers: []
+          };
+        }
+        var ctr = _getNodeCenter(node);
+        groups[groupKey].units.push(unitName);
+        groups[groupKey].nodes.push(node);
+        if (ctr) groups[groupKey].centers.push(ctr);
+      }
+
+      if (meta.hasGu) {
+        var guTypes = new Set(['구', '군']);
+        Object.keys(cn).forEach(function(guKey) {
+          if (guKey.startsWith('_')) return;
+          var guNode = cn[guKey];
+          if (!guNode || typeof guNode !== 'object') return;
+          if (!guTypes.has(_m(guNode, '_type') || '')) return;
+          var list = _m(guNode, '_all_list') || [];
+          list.forEach(function(unitName) {
+            addUnit(unitName, guNode[unitName], guKey);
+          });
+        });
+      } else {
+        var list2 = _m(cn, '_all_list') || [];
+        list2.forEach(function(unitName) {
+          addUnit(unitName, cn[unitName], '');
+        });
+      }
+    } catch(e) {}
+  });
+
+  // 그룹별 결과 생성
+  var results = [];
+  Object.keys(groups).forEach(function(gk) {
+    var g = groups[gk];
+    if (!g.centers.length) return;
+
+    // 중심점 = 그룹 내 모든 동의 평균
+    var sumLat = 0, sumLng = 0;
+    g.centers.forEach(function(c) { sumLat += c[0]; sumLng += c[1]; });
+    var avgLat = sumLat / g.centers.length;
+    var avgLng = sumLng / g.centers.length;
+
+    // 레이블: "서울특별시 서초구 서초동 (1~4동)"
+    var dongLabel = g.base + (g.units.length > 1 ? '동 (' + g.units.length + '개)' : (g.units[0] || ''));
+    var label = [g.cityName, g.guLabel, dongLabel].filter(Boolean).join(' ');
+
+    results.push({
+      label:     label,
+      lat:       avgLat,
+      lng:       avgLng,
+      zoom:      15,
+      nodes:     g.nodes,   // 폴리곤 표시용
+      baseLabel: g.base + '동'
+    });
+  });
+
+  // 결과 정렬: 단위 수 많은 순 (잠실1~7동 같은 묶음이 상단)
+  results.sort(function(a, b) { return b.nodes.length - a.nodes.length; });
+  return results.slice(0, 20);
+}
+
 // ui.js의 검색창이 호출하는 전역 함수
 window._wmSearch = function(query) {
-  return _searchRegion(query);
+  return _searchRegionSmart(query);
 };
-window._wmFlyTo = function(lat, lng, zoom) {
+window._wmFlyTo = function(lat, lng, zoom, nodes) {
   _flyToRegion(lat, lng, zoom);
+  // 검색 결과 폴리곤 5초 표시
+  if (nodes && nodes.length) {
+    _wmShowSearchPolygons(nodes);
+  }
 };
 
 function _isMapAliveExternal(m) {
