@@ -1314,8 +1314,18 @@ function _wmShowSearchPolygons(nodes) {
   nodes.forEach(function(node) {
     if (!node) return;
     try {
-      var geo = (typeof _geo === 'function') ? _geo(node) : null;
+      var geo = null;
+
+      // 직접 geometry 객체로 전달된 경우 (_directGeo 플래그)
+      if (node._directGeo && node.geometry) {
+        geo = node.geometry;
+      } else {
+        geo = (typeof _geo === 'function') ? _geo(node) : null;
+        // _geo로 못 찾으면 node.geometry 직접 시도
+        if (!geo && node.geometry) geo = node.geometry;
+      }
       if (!geo) return;
+
       var lyr = L.geoJSON({ type:'Feature', geometry: geo }, {
         style: {
           color:       '#00d4ff',
@@ -1398,16 +1408,86 @@ function _searchRegionSmart(query) {
     } catch(e) { return null; }
   }
 
+  // ── 내부 헬퍼: 시/군/구 노드의 모든 하위 동 nodes 수집 ───────
+  function _collectCityNodes(cityName, doName) {
+    if (typeof POLY_CACHE === 'undefined' || !POLY_CACHE) return [];
+    var nodes = [];
+    try {
+      var cn = (typeof getCityNode === 'function')
+        ? getCityNode(cityName, doName || undefined) : null;
+      if (!cn) return [];
+
+      // 구 있는 도시: 각 구의 _geometry + 하위 동 노드
+      var GU_TYPES = new Set(['구','군']);
+      var hasGu = false;
+      Object.keys(cn).forEach(function(guKey) {
+        if (guKey.startsWith('_')) return;
+        var guNode = cn[guKey];
+        if (!guNode || typeof guNode !== 'object') return;
+        var guType = guNode._type || _mLocal(guNode,'_type') || '';
+        if (!GU_TYPES.has(guType)) return;
+        hasGu = true;
+        // 구 폴리곤 (_geometry)
+        var guGeo = guNode._geometry || _mLocal(guNode,'_geometry');
+        if (guGeo) {
+          nodes.push({ _directGeo: true, geometry: guGeo });
+        } else {
+          // 구 폴리곤 없으면 하위 동 모두 추가
+          var list = guNode._all_list || _mLocal(guNode,'_all_list') || [];
+          list.forEach(function(unitName) {
+            var unitNode = guNode[unitName];
+            if (unitNode) nodes.push(unitNode);
+          });
+        }
+      });
+
+      if (!hasGu) {
+        // 구 없는 도시: _all_list 하위 동 모두
+        var list2 = cn._all_list || _mLocal(cn,'_all_list') || [];
+        list2.forEach(function(unitName) {
+          var unitNode = cn[unitName];
+          if (unitNode) nodes.push(unitNode);
+        });
+      }
+    } catch(e) {}
+    return nodes;
+  }
+
+  // ── 내부 헬퍼: 특정 구의 하위 동 nodes 수집 ────────────────────
+  function _collectGuNodes(cityName, doName, guName) {
+    if (typeof POLY_CACHE === 'undefined' || !POLY_CACHE) return [];
+    try {
+      var cn = (typeof getCityNode === 'function')
+        ? getCityNode(cityName, doName || undefined) : null;
+      if (!cn) return [];
+      var guNode = cn[guName];
+      if (!guNode) return [];
+      // 구 전체 폴리곤 있으면 우선 사용
+      var guGeo = guNode._geometry || _mLocal(guNode,'_geometry');
+      if (guGeo) return [{ _directGeo: true, geometry: guGeo }];
+      // 없으면 하위 동 모두
+      var nodes = [];
+      var list = guNode._all_list || _mLocal(guNode,'_all_list') || [];
+      list.forEach(function(unitName) {
+        var unitNode = guNode[unitName];
+        if (unitNode) nodes.push(unitNode);
+      });
+      return nodes;
+    } catch(e) { return []; }
+  }
+
   // ── 1. 시/군 단위 검색 ──────────────────────────────────────
   var baseResults = [];
   if (typeof CITY_META_V4 !== 'undefined' && CITY_META_V4.length) {
     CITY_META_V4.forEach(function(meta) {
       if (!meta.center) return;
       if (meta.name.includes(q) || (meta.do_ && meta.do_.includes(q))) {
+        var cityNodes = _collectCityNodes(meta.name, meta.do_);
         baseResults.push({
           label: (meta.do_ ? meta.do_ + ' ' : '') + meta.name,
           lat: meta.center[0], lng: meta.center[1],
-          zoom: meta.zoom || 12, nodes: []
+          zoom: meta.zoom || 12,
+          nodes: cityNodes
         });
       }
     });
@@ -1424,10 +1504,12 @@ function _searchRegionSmart(query) {
         var guKey2  = city.name + '|' + dong.gu;
         if (guMatch && !guSeen.has(guKey2)) {
           guSeen.add(guKey2);
+          var guNodes = _collectGuNodes(city.name, city.do, dong.gu);
           baseResults.push({
             label: city.name + ' ' + dong.gu,
             lat: dong.lat, lng: dong.lng,
-            zoom: 13, nodes: []
+            zoom: 13,
+            nodes: guNodes
           });
         }
       });
