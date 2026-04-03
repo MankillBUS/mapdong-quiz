@@ -3410,7 +3410,22 @@ window.deselectAllCities = function() {
 };
 
 window.selectWorkCities = function() {
-  const WORK_KEYS = new Set(["seoul", "incheon", "suwon", "seongnam", "goyang", "yongin", "bucheon", "anyang", "ansan", "hwaseong", "pyeongtaek", "paju", "gimpo", "namyangju", "uijeongbu", "siheung", "gwangmyeong", "gunpo", "hanam", "guri", "osan", "uiwang", "gwacheon", "yangju", "icheon", "gwangju_g", "yeoju", "dongducheon", "anseong", "pocheon", "yangpyeong", "yeoncheon", "gapyeong"]);
+  const WORK_KEYS = new Set([
+    // 서울 + 인천
+    "seoul", "incheon",
+    // 경기 서부·남부
+    "suwon", "hwaseong", "pyeongtaek", "osan",
+    "anyang", "gunpo", "uiwang", "gwangmyeong", "siheung", "ansan",
+    "bucheon", "gimpo",
+    // 경기 동부·북부
+    "seongnam", "yongin", "goyang",
+    "paju", "uijeongbu", "yangju", "dongducheon", "yeoncheon", "pocheon",
+    "namyangju", "guri", "hanam",
+    "gwangju_g", "icheon", "yeoju", "yangpyeong", "gwacheon",
+    // 경기 외곽: 안성시만
+    "anseong",
+    // gapyeong(가평군) 제외
+  ]);
   // 먼저 전체 해제
   document.querySelectorAll('.stag.sel').forEach(div => {
     div.classList.remove('sel');
