@@ -5,7 +5,99 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MapDong · 내정보 수정</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js">
+/* ── 회원탈퇴 ──────────────────────────────────────────── */
+function openWithdrawModal(){
+  const m = document.getElementById('withdraw-modal');
+  if(m){ m.style.display='flex'; }
+}
+function closeWithdrawModal(){
+  const m = document.getElementById('withdraw-modal');
+  if(m){ m.style.display='none'; }
+}
+
+async function doWithdraw(){
+  closeWithdrawModal();
+  if(!currentUser || !userProfile){
+    alert('로그인 정보를 확인할 수 없습니다. 다시 로그인 후 시도해주세요.');
+    return;
+  }
+  const btn = document.querySelector('#body-withdraw .mi-btn.danger');
+  if(btn){ btn.disabled=true; btn.textContent='처리 중...'; }
+
+  try {
+    const { data:{ session } } = await sb.auth.getSession();
+    const token = session?.access_token;
+    if(!token) throw new Error('세션 만료');
+
+    // 1. deleted_users 테이블에 nice_di + real_name 기록
+    const niceDi   = userProfile.nice_di;
+    const realName = userProfile.real_name || '';
+    if(!niceDi){
+      alert('본인인증 정보가 없습니다. 고객센터에 문의해 주세요.');
+      if(btn){ btn.disabled=false; btn.textContent='🚪 회원 탈퇴 신청'; }
+      return;
+    }
+
+    const delRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/deleted_users`,
+      {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal',
+        },
+        body: JSON.stringify({
+          nice_di:      niceDi,
+          real_name:    realName,
+          deleted_at:   new Date().toISOString(),
+          banned_until: new Date(Date.now() + 365*24*60*60*1000).toISOString(),
+          reason:       'withdrawal',
+        }),
+      }
+    );
+    if(!delRes.ok){
+      const e = await delRes.text();
+      throw new Error('탈퇴 기록 실패: ' + e);
+    }
+
+    // 2. user_profiles 삭제
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${currentUser.id}`,
+      {
+        method: 'DELETE',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${token}` },
+      }
+    );
+
+    // 3. Supabase Auth 계정 삭제 (Edge Function 경유)
+    await fetch(
+      `${SUPABASE_URL}/functions/v1/delete-account`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_id: currentUser.id }),
+      }
+    ).catch(()=>{}); // Edge Function 없어도 진행
+
+    // 4. 로그아웃 후 홈으로
+    await sb.auth.signOut();
+    alert('회원탈퇴가 완료되었습니다.\n이용해 주셔서 감사합니다.');
+    window.location.href = 'index.html';
+
+  } catch(err){
+    console.error('[탈퇴]', err);
+    alert('탈퇴 처리 중 오류가 발생했습니다.\n고객센터에 문의해 주세요.\n' + err.message);
+    if(btn){ btn.disabled=false; btn.textContent='🚪 회원 탈퇴 신청'; }
+  }
+}
+
+</script>
 <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <script>
 /* 나이스 콜백 처리 */
@@ -292,6 +384,36 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
             </div>
           </div>
 
+        </div>
+      </div>
+
+
+      <!-- ── 회원 탈퇴 ────────────────────────────────────────── -->
+      <div class="mi-card" style="border-color:rgba(255,60,110,.3);">
+        <div class="mi-card-header" id="hdr-withdraw" onclick="toggleCard('withdraw')"
+             style="background:rgba(255,60,110,.06);">
+          <span style="font-size:1.1rem;">⚠️</span>
+          <div>
+            <div class="mi-card-title" style="color:#ff3c6e;">회원 탈퇴</div>
+            <div class="mi-card-desc">탈퇴 후 1년간 재가입 불가</div>
+          </div>
+          <div class="mi-card-arrow" id="arr-withdraw">›</div>
+        </div>
+        <div class="mi-card-body" id="body-withdraw">
+          <div class="mi-msg" style="display:block;background:rgba(255,60,110,.08);
+               border:1px solid rgba(255,60,110,.3);border-radius:8px;padding:12px;
+               color:#ff3c6e;font-size:.82rem;line-height:1.7;">
+            ⚠️ 탈퇴 전 반드시 확인하세요<br>
+            · 현재 이용 중인 회원권·플랜 패키지·이벤트 참여 등은 <strong>환불 불가</strong>합니다.<br>
+            · 탈퇴 후 <strong>1년간</strong> 동일 명의로 재가입이 불가합니다.<br>
+            · 작성하신 게시글·댓글·랭킹 기록 등은 삭제됩니다.
+          </div>
+          <div class="mi-row" style="margin-top:4px;">
+            <button class="mi-btn danger" onclick="openWithdrawModal()"
+                    style="width:100%;justify-content:center;">
+              🚪 회원 탈퇴 신청
+            </button>
+          </div>
         </div>
       </div>
 
@@ -780,5 +902,36 @@ init();
     </div>
   </div>
 </div>
+
+<!-- ── 회원탈퇴 확인 모달 ─────────────────────────────── -->
+<div id="withdraw-modal" style="display:none;position:fixed;inset:0;z-index:99999;
+     background:rgba(0,0,0,.7);align-items:center;justify-content:center;">
+  <div style="background:var(--surface,#111827);border:1px solid rgba(255,60,110,.4);
+              border-radius:16px;padding:28px 24px;max-width:360px;width:90%;
+              display:flex;flex-direction:column;gap:16px;">
+    <div style="font-size:1rem;font-weight:700;color:#ff3c6e;">⚠️ 정말 탈퇴하시겠습니까?</div>
+    <div style="font-size:.82rem;color:var(--text-dim,#7a9bb5);line-height:1.7;">
+      현재 사용하고 계신 회원권, 플랜 패키지, 이벤트 참여 등은
+      <strong style="color:var(--text,#e8f4fd);">환불 불가</strong>하며,
+      향후 <strong style="color:var(--text,#e8f4fd);">1년간</strong> 동일 명의로
+      재가입이 불가합니다.<br><br>
+      정말 회원탈퇴 하시겠습니까?
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="closeWithdrawModal()"
+              style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--border,#1e3a5f);
+                     background:transparent;color:var(--text,#e8f4fd);cursor:pointer;font-size:.88rem;">
+        아니요
+      </button>
+      <button onclick="doWithdraw()"
+              style="flex:1;padding:11px;border-radius:10px;border:none;
+                     background:linear-gradient(135deg,#ff3c6e,#c0392b);
+                     color:#fff;cursor:pointer;font-size:.88rem;font-weight:700;">
+        동의하고 탈퇴
+      </button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
