@@ -852,16 +852,9 @@ function _toggleGpsTracking() {
  */
 function _wmClearShapesOnly() {
   _wmDestroyShapes();
-  // 도형 초기화 시 교차필터 모드 해제 (교차할 도형 없으므로)
-  if (_dongFilterMode) {
-    _dongFilterMode = false;
-    setDongFilterBtn(false);
-    // 동/구 표시 중이면 전체 다시 보이기
-    if (_dongVisible) {
-      _wmShowAllDongLayers();
-    }
-  }
-  // 동/구 표시 자체는 그대로 유지
+  // 교차필터 모드는 건드리지 않음 (교차만 ON/OFF 상태 유지)
+  // 도형이 없어지면 교차 결과가 자연히 비워짐
+  // 동/구 표시 자체도 그대로 유지
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1520,7 +1513,7 @@ function _searchRegionSmart(query) {
         var guKey2  = city.name + '|' + dong.gu;
         if (guMatch && !guSeen.has(guKey2)) {
           guSeen.add(guKey2);
-          var guNodes = _collectGuNodes(city.name, city.do, dong.gu);
+          var guNodes = _collectGuNodes(city.name, city.do_, dong.gu);
           baseResults.push({
             label: city.name + ' ' + dong.gu,
             lat: dong.lat, lng: dong.lng,
