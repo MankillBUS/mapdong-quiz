@@ -387,12 +387,20 @@ function _bindSearchEvents(panel) {
     return;
   }
 
-  // 검색 실행
+  // 결과 1건 → 즉시 이동, 2건 이상 → 리스트 표시
+  function flyToResult(r) {
+    if (typeof window._wmFlyTo === 'function') {
+      window._wmFlyTo(r.lat, r.lng, r.zoom, r.nodes || []);
+    }
+    list.innerHTML = '';
+    list.style.display = 'none';
+    input.value = r.label;
+  }
+
   function doSearch() {
     var q = input.value.trim();
     if (!q) { list.innerHTML = ''; list.style.display = 'none'; return; }
 
-    // index.js의 _wmSearch 호출
     var results = (typeof window._wmSearch === 'function') ? window._wmSearch(q) : [];
 
     if (!results.length) {
@@ -401,20 +409,21 @@ function _bindSearchEvents(panel) {
       return;
     }
 
+    // ── 결과 1건: 즉시 이동 (리스트 없이)
+    if (results.length === 1) {
+      flyToResult(results[0]);
+      return;
+    }
+
+    // ── 결과 2건 이상: 리스트 표시
     list.innerHTML = results.map(function(r, i) {
       return '<li class="wm-search-item" data-i="' + i + '">' + _escHtml(r.label) + '</li>';
     }).join('');
     list.style.display = 'block';
 
-    // 결과 클릭 → 지도 이동
     list.querySelectorAll('.wm-search-item').forEach(function(li, i) {
       li.addEventListener('click', function() {
-        var r = results[i];
-        if (typeof window._wmFlyTo === 'function') {
-          window._wmFlyTo(r.lat, r.lng, r.zoom, r.nodes || []);
-        }
-        list.style.display = 'none';
-        input.value = r.label;
+        flyToResult(results[i]);
       });
     });
   }
