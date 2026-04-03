@@ -291,8 +291,10 @@ function setActiveModeBtn(mode) {
 
 /** 자동복사 배지 갱신 */
 function setAutoCopyBtn(isOn) {
-  var badge = document.querySelector('#' + BTN_COPY_ID + ' .wm-badge');
-  if (!badge) return;
+  var btn   = document.getElementById(BTN_COPY_ID);
+  var badge = btn ? btn.querySelector('.wm-badge') : null;
+  if (!btn || !badge) return;
+  btn.classList.toggle('wm-btn--active', isOn);
   badge.textContent = isOn ? 'ON' : 'OFF';
   badge.classList.toggle('wm-badge--on',  isOn);
   badge.classList.toggle('wm-badge--off', !isOn);
