@@ -147,14 +147,6 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .dd-btn.danger:hover{color:var(--accent2);}
 
 /* ── 체험판 진행바 (사이드바) ── */
-#trial-bar{background:var(--surface2);border:1px solid rgba(255,215,0,.25);border-radius:10px;padding:10px;}
-.trial-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
-.trial-label{font-size:.58rem;color:var(--gold);text-transform:uppercase;letter-spacing:1px;font-weight:700;}
-.trial-count{font-size:.7rem;color:var(--text-dim);}
-.trial-count strong{color:var(--text);}
-.trial-bg{background:var(--bg);border-radius:10px;height:6px;overflow:hidden;}
-.trial-fill{height:100%;background:linear-gradient(90deg,var(--gold),#ff8c00);border-radius:10px;transition:width .4s;}
-#trial-bar.hidden{display:none;}
 
 /* ── 토스트 ── */
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);z-index:100000;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 22px;font-size:.82rem;color:var(--text);box-shadow:0 8px 30px rgba(0,0,0,.5);transition:transform .3s ease;white-space:nowrap;pointer-events:none;}
@@ -509,7 +501,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 #ans-bar .ab-dong{font-family:'Black Han Sans',sans-serif;font-size:1rem;color:var(--text);white-space:nowrap;}
 #ans-bar .ab-close{background:#ff3c6e;color:#000;border:none;border-radius:8px;padding:5px 12px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;transition:all .2s;}
 #ans-bar .ab-close:hover{background:#ff6b8a;transform:scale(1.05);}
-#start{position:fixed;inset:0;background:var(--bg);z-index:9998;display:flex;align-items:center;justify-content:flex-start;flex-direction:column;gap:18px;padding:28px 20px 20px;overflow-y:auto;}
+#start{position:fixed;inset:0;background:var(--bg);z-index:9998;display:flex;align-items:center;justify-content:flex-start;flex-direction:column;gap:18px;padding:28px 20px 20px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .st{font-family:'Black Han Sans',sans-serif;font-size:2.5rem;color:var(--accent);text-shadow:0 0 30px var(--accent);text-align:center;}
 .ss{color:var(--text-dim);font-size:.88rem;text-align:center;line-height:1.8;}
 .stags{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
@@ -616,6 +608,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
   max-width:640px;
   max-height:55vh;
   overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
   padding:4px 4px 8px;
   scrollbar-width:thin;
   scrollbar-color:var(--border) transparent;
@@ -1635,6 +1629,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
       <button class="stag-all-btn" onclick="selectAllCities()">✅ 전체 선택</button>
       <button class="stag-none-btn" onclick="deselectAllCities()">✕ 전체 해제</button>
+      <button class="stag-all-btn" onclick="selectWorkCities()" style="background:linear-gradient(135deg,rgba(108,92,231,.18),rgba(162,155,254,.12));border-color:#a29bfe;color:#a29bfe;">🗂 업무용 선택</button>
     </div>
   </div>
   <div style="color:var(--text-dim);font-size:.82rem;margin-bottom:16px">선택 동 합계: <span style="color:var(--accent);font-weight:700" id="scnt">0</span>개</div>
@@ -3404,6 +3399,26 @@ window.deselectAllCities = function() {
   updateCnt();
 };
 
+window.selectWorkCities = function() {
+  const WORK_KEYS = new Set(["seoul", "incheon", "suwon", "seongnam", "goyang", "yongin", "bucheon", "anyang", "ansan", "hwaseong", "pyeongtaek", "paju", "gimpo", "namyangju", "uijeongbu", "siheung", "gwangmyeong", "gunpo", "hanam", "guri", "osan", "uiwang", "gwacheon", "yangju", "icheon", "gwangju_g", "yeoju", "dongducheon", "anseong", "pocheon", "yangpyeong", "yeoncheon", "gapyeong"]);
+  // 먼저 전체 해제
+  document.querySelectorAll('.stag.sel').forEach(div => {
+    div.classList.remove('sel');
+    div.style.borderColor = '';
+    div.style.color = '';
+    div.style.background = '';
+  });
+  // 업무용 도시만 선택
+  document.querySelectorAll('.stag:not(.disabled)').forEach(div => {
+    const key = div.dataset.r;
+    if (key && WORK_KEYS.has(key)) {
+      div.classList.add('sel');
+      if (div.dataset.color) div.style.borderColor = div.dataset.color;
+    }
+  });
+  updateCnt();
+};
+
 // 현재 선택 상태 저장
 function saveQuizSelection() {
   _savedCitySelection = [];
@@ -3989,7 +4004,7 @@ window.hideWrongBoundary = function(){
 
 window.toggleShowAll = function(){
   if(isRankingMode){ toast('🏆 랭킹 모드에서는 모든 정답 표시를 사용할 수 없습니다.','error'); return; }
-  if(!isActivePremium() && !isNewMember24h()){
+  if(!isActivePremium()){
     showShowAllLockedPopup();
     return;
   }
@@ -4919,8 +4934,7 @@ async function loadProfile(sessionToken){
   // 신규회원 무료체험 상태 서버 로드 (프리미엄 아닌 경우만)
   if(!isActivePremium()){
     loadTrialStatus().then(()=>{
-      updateNewMemberTimer();
-      startTrialCheckTimer();
+
     });
   }
 
@@ -5042,284 +5056,6 @@ function isActivePremium(){
   return false;
 }
 
-/* ── 신규 가입 24시간 이내 여부 ────────────────────────────
-   user_profiles.created_at 기준으로 24시간 이내면 true
-   → 모든 정답 표시 기능 무료 허용
-   ──────────────────────────────────────────────────────── */
-/* ══════════════════════════════════════════════════════════════
-   🎁 신규회원 무료체험 - 서버 이중검증 시스템
-   메커니즘:
-   1. 로그인 시 free_trial_status 초기화 (없으면 INSERT)
-   2. 2시간마다 서버 체크 (체크 1~11회)
-   3. 11회 이후 → 1시간 3분마다 체크 (체크 12~13회)
-   4. 13회 완료(24시간 6분) → trial_used=true 기록
-   5. toggleShowAll: remaining_seconds>0 AND trial_used=false 둘다 통과해야 허용
-   ══════════════════════════════════════════════════════════════ */
-let _trialStatus      = null;  // { trial_used, check_count, last_checked, expired_at }
-let _trialCheckTimer  = null;
-let _trialDisplayTimer= null;
-
-const TRIAL_DURATION_MS  = 24 * 60 * 60 * 1000; // 24시간
-const TRIAL_BONUS_MS     = 6  * 60 * 1000;        // 보너스 6분
-const TRIAL_TOTAL_MS     = TRIAL_DURATION_MS + TRIAL_BONUS_MS; // 24시간 6분
-const TRIAL_CHECK_NORMAL = 2  * 60 * 60 * 1000;   // 2시간 (1~11회)
-const TRIAL_CHECK_FINE   = 63 * 60 * 1000;         // 1시간 3분 (12~13회)
-const TRIAL_MAX_CHECKS   = 13;
-
-/* ── 토큰 헬퍼 (세션 갱신 포함) ──
-   토큰이 만료됐거나 곧 만료될 경우 Supabase SDK로 자동 갱신을 시도합니다.
-   갱신이 불가하면 null을 반환합니다 (SUPABASE_KEY와 혼용하지 않음). */
-async function _getTokenWithRefresh(){
-  // 1차: SDK getSession() 우선 (구글 OAuth 등 storageKey 차이 무관하게 정확히 읽음)
-  try{
-    const { data: sessionData, error: sessionErr } = await sb.auth.getSession();
-    if(!sessionErr && sessionData?.session?.access_token){
-      const expiresAt = sessionData.session.expires_at || 0;
-      // 만료까지 60초 이상 남아 있으면 바로 사용
-      if(expiresAt && (expiresAt * 1000) > (Date.now() + 60000)){
-        return sessionData.session.access_token;
-      }
-    }
-  }catch(e){}
-
-  // 2차: localStorage에서 직접 읽기 (SDK Lock 충돌 우회용)
-  try{
-    const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
-    if(raw){
-      const p = JSON.parse(raw);
-      const token = p?.access_token || p?.currentSession?.access_token;
-      const expiresAt = p?.expires_at || p?.currentSession?.expires_at || 0;
-      if(token && expiresAt && (expiresAt * 1000) > (Date.now() + 60000)){
-        return token;
-      }
-    }
-  }catch(e){}
-
-  // 3차: SDK refreshSession() 으로 강제 갱신
-  try{
-    const { data, error } = await sb.auth.refreshSession();
-    if(!error && data?.session?.access_token){
-      return data.session.access_token;
-    }
-  }catch(e){ console.warn('[token] 세션 갱신 실패:', e); }
-
-  return null; // 갱신 불가
-}
-
-/* ── 클라이언트 폴백 상태 생성 ──
-   토큰 취득이 완전히 불가할 때만 사용합니다.
-   userProfile.created_at(서버값) 기준으로 만료일을 계산하기 때문에
-   클라이언트에서 날짜를 바꿔도 서버 원본과 다르면 재로그인 시 정정됩니다.
-   → 해킹 내성 유지, 단순 토큰 만료로 인한 기능 차단 방지 */
-function _buildFallbackTrialStatus(){
-  if(!userProfile?.created_at) return null;
-  const expiredAt = new Date(userProfile.created_at).getTime() + TRIAL_TOTAL_MS;
-  return {
-    user_id:      currentUser?.id,
-    trial_used:   Date.now() >= expiredAt,
-    check_count:  0,
-    last_checked: new Date().toISOString(),
-    expired_at:   new Date(expiredAt).toISOString(),
-    _isFallback:  true  // 폴백임을 표시 → runTrialCheck에서 서버 PATCH 건너뜀
-  };
-}
-
-/* ── 서버에서 trial 상태 로드 (없으면 생성) ── */
-async function loadTrialStatus(){
-  if(!currentUser) return;
-
-  const token = await _getTokenWithRefresh();
-
-  if(!token){
-    // 토큰 완전 실패 → 클라이언트 폴백으로 기능 유지 (차단하지 않음)
-    console.warn('[trial] 토큰 없음 → 클라이언트 폴백 사용');
-    _trialStatus = _buildFallbackTrialStatus();
-    return;
-  }
-
-  try {
-    // 1. 기존 레코드 조회
-    const r = await fetch(
-      `${SUPABASE_URL}/rest/v1/free_trial_status?user_id=eq.${currentUser.id}&select=*&limit=1`,
-      { headers:{ 'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${token}` } }
-    );
-    if(!r.ok){
-      console.warn('[trial] DB 조회 실패(' + r.status + ') → 클라이언트 폴백');
-      _trialStatus = _buildFallbackTrialStatus();
-      return;
-    }
-    const rows = await r.json();
-
-    if(rows.length > 0){
-      // ✅ 레코드 있음 → 정상 사용
-      _trialStatus = rows[0];
-    } else {
-      // 2. 없으면 신규 생성
-      const expiredAt = new Date(
-        new Date(userProfile.created_at).getTime() + TRIAL_TOTAL_MS
-      ).toISOString();
-      const ins = await fetch(
-        `${SUPABASE_URL}/rest/v1/free_trial_status`,
-        {
-          method: 'POST',
-          headers:{
-            'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${token}`,
-            'Content-Type':'application/json', 'Prefer':'return=representation'
-          },
-          body: JSON.stringify({
-            user_id:      currentUser.id,
-            trial_used:   false,
-            check_count:  0,
-            last_checked: new Date().toISOString(),
-            expired_at:   expiredAt
-          })
-        }
-      );
-      if(ins.ok){
-        const d = await ins.json();
-        _trialStatus = Array.isArray(d) ? d[0] : d;
-      } else {
-        // INSERT 실패 (RLS 등) → 폴백
-        console.warn('[trial] INSERT 실패(' + ins.status + ') → 클라이언트 폴백');
-        _trialStatus = _buildFallbackTrialStatus();
-      }
-    }
-  } catch(e){
-    console.warn('[trial] 로드 예외:', e, '→ 클라이언트 폴백');
-    _trialStatus = _buildFallbackTrialStatus();
-  }
-}
-
-/* ── 서버 체크 1회 실행 ── */
-async function runTrialCheck(){
-  if(!currentUser || !_trialStatus) return;
-  if(_trialStatus.trial_used) return; // 이미 만료됨
-
-  // 폴백 상태: 서버 PATCH 없이 클라이언트 시간만 검사
-  if(_trialStatus._isFallback){
-    const expiredAt = new Date(_trialStatus.expired_at).getTime();
-    if(Date.now() >= expiredAt){
-      _trialStatus.trial_used = true;
-      stopTrialCheckTimer();
-      updateNewMemberTimer();
-      if(!isActivePremium()){
-        toast('🎁 24시간 무료체험이 종료되었습니다. 프리미엄으로 계속 이용하세요!', 'info');
-      }
-    }
-    return;
-  }
-
-  const token = await _getTokenWithRefresh();
-  if(!token){
-    // 토큰 갱신 실패 → 폴백으로 전환하되 기존 expired_at 유지
-    console.warn('[trial] runTrialCheck: 토큰 없음 → 폴백 전환');
-    _trialStatus = { ..._trialStatus, _isFallback: true };
-    return;
-  }
-
-  const now       = Date.now();
-  const expiredAt = new Date(_trialStatus.expired_at).getTime();
-  const newCount  = (_trialStatus.check_count || 0) + 1;
-  const isExpired = now >= expiredAt || newCount >= TRIAL_MAX_CHECKS;
-
-  try {
-    const patch = await fetch(
-      `${SUPABASE_URL}/rest/v1/free_trial_status?user_id=eq.${currentUser.id}`,
-      {
-        method: 'PATCH',
-        headers:{
-          'apikey':SUPABASE_KEY, 'Authorization':`Bearer ${token}`,
-          'Content-Type':'application/json', 'Prefer':'return=representation'
-        },
-        body: JSON.stringify({
-          check_count:  newCount,
-          last_checked: new Date().toISOString(),
-          trial_used:   isExpired ? true : _trialStatus.trial_used
-        })
-      }
-    );
-    if(patch.ok){
-      const d = await patch.json();
-      _trialStatus = Array.isArray(d) ? d[0] : d;
-
-      if(isExpired){
-        stopTrialCheckTimer();
-        updateNewMemberTimer();
-        if(!isActivePremium()){
-          toast('🎁 24시간 무료체험이 종료되었습니다. 프리미엄으로 계속 이용하세요!', 'info');
-        }
-      }
-    }
-  } catch(e){ console.warn('[trial] 체크 실패:', e); }
-}
-
-/* ── 체크 타이머 시작 ── */
-function startTrialCheckTimer(){
-  stopTrialCheckTimer();
-  if(!_trialStatus || _trialStatus.trial_used) return;
-
-  function scheduleNext(){
-    const count = _trialStatus?.check_count || 0;
-    // 11회 이하: 2시간, 12회 이상: 1시간 3분
-    const delay = count < 11 ? TRIAL_CHECK_NORMAL : TRIAL_CHECK_FINE;
-    _trialCheckTimer = setTimeout(async ()=>{
-      await runTrialCheck();
-      if(_trialStatus && !_trialStatus.trial_used) scheduleNext();
-    }, delay);
-  }
-  scheduleNext();
-}
-
-function stopTrialCheckTimer(){
-  if(_trialCheckTimer){ clearTimeout(_trialCheckTimer); _trialCheckTimer = null; }
-}
-
-/* ── 남은 시간 UI 업데이트 ── */
-function updateNewMemberTimer(){
-  const timerDiv  = document.getElementById('new-member-timer');
-  const timerText = document.getElementById('new-member-timer-text');
-  if(!timerDiv || !timerText) return;
-
-  // 프리미엄이거나 trial_used=true이면 숨김
-  if(isActivePremium() || !_trialStatus || _trialStatus.trial_used){
-    timerDiv.style.display = 'none';
-    return;
-  }
-
-  const expiredAt = new Date(_trialStatus.expired_at).getTime();
-  const remaining = expiredAt - Date.now();
-
-  if(remaining <= 0){
-    timerDiv.style.display = 'none';
-    return;
-  }
-
-  const h = Math.floor(remaining / 3600000);
-  const m = Math.floor((remaining % 3600000) / 60000);
-  timerText.textContent = `${h}시간 ${m}분 남음`;
-  timerDiv.style.display = 'block';
-}
-
-function startNewMemberTimer(){
-  updateNewMemberTimer();
-  if(_trialDisplayTimer) clearInterval(_trialDisplayTimer);
-  _trialDisplayTimer = setInterval(updateNewMemberTimer, 60000); // 1분마다 UI 갱신
-}
-
-/* ── 무료체험 사용 가능 여부 (이중 검증) ── */
-function canUseFreeTrialShowAll(){
-  if(isActivePremium()) return true;   // 프리미엄은 항상 허용
-  if(!_trialStatus) return false;      // 서버 데이터 없으면 차단
-  if(_trialStatus.trial_used) return false; // 서버에서 만료 기록된 경우 차단
-  // 만료시각 서버값 기준 검증
-  const expiredAt = new Date(_trialStatus.expired_at).getTime();
-  return Date.now() < expiredAt;
-}
-
-/* ── 구 isNewMember24h 대체 ── */
-function isNewMember24h(){
-  return canUseFreeTrialShowAll();
-}
 
 /* ── 맵동가족 활성 여부 ─────────────────────────────────── */
 function isActiveMapdongFamily(){
@@ -5442,7 +5178,6 @@ function renderUserChip(){
   document.getElementById('dd-email').textContent    = name + ' (' + email + ')';
   const badge   = document.getElementById('user-badge');
   const status  = document.getElementById('dd-status');
-  const tbar    = document.getElementById('trial-bar');
   const btnUpg  = document.getElementById('dd-upgrade');
   const btnMdUpg= document.getElementById('dd-mapdong-upgrade');
 
@@ -5450,22 +5185,19 @@ function renderUserChip(){
     const until = new Date(userProfile.premium_until).toLocaleDateString('ko-KR');
     badge.textContent   = '프리미엄'; badge.className = 'user-badge premium';
     status.textContent  = `✨ 프리미엄 · ${until}까지`; status.className = 'dd-status premium';
-    if(tbar) tbar.classList.add('hidden');
-    if(btnUpg)   btnUpg.style.display   = 'flex';   // 프리미엄도 연장/변경 가능
+      if(btnUpg)   btnUpg.style.display   = 'flex';   // 프리미엄도 연장/변경 가능
     if(btnMdUpg) btnMdUpg.style.display = 'none';
   } else if(isFamily){
     const until = new Date(userProfile.mapdong_family_until).toLocaleDateString('ko-KR');
     badge.textContent   = '맵동가족'; badge.className = 'user-badge mapdong';
     status.textContent  = `💜 맵동가족 · ${until}까지`; status.className = 'dd-status mapdong';
-    if(tbar) tbar.classList.add('hidden');
-    if(btnUpg)   btnUpg.style.display   = 'flex';
+      if(btnUpg)   btnUpg.style.display   = 'flex';
     if(btnMdUpg) btnMdUpg.style.display = 'none';
   } else {
     const used = userProfile?.plays_count || 0;
     badge.textContent   = '일반회원'; badge.className = 'user-badge trial';
     status.textContent  = `일반회원 · 무제한 이용`; status.className = 'dd-status trial';
-    if(tbar) tbar.classList.add('hidden'); // 체험바 항상 숨김
-    if(btnUpg)   btnUpg.style.display   = 'flex';
+      if(btnUpg)   btnUpg.style.display   = 'flex';
     if(btnMdUpg) btnMdUpg.style.display = 'flex';
   }
   // 오른쪽 사이드바 권한 업데이트
