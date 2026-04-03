@@ -1291,9 +1291,10 @@ function _searchRegion(query) {
 function _flyToRegion(lat, lng, zoom) {
   if (!_isMapAlive()) return;
   try {
-    _map.flyTo([lat, lng], zoom || 14, { animate: true, duration: 0.8 });
+    // 검색 시 현재 배율(zoom) 유지 — 중심만 이동
+    _map.panTo([lat, lng], { animate: true, duration: 0.8 });
   } catch(e) {
-    console.warn('[WorkMode] flyTo 오류:', e);
+    console.warn('[WorkMode] panTo 오류:', e);
   }
 }
 
@@ -1320,20 +1321,42 @@ function _wmShowSearchPolygons(nodes) {
   _wmClearSearchPolygons();
   if (!_isMapAlive() || !nodes || !nodes.length) return;
 
+  var successCount = 0;
+
   nodes.forEach(function(node) {
     if (!node) return;
     try {
       var geo = null;
 
-      // 직접 geometry 객체로 전달된 경우 (_directGeo 플래그)
+      // 경로 1: _directGeo 플래그 (구/시 전체 폴리곤 직접 전달)
       if (node._directGeo && node.geometry) {
         geo = node.geometry;
-      } else {
-        geo = (typeof _geo === 'function') ? _geo(node) : null;
-        // _geo로 못 찾으면 node.geometry 직접 시도
-        if (!geo && node.geometry) geo = node.geometry;
       }
-      if (!geo) return;
+
+      // 경로 2: _geo 함수 (index.html 정의, Feature 노드)
+      if (!geo && typeof _geo === 'function') {
+        try { geo = _geo(node); } catch(e2) {}
+      }
+
+      // 경로 3: node.geometry 직접
+      if (!geo && node.geometry) {
+        geo = node.geometry;
+      }
+
+      // 경로 4: node._meta.geometry
+      if (!geo && node._meta && node._meta.geometry) {
+        geo = node._meta.geometry;
+      }
+
+      // 경로 5: node 자체가 GeoJSON geometry 형태
+      if (!geo && node.type && (node.type === 'Polygon' || node.type === 'MultiPolygon')) {
+        geo = node;
+      }
+
+      if (!geo) {
+        console.debug('[SearchPoly] geometry 없음:', Object.keys(node).slice(0,8));
+        return;
+      }
 
       var lyr = L.geoJSON({ type:'Feature', geometry: geo }, {
         style: {
@@ -1346,8 +1369,17 @@ function _wmShowSearchPolygons(nodes) {
       });
       lyr.addTo(_map);
       _searchPolyLayers.push(lyr);
-    } catch(e) {}
+      successCount++;
+    } catch(e) {
+      console.debug('[SearchPoly] 렌더 오류:', e.message, node);
+    }
   });
+
+  if (successCount === 0) {
+    console.warn('[SearchPoly] 폴리곤 표시 실패: nodes=' + nodes.length + '개 중 0개 성공');
+  } else {
+    console.debug('[SearchPoly] 폴리곤 표시: ' + successCount + '/' + nodes.length + '개');
+  }
 
   // 5초 후 자동 제거
   _searchPolyTimer = setTimeout(function() {
@@ -1458,7 +1490,9 @@ function _searchRegionSmart(query) {
           if (unitNode) nodes.push(unitNode);
         });
       }
-    } catch(e) {}
+    } catch(e) {
+      console.debug('[collectCityNodes] 오류:', e.message);
+    }
     return nodes;
   }
 
@@ -1468,13 +1502,28 @@ function _searchRegionSmart(query) {
     try {
       var cn = (typeof getCityNode === 'function')
         ? getCityNode(cityName, doName || undefined) : null;
-      if (!cn) return [];
+      if (!cn) {
+        console.debug('[collectGuNodes] getCityNode null:', cityName, doName);
+        return [];
+      }
       var guNode = cn[guName];
-      if (!guNode) return [];
-      // 구 전체 폴리곤 있으면 우선 사용
-      var guGeo = guNode._geometry || _mLocal(guNode,'_geometry');
-      if (guGeo) return [{ _directGeo: true, geometry: guGeo }];
-      // 없으면 하위 동 모두
+      if (!guNode) {
+        console.debug('[collectGuNodes] guNode 없음:', guName, '키목록:', Object.keys(cn).slice(0,10));
+        return [];
+      }
+
+      // 구 전체 폴리곤: _geometry 직접 or _meta._geometry
+      var guGeo = guNode._geometry
+               || _mLocal(guNode,'_geometry')
+               || (guNode._meta && guNode._meta._geometry)
+               || null;
+      if (guGeo) {
+        console.debug('[collectGuNodes] 구 _geometry 사용:', guName);
+        return [{ _directGeo: true, geometry: guGeo }];
+      }
+
+      // 구 폴리곤 없으면 하위 동 모두
+      console.debug('[collectGuNodes] 동 nodes 사용:', guName);
       var nodes = [];
       var list = guNode._all_list || _mLocal(guNode,'_all_list') || [];
       list.forEach(function(unitName) {
@@ -1482,7 +1531,10 @@ function _searchRegionSmart(query) {
         if (unitNode) nodes.push(unitNode);
       });
       return nodes;
-    } catch(e) { return []; }
+    } catch(e) {
+      console.debug('[collectGuNodes] 오류:', e.message);
+      return [];
+    }
   }
 
   // ── 1. 시/군 단위 검색 ──────────────────────────────────────
