@@ -1591,6 +1591,16 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
         <br>
         <div style="font-weight:700;color:var(--text);margin-bottom:6px;">제7조 (청약철회 제한)</div>
         <p>「전자상거래 등에서의 소비자보호에 관한 법률」 제17조에 따라, 디지털 콘텐츠의 특성상 이용 개시 후에는 청약철회가 제한될 수 있습니다. 단, 본 약관 각 조에 명시된 환불 사유에 해당하는 경우는 제외합니다.</p>
+        <br>
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px;">제8조 (회원탈퇴 및 환불 불가)</div>
+        <p>① 회원이 자의로 탈퇴하는 경우, 잔여 이용권·플랜 패키지·이벤트 참여 혜택 등은 <strong style="color:#ffd700;">환불되지 않습니다.</strong></p>
+        <p>② 회원 탈퇴 후 동일 명의(나이스 본인인증 기준)로의 재가입은 <strong style="color:#ffd700;">탈퇴일로부터 1년간 제한</strong>됩니다.</p>
+        <p>③ 이용약관 위반 등 회사의 귀책이 없는 이용 정지 처리의 경우에도 동일하게 적용됩니다.</p>
+        <br>
+        <div style="font-weight:700;color:var(--text);margin-bottom:6px;">제9조 (신규 회원 무료 체험)</div>
+        <p>① 최초 가입일로부터 14일간 프리미엄 기능을 무료로 제공합니다.</p>
+        <p>② 무료 체험 기간은 연장되지 않으며, 탈퇴 후 재가입 시 재제공되지 않습니다.</p>
+        <p>③ 무료 체험 기간 중 결제 없이 서비스를 이용하므로 환불 대상이 아닙니다.</p>
       </div>
       <div id="refund-plan-info" style="background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.2);border-radius:10px;padding:12px 14px;font-size:.78rem;color:var(--gold);margin-top:16px;text-align:center;"></div>
       <div style="display:flex;gap:10px;margin-top:18px;">
@@ -7563,6 +7573,8 @@ window.toggleAuthMode = function() {
           <tr><td>실명 (본인인증 시)</td><td>중복 가입 방지, 본인 확인</td><td>인증 완료 후 즉시 파기</td></tr>
           <tr><td>휴대폰 번호</td><td>본인인증, 이벤트 당첨 연락</td><td>탈퇴 시까지</td></tr>
           <tr><td>주소</td><td>이벤트 경품/선물 배송</td><td>탈퇴 시까지</td></tr>
+          <tr><td>위치정보 (GPS)</td><td>업무모드 현재 위치 표시, 지도 자동 이동</td><td>서비스 이용 중 임시 사용 후 즉시 파기 (서버 미저장)</td></tr>
+          <tr><td>회원 식별번호(nice_di)</td><td>중복 가입 방지, 탈퇴 후 재가입 제한</td><td>탈퇴 후 1년 (재가입 제한 목적)</td></tr>
         </table>
       </div>
 
@@ -7625,6 +7637,57 @@ window.toggleAuthMode = function() {
       </div>
       <!-- /본인인증 안내 끝 -->
 
+      <!-- ★ 위치정보 수집·이용 동의 -->
+      <div class="privacy-section">
+        <div class="privacy-section-title">📍 위치정보 수집·이용 동의 (선택)</div>
+        <div style="background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.2);
+                    border-radius:8px;padding:12px 14px;font-size:.74rem;
+                    color:#b0c8de;line-height:1.8;">
+          <strong style="color:var(--accent);">수집 항목:</strong> GPS 위치정보 (위도·경도)<br>
+          <strong style="color:var(--accent);">이용 목적:</strong> 업무모드 지도 현재 위치 표시 및 자동 이동<br>
+          <strong style="color:var(--accent);">보유 기간:</strong> 서비스 이용 중 일시 사용 후 즉시 파기 (서버에 저장되지 않음)<br>
+          <strong style="color:var(--accent);">법적 근거:</strong>「위치정보의 보호 및 이용 등에 관한 법률」 제15조<br><br>
+          <div style="background:rgba(255,215,0,.07);border-left:3px solid var(--gold);
+                      padding:8px 12px;border-radius:0 6px 6px 0;font-size:.72rem;">
+            ※ 위치정보 수집은 업무모드(프리미엄) 이용 시에만 활성화됩니다.<br>
+            ※ 브라우저의 위치 권한을 거부하면 업무모드 GPS 추적 기능이 제한될 수 있습니다.<br>
+            ※ 위치정보는 당사 서버에 저장되지 않으며, 기기에서만 처리됩니다.
+          </div>
+        </div>
+      </div>
+
+      <!-- ★ 서비스 이용 제한 안내 -->
+      <div class="privacy-section">
+        <div class="privacy-section-title">⚠️ 회원탈퇴 및 재가입 제한 안내</div>
+        <div style="background:rgba(255,60,110,.05);border:1px solid rgba(255,60,110,.2);
+                    border-radius:8px;padding:12px 14px;font-size:.74rem;
+                    color:#b0c8de;line-height:1.8;">
+          <strong style="color:#ff8099;">탈퇴 후 재가입 제한:</strong>
+          회원 탈퇴 또는 이용 정지 처리 후 <strong style="color:#ff3c6e;">1년간</strong>
+          동일 명의(나이스 본인인증 기준)로 재가입이 제한됩니다.<br><br>
+          <strong style="color:#ff8099;">보관 정보:</strong>
+          재가입 제한을 위해 탈퇴 시 <strong style="color:#ff3c6e;">회원 식별번호(nice_di)와 실명</strong>을
+          탈퇴일로부터 1년간 보관 후 파기합니다.<br><br>
+          <strong style="color:#ff8099;">환불 불가:</strong>
+          탈퇴 시 잔여 이용권, 플랜 패키지, 이벤트 참여 혜택 등은 환불되지 않습니다.
+        </div>
+      </div>
+
+      <!-- ★ 2주 무료 체험 안내 -->
+      <div class="privacy-section">
+        <div class="privacy-section-title">🎁 신규 회원 2주 프리미엄 체험 안내</div>
+        <div style="background:rgba(255,215,0,.05);border:1px solid rgba(255,215,0,.2);
+                    border-radius:8px;padding:12px 14px;font-size:.74rem;
+                    color:#b0c8de;line-height:1.8;">
+          최초 가입일로부터 <strong style="color:var(--gold);">14일간</strong>
+          프리미엄 기능(업무모드 포함)을 무료로 이용하실 수 있습니다.<br>
+          체험 기간 종료 후 별도 결제 없이 자동으로 일반 회원으로 전환됩니다.<br>
+          <span style="color:var(--text-dim);font-size:.68rem;">
+            ※ 체험 기간은 연장되지 않으며, 탈퇴 후 재가입 시 체험 혜택이 재제공되지 않습니다.
+          </span>
+        </div>
+      </div>
+
       <div class="privacy-section">
         <div class="privacy-section-title">🗃️ 개인정보 보관 및 파기 안내</div>
         <p style="background:rgba(255,215,0,.06);border:1px solid rgba(255,215,0,.2);border-radius:8px;padding:10px 12px;">
@@ -7647,8 +7710,15 @@ window.toggleAuthMode = function() {
         ※ 위 개인정보 수집·이용 동의를 거부할 권리가 있습니다. 단, 거부 시 MapDong 서비스 회원가입 및 이용이 제한됩니다.
       </div>
       <label class="privacy-agree-check">
+        <input type="checkbox" id="privacy-location-cb">
+        <span style="font-size:.75rem;color:var(--text-dim);">
+          [선택] 위치정보 수집·이용에 동의합니다.
+          <span style="color:var(--text-dim);font-size:.68rem;">(업무모드 GPS 기능 이용 시 필요)</span>
+        </span>
+      </label>
+      <label class="privacy-agree-check" style="margin-top:4px;">
         <input type="checkbox" id="privacy-agree-cb" onchange="onPrivacyCheck(this)">
-        위 개인정보 수집·이용 약관을 모두 읽었으며, <strong style="color:var(--accent);">&nbsp;전체 동의합니다.</strong>
+        위 개인정보 수집·이용 약관 및 재가입 제한 조항을 모두 읽었으며, <strong style="color:var(--accent);">&nbsp;전체 동의합니다.</strong>
       </label>
     </div>
     <div class="privacy-footer">
