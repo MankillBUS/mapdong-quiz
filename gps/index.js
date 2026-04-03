@@ -1291,10 +1291,9 @@ function _searchRegion(query) {
 function _flyToRegion(lat, lng, zoom) {
   if (!_isMapAlive()) return;
   try {
-    // 검색 시 현재 배율(zoom) 유지 — 중심만 이동
-    _map.panTo([lat, lng], { animate: true, duration: 0.8 });
+    _map.flyTo([lat, lng], zoom || 14, { animate: true, duration: 0.8 });
   } catch(e) {
-    console.warn('[WorkMode] panTo 오류:', e);
+    console.warn('[WorkMode] flyTo 오류:', e);
   }
 }
 
@@ -1317,6 +1316,25 @@ function _wmClearSearchPolygons() {
  * 검색된 동 노드들의 폴리곤을 5초간 지도에 표시
  * @param {object[]} nodes  POLY_CACHE 동 노드 배열
  */
+/**
+ * GeoJSON geometry 안전 추출
+ * Feature 타입이면 .geometry 꺼냄 → L.geoJSON에 넣을 수 있는 형태 반환
+ */
+function _extractGeometry(raw) {
+  if (!raw) return null;
+  // Feature 타입이면 내부 geometry 꺼내기
+  if (raw.type === 'Feature') return raw.geometry || null;
+  // FeatureCollection
+  if (raw.type === 'FeatureCollection' && raw.features && raw.features.length) {
+    return raw.features[0].geometry || null;
+  }
+  // 이미 geometry 객체 (Polygon, MultiPolygon 등)
+  if (raw.type === 'Polygon' || raw.type === 'MultiPolygon' || raw.type === 'GeometryCollection') {
+    return raw;
+  }
+  return null;
+}
+
 function _wmShowSearchPolygons(nodes) {
   _wmClearSearchPolygons();
   if (!_isMapAlive() || !nodes || !nodes.length) return;
@@ -1328,37 +1346,34 @@ function _wmShowSearchPolygons(nodes) {
     try {
       var geo = null;
 
-      // 경로 1: _directGeo 플래그 (구/시 전체 폴리곤 직접 전달)
-      if (node._directGeo && node.geometry) {
-        geo = node.geometry;
+      // 경로 1: _directGeo 플래그 — _geometry 원본을 그대로 전달한 경우
+      //         _meta._geometry가 Feature 타입일 수 있으므로 _extractGeometry로 안전하게 꺼냄
+      if (node._directGeo) {
+        geo = _extractGeometry(node.geometry);
       }
 
-      // 경로 2: _geo 함수 (index.html 정의, Feature 노드)
+      // 경로 2: 동 노드 — _geo(node) 사용 (index.html 함수)
       if (!geo && typeof _geo === 'function') {
-        try { geo = _geo(node); } catch(e2) {}
+        try {
+          var geoRaw = _geo(node);
+          geo = _extractGeometry(geoRaw) || geoRaw;
+        } catch(e2) {}
       }
 
       // 경로 3: node.geometry 직접
       if (!geo && node.geometry) {
-        geo = node.geometry;
+        geo = _extractGeometry(node.geometry) || node.geometry;
       }
 
-      // 경로 4: node._meta.geometry
-      if (!geo && node._meta && node._meta.geometry) {
-        geo = node._meta.geometry;
-      }
+      if (!geo) return;
 
-      // 경로 5: node 자체가 GeoJSON geometry 형태
-      if (!geo && node.type && (node.type === 'Polygon' || node.type === 'MultiPolygon')) {
-        geo = node;
-      }
+      // L.geoJSON은 GeoJSON 객체를 직접 받을 수 있음
+      // geometry 타입이면 Feature로 감싸기, Feature/Collection이면 그대로
+      var geoInput = (geo.type === 'Feature' || geo.type === 'FeatureCollection')
+        ? geo
+        : { type: 'Feature', geometry: geo };
 
-      if (!geo) {
-        console.debug('[SearchPoly] geometry 없음:', Object.keys(node).slice(0,8));
-        return;
-      }
-
-      var lyr = L.geoJSON({ type:'Feature', geometry: geo }, {
+      var lyr = L.geoJSON(geoInput, {
         style: {
           color:       '#00d4ff',
           fillColor:   '#00d4ff',
@@ -1371,14 +1386,12 @@ function _wmShowSearchPolygons(nodes) {
       _searchPolyLayers.push(lyr);
       successCount++;
     } catch(e) {
-      console.debug('[SearchPoly] 렌더 오류:', e.message, node);
+      console.debug('[SearchPoly] 렌더 오류:', e.message);
     }
   });
 
   if (successCount === 0) {
     console.warn('[SearchPoly] 폴리곤 표시 실패: nodes=' + nodes.length + '개 중 0개 성공');
-  } else {
-    console.debug('[SearchPoly] 폴리곤 표시: ' + successCount + '/' + nodes.length + '개');
   }
 
   // 5초 후 자동 제거
@@ -1490,9 +1503,7 @@ function _searchRegionSmart(query) {
           if (unitNode) nodes.push(unitNode);
         });
       }
-    } catch(e) {
-      console.debug('[collectCityNodes] 오류:', e.message);
-    }
+    } catch(e) {}
     return nodes;
   }
 
@@ -1502,28 +1513,13 @@ function _searchRegionSmart(query) {
     try {
       var cn = (typeof getCityNode === 'function')
         ? getCityNode(cityName, doName || undefined) : null;
-      if (!cn) {
-        console.debug('[collectGuNodes] getCityNode null:', cityName, doName);
-        return [];
-      }
+      if (!cn) return [];
       var guNode = cn[guName];
-      if (!guNode) {
-        console.debug('[collectGuNodes] guNode 없음:', guName, '키목록:', Object.keys(cn).slice(0,10));
-        return [];
-      }
-
-      // 구 전체 폴리곤: _geometry 직접 or _meta._geometry
-      var guGeo = guNode._geometry
-               || _mLocal(guNode,'_geometry')
-               || (guNode._meta && guNode._meta._geometry)
-               || null;
-      if (guGeo) {
-        console.debug('[collectGuNodes] 구 _geometry 사용:', guName);
-        return [{ _directGeo: true, geometry: guGeo }];
-      }
-
-      // 구 폴리곤 없으면 하위 동 모두
-      console.debug('[collectGuNodes] 동 nodes 사용:', guName);
+      if (!guNode) return [];
+      // 구 전체 폴리곤 있으면 우선 사용
+      var guGeo = guNode._geometry || _mLocal(guNode,'_geometry');
+      if (guGeo) return [{ _directGeo: true, geometry: guGeo }];
+      // 없으면 하위 동 모두
       var nodes = [];
       var list = guNode._all_list || _mLocal(guNode,'_all_list') || [];
       list.forEach(function(unitName) {
@@ -1531,10 +1527,7 @@ function _searchRegionSmart(query) {
         if (unitNode) nodes.push(unitNode);
       });
       return nodes;
-    } catch(e) {
-      console.debug('[collectGuNodes] 오류:', e.message);
-      return [];
-    }
+    } catch(e) { return []; }
   }
 
   // ── 1. 시/군 단위 검색 ──────────────────────────────────────
