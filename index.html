@@ -1154,6 +1154,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 }
 #mall-popup.show { display: block; }
 
+/* ── cs 에디터 placeholder ── */
+#cs-content-editor:empty:before{content:attr(placeholder);color:var(--text-dim);pointer-events:none;}
+#cs-content-editor img{max-width:100%;border-radius:8px;margin:6px 0;display:block;}
 </style>
 </head>
 <body>
@@ -6341,10 +6344,6 @@ async function handlePaymentCallback(){
 /* ════════════════════════════════════════════════════════════
    🛎 고객센터 & 공지 롤링 시스템
    ════════════════════════════════════════════════════════ */
-
-/* ── cs 에디터 placeholder ── */
-#cs-content-editor:empty:before{content:attr(placeholder);color:var(--text-dim);pointer-events:none;}
-#cs-content-editor img{max-width:100%;border-radius:8px;margin:6px 0;display:block;}
 
 /* ── Supabase 고객센터 테이블: cs_posts
    컬럼: id, user_id, nickname, title, content, is_notice,
