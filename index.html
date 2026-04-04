@@ -336,6 +336,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
   /* 헤더: 로고 + 유저칩만, 나머지 숨김 */
   #stats-bar{display:none;}
+  /* 업무모드에서 모바일 유저칩 숨기기 */
+  body.work-mode #user-chip { display: none !important; }
   #header{
     justify-content:space-between;
     padding:5px 10px;
