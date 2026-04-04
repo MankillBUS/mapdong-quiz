@@ -94,6 +94,10 @@ function initWorkMode(leafletMap) {
     function(v) { _fanR2 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); }
   );
 
+  // 업무모드 진입 시 오른쪽 버튼(#mo) 숨기기
+  var moEl = document.getElementById('mo');
+  if (moEl) moEl.style.display = 'none';
+
   // GPS 5초 자동이동 타이머 시작
   _startGpsAutoTimer();
 
@@ -158,6 +162,11 @@ function exitWorkMode() {
   _gpsAutoTimer = null;
 
   removeWorkModePanel();
+
+  // 업무모드 종료 시 오른쪽 버튼(#mo) 복원
+  var moEl = document.getElementById('mo');
+  if (moEl) moEl.style.display = '';
+
   _map = null;
 }
 
@@ -1291,9 +1300,10 @@ function _searchRegion(query) {
 function _flyToRegion(lat, lng, zoom) {
   if (!_isMapAlive()) return;
   try {
-    _map.flyTo([lat, lng], zoom || 14, { animate: true, duration: 0.8 });
+    // zoom 유지 — 중심만 이동
+    _map.panTo([lat, lng], { animate: true, duration: 0.8 });
   } catch(e) {
-    console.warn('[WorkMode] flyTo 오류:', e);
+    console.warn('[WorkMode] panTo 오류:', e);
   }
 }
 
