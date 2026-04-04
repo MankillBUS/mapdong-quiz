@@ -1121,6 +1121,27 @@ window.startWorkMode = function() {
   var selected = document.querySelectorAll('.stag.sel');
   if (!selected.length) { alert('먼저 지역을 선택해주세요.'); return; }
 
+  // ── 퀴즈/랭킹 상태 완전 초기화 ─────────────────────────────
+  // 기존 출제 문제, 오버레이, 타이머 등을 모두 정리
+  if (typeof _fullResetQuizState === 'function') {
+    _fullResetQuizState();
+  } else {
+    // fallback: 핵심 상태만 직접 초기화
+    if (typeof canAns !== 'undefined') canAns = false;
+    if (typeof cur    !== 'undefined') cur    = null;
+    if (typeof queue  !== 'undefined') queue  = [];
+    var _mov = document.getElementById('moverlay');
+    if (_mov) _mov.classList.remove('show', 'no-mode');
+    var _ab  = document.getElementById('ans-bar');
+    if (_ab)  _ab.classList.remove('show');
+    var _rc  = document.getElementById('range-control');
+    if (_rc)  _rc.style.display = 'none';
+    // 모바일 퀴즈 카드 숨기기
+    if (typeof updateMobileQCard === 'function') updateMobileQCard(null);
+    var _mqc = document.getElementById('mobile-qcard-overlay');
+    if (_mqc) _mqc.classList.remove('visible');
+  }
+
   // 퀴즈 모드의 #rbw 버튼 초기화
   // → _getActiveKeys()가 .stag.sel만 참조하도록 강제
   var rbw = document.getElementById('rbw');
