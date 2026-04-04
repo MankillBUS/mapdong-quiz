@@ -394,7 +394,14 @@ function _bindSearchEvents(panel) {
     }
     list.innerHTML = '';
     list.style.display = 'none';
-    input.value = r.label;
+    // 재검색 가능하도록: 레이블 대신 검색 가능한 핵심 지명 저장
+    // "인천 서구 청라동 (3개)" → "청라동", "서울특별시 강남구" → "강남구"
+    // 마지막 공백-구분 토큰에서 숫자 괄호 제거
+    var searchable = r.label
+      .replace(/\s*\(\d+개\)\s*$/, '')   // " (3개)" 제거
+      .split(' ')
+      .pop() || r.label;                 // 마지막 토큰 (가장 구체적인 지명)
+    input.value = searchable;
   }
 
   function doSearch() {
