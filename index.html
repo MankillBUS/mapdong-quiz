@@ -3492,123 +3492,78 @@ function restoreQuizSelection() {
   updateCnt();
 }
 
-window.goHome = function(){
-  if(confirm('퀴즈를 종료하고 처음으로 돌아가시겠습니까?')){
-    // [수정4] 현재 테마 상태 저장 (goHome 후 복원용)
-    _savedTheme = isDarkTheme;
-
-    // 랭킹 모드 초기화
-    if(isRankingMode){
-      isRankingMode = false;
-      rankingGroupKey = null;
-      rankingStartTime = null;
-      rankingAnswered = new Set();
-      rankingResults = [];
-      const rankHeader = document.getElementById('ranking-mode-header');
-      if(rankHeader) rankHeader.remove();
-      document.body.style.paddingTop = '';
-    }
-
-    // 퀴즈 완전 중단: 레이어/큐 초기화
-    canAns = false;
-    cur = null;
-    queue = [];
-    allDongs = [];
-    totC=0; totW=0; streak=0; qCnt=0; sessAns=0;
-    // ── 업무모드 종료 (map.remove() 전에 반드시 실행) ──────────
-    if(typeof exitWorkMode === 'function') {
-      try { exitWorkMode(); } catch(e) {}
-    }
-
-    // 레이어 정리
-    if(map){
-      try {
-        if(answerLayer){ map.removeLayer(answerLayer); answerLayer=null; }
-        wrongL.forEach(l=>{ try{map.removeLayer(l);}catch(e){} }); wrongL=[];
-        answerLayers.forEach(l=>{ try{map.removeLayer(l);}catch(e){} }); answerLayers=[];
-        wrongLayers.forEach(l=>{ try{map.removeLayer(l);}catch(e){} }); wrongLayers=[];
-        tempL.forEach(l=>{ try{map.removeLayer(l);}catch(e){} }); tempL=[];
-        map.remove(); map=null;
-      } catch(e){}
-    }
-    // 모달/바 숨기기
-    const moverlay = document.getElementById('moverlay');
-    if(moverlay){ moverlay.classList.remove('show','no-mode'); }
-    const ansBar = document.getElementById('ans-bar');
-    if(ansBar){ ansBar.classList.remove('show'); }
-
-    // 모바일 오버레이 숨기기
-    updateMobileQCard(null);
-
-    // 퀴즈 상태 완전 초기화
-    _fullResetQuizState();
-
-    // start 화면 표시
-    showOnly('start');
-    // 저장된 선택 복원
-    if (_savedCitySelection) restoreQuizSelection();
-  }
-}
-
 /**
- * 퀴즈/랭킹/업무모드 전환 시 완전 초기화
- * - 퀴즈 큐, 타이머, UI 상태 모두 기본값으로 복원
+ * 완전 초기화 — 퀴즈/랭킹/업무모드 어디서든 호출 가능
+ * 로그인 직후 상태처럼 모든 게임 상태를 기본값으로 되돌림
  */
-function _fullResetQuizState() {
-  // 퀴즈 핵심 상태
-  canAns  = false;
-  cur     = null;
-  queue   = [];
-  allDongs= [];
-
-  // 카운터
-  totC = 0; totW = 0; streak = 0; qCnt = 0; sessAns = 0;
-
-  // UI 초기화
-  const rangeCtrl = document.getElementById('range-control');
-  if (rangeCtrl) rangeCtrl.style.display = 'none';
-
-  const moverlay = document.getElementById('moverlay');
-  if (moverlay) { moverlay.classList.remove('show', 'no-mode'); }
-
-  const ansBar = document.getElementById('ans-bar');
-  if (ansBar) ansBar.classList.remove('show');
-
-  // rbw 초기화 (퀴즈 지역 버튼 제거 → 업무모드 지역 오염 방지)
-  const rbw = document.getElementById('rbw');
-  if (rbw) rbw.innerHTML = '';
-
-  // 광고 타이머 정리
-  if (typeof _adTimer !== 'undefined' && _adTimer) {
-    clearInterval(_adTimer);
-    _adTimer = null;
+function fullReset() {
+  // ── 1. 업무모드 종료 (map.remove() 전에 반드시) ───────────────
+  if (typeof exitWorkMode === 'function') {
+    try { exitWorkMode(); } catch(e) {}
   }
 
-  // 정답/오답 레이어 정리
+  // ── 2. 지도 레이어 정리 ────────────────────────────────────────
   if (typeof map !== 'undefined' && map) {
     try {
-      if (typeof answerLayer !== 'undefined' && answerLayer) {
-        map.removeLayer(answerLayer); answerLayer = null;
-      }
+      if (answerLayer)  { map.removeLayer(answerLayer);  answerLayer  = null; }
+      wrongL.forEach      (l => { try { map.removeLayer(l); } catch(e) {} }); wrongL       = [];
+      answerLayers.forEach(l => { try { map.removeLayer(l); } catch(e) {} }); answerLayers = [];
+      wrongLayers.forEach (l => { try { map.removeLayer(l); } catch(e) {} }); wrongLayers  = [];
+      tempL.forEach       (l => { try { map.removeLayer(l); } catch(e) {} }); tempL        = [];
+      allAnswerLayers.forEach(l => { try { map.removeLayer(l); } catch(e) {} }); allAnswerLayers = [];
+      map.remove(); map = null;
     } catch(e) {}
-    if (typeof wrongL !== 'undefined') {
-      wrongL.forEach(l => { try { map.removeLayer(l); } catch(e) {} });
-      wrongL = [];
-    }
-    if (typeof answerLayers !== 'undefined') {
-      answerLayers.forEach(l => { try { map.removeLayer(l); } catch(e) {} });
-      answerLayers = [];
-    }
-    if (typeof wrongLayers !== 'undefined') {
-      wrongLayers.forEach(l => { try { map.removeLayer(l); } catch(e) {} });
-      wrongLayers = [];
-    }
-    if (typeof tempL !== 'undefined') {
-      tempL.forEach(l => { try { map.removeLayer(l); } catch(e) {} });
-      tempL = [];
-    }
+  }
+
+  // ── 3. 퀴즈 핵심 상태 초기화 ─────────────────────────────────
+  canAns       = false;
+  cur          = null;
+  queue        = [];
+  allDongs     = [];
+  totC=0; totW=0; streak=0; qCnt=0; sessAns=0;
+  allAnswersVisible = false;
+
+  // ── 4. 랭킹 모드 초기화 ──────────────────────────────────────
+  isRankingMode    = false;
+  rankingGroupKey  = null;
+  rankingStartTime = null;
+  rankingAnswered  = new Set();
+  rankingResults   = [];
+  const rankHeader = document.getElementById('ranking-mode-header');
+  if (rankHeader) rankHeader.remove();
+  document.body.style.paddingTop = '';
+
+  // ── 5. 기타 퀴즈 설정 초기화 ─────────────────────────────────
+  isGuQuizMode  = false;
+  answerRange   = 1.5;
+  _adQuizCount  = 0;
+  if (_adTimer) { clearInterval(_adTimer); _adTimer = null; }
+
+  // ── 6. UI 요소 숨기기 ─────────────────────────────────────────
+  const moverlay = document.getElementById('moverlay');
+  if (moverlay) moverlay.classList.remove('show', 'no-mode');
+  const ansBar = document.getElementById('ans-bar');
+  if (ansBar) ansBar.classList.remove('show');
+  const rangeCtrl = document.getElementById('range-control');
+  if (rangeCtrl) rangeCtrl.style.display = 'none';
+  const rbw = document.getElementById('rbw');
+  if (rbw) rbw.innerHTML = '';
+  updateMobileQCard(null);
+  const mqc = document.getElementById('mobile-qcard-overlay');
+  if (mqc) mqc.classList.remove('visible');
+
+  // ── 7. 저장된 선택 복원 + 화면 전환 ─────────────────────────
+  showOnly('start');
+  if (_savedCitySelection) restoreQuizSelection();
+}
+
+window.goHome = function(){
+  if(confirm('퀴즈를 종료하고 처음으로 돌아가시겠습니까?')){
+    _savedTheme = isDarkTheme; // 테마 저장
+    fullReset();
   }
 }
+
 
 window.toggleTheme = function(){
   isDarkTheme = !isDarkTheme;
