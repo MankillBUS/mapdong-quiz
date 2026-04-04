@@ -155,6 +155,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 #toast.error{border-color:var(--accent2);color:var(--accent2);}
 #header{background:linear-gradient(135deg,#0d1929,#111827);border-bottom:2px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:1000;position:relative;}
 #header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);}
+/* 업무모드: 상단 우측 드롭다운 영역 완전 제거 (모든 해상도) */
+body.work-mode #header-right { display: none !important; }
 .logo{font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:var(--accent);text-shadow:0 0 15px var(--accent);letter-spacing:2px;}
 .logo span{color:var(--accent2);}
 #stats-bar{display:flex;gap:10px;}
@@ -336,8 +338,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
   /* 헤더: 로고 + 유저칩만, 나머지 숨김 */
   #stats-bar{display:none;}
-  /* 업무모드 모바일: 헤더 오른쪽(통계+유저칩) 완전 제거 → 시야 확보 */
-  body.work-mode #header-right { display: none !important; }
+
   #header{
     justify-content:space-between;
     padding:5px 10px;
