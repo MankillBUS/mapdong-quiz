@@ -1140,6 +1140,19 @@ window.startWorkMode = function() {
   document.body.style.paddingTop = '';
   if (typeof isRankingMode !== 'undefined') isRankingMode = false;
 
+  // 좌측 사이드패널 퀴즈 UI 초기화
+  var _qR = document.getElementById('qR'); if (_qR) _qR.textContent = '';
+  var _qD = document.getElementById('qD'); if (_qD) _qD.textContent = '-';
+  var _qH = document.getElementById('qH'); if (_qH) _qH.textContent = '';
+  var _rl = document.getElementById('rl'); if (_rl) _rl.innerHTML = '';
+  var _pT = document.getElementById('pT'); if (_pT) _pT.textContent = '0/0';
+  var _pF = document.getElementById('pF'); if (_pF) _pF.style.width = '0%';
+  var _sQ = document.getElementById('sQ'); if (_sQ) _sQ.textContent = '0';
+  var _sC = document.getElementById('sC'); if (_sC) _sC.textContent = '0';
+  var _sW = document.getElementById('sW'); if (_sW) _sW.textContent = '0';
+  var _sR = document.getElementById('sR'); if (_sR) _sR.textContent = '-';
+  var _sS = document.getElementById('sS'); if (_sS) _sS.textContent = '0';
+
   // 퀴즈 모드의 #rbw 버튼 초기화
   // → _getActiveKeys()가 .stag.sel만 참조하도록 강제
   var rbw = document.getElementById('rbw');
