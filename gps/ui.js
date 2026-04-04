@@ -176,6 +176,22 @@ function renderWorkModePanel(
     '    </div>',
     '  </div>',
 
+    '  <!-- ── 모바일 유저 메뉴 (접히는 영역 내 — 데스크탑은 숨김) ──── -->',
+    '  <div class="wm-user-menu">',
+    '    <div style="border-top:1px solid var(--border);margin:4px 0 8px;"></div>',
+    '    <div style="display:flex;gap:6px;flex-wrap:wrap;">',
+    '      <button class="wm-btn wm-btn--user" onclick="goMyInfo&&goMyInfo()">',
+    '        <span class="wm-icon">👤</span><span class="wm-lbl">내정보</span>',
+    '      </button>',
+    '      <button class="wm-btn wm-btn--user" onclick="openPlanMenu&&openPlanMenu()">',
+    '        <span class="wm-icon">💳</span><span class="wm-lbl">플랜/결제</span>',
+    '      </button>',
+    '      <button class="wm-btn wm-btn--user wm-btn--danger" onclick="closeDropdown&&closeDropdown();signOut&&signOut()">',
+    '        <span class="wm-icon">🚪</span><span class="wm-lbl">로그아웃</span>',
+    '      </button>',
+    '    </div>',
+    '  </div>',
+
     '</div>', // /#wm-collapsible
 
   ].join('\n');
@@ -632,6 +648,14 @@ function _injectStyles() {
     .wm-btn--filter { border-color: #fdcb6e; color: #fdcb6e; }
     .wm-btn--filter:hover { background: rgba(253,203,110,.1); }
     .wm-btn--filter.wm-btn--active { border-color: #fdcb6e !important; color: #fdcb6e !important; background: rgba(253,203,110,.15) !important; box-shadow: 0 0 6px rgba(253,203,110,.3); }
+    .wm-btn--user { border-color: var(--border, #1e3a5f); color: var(--text-dim, #7a9bb5); }
+    .wm-btn--user:hover { border-color: var(--accent, #00d4ff); color: var(--accent, #00d4ff); }
+
+    /* 모바일에서만 유저메뉴 표시 */
+    .wm-user-menu { display: none; }
+    @media (max-width: 600px) {
+      .wm-user-menu { display: block; }
+    }
     .wm-btn--danger:hover { border-color: var(--accent2,#ff3c6e); color: var(--accent2,#ff3c6e); }
     .wm-icon { font-size: .82rem; }
     .wm-lbl  { font-size: .7rem; }
