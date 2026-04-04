@@ -80,19 +80,28 @@ function initWorkMode(leafletMap) {
 
   // ui.js의 renderWorkModePanel 호출 (12개 콜백, GPS이동버튼 제거)
   renderWorkModePanel(
-    function() { _wmSwitchMode('line'); },          // 선 모드
-    function() { _wmSwitchMode('fan'); },           // 부채꼴 모드
+    function() { _wmDoneReset(); _wmSwitchMode('line'); },   // 선 모드 (완료상태 리셋 후 시작)
+    function() { _wmDoneReset(); _wmSwitchMode('fan'); },    // 부채꼴 모드
     function() { _toggleAutoCopy(); },              // 자동복사
-    function() { _toggleGpsTracking(); },           // GPS 추적 ON/OFF (이동버튼 위치)
-    function() { _wmAddLineChain(); },              // 선 이어붙이기
-    function() { _wmAddFanChain(); },               // 부채꼴 이어붙이기
+    function() { _toggleGpsTracking(); },           // GPS 추적 ON/OFF
+    function() { _wmDoneReset(); _wmAddLineChain(); },       // 선 이어붙이기 (완료 리셋)
+    function() { _wmDoneReset(); _wmAddFanChain(); },        // 부채꼴 이어붙이기 (완료 리셋)
     function() { _wmToggleShowDong(); },            // 동/구 표시
     function() { _wmToggleDongFilter(); },          // 교차지역만 Show
-    function() { _wmClearShapesOnly(); },           // 도형만 초기화 (동/구 표시 유지)
+    function() { _wmClearShapesOnly(); },           // 도형만 초기화
     function(v) { _lineBuffer = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },
     function(v) { _fanR1 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },
     function(v) { _fanR2 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); }
   );
+
+  // 완료 버튼 바인딩
+  if (typeof _bindDoneBtn === 'function') {
+    _bindDoneBtn(function() {
+      // 완료: 현재 모드 비활성화 → 지도 클릭해도 도형 변경 안됨
+      _currentMode = null;
+      setActiveModeBtn(null);
+    });
+  }
 
   // 업무모드 진입 시 퀴즈 전용 UI 숨기기
   document.body.classList.add('work-mode');
@@ -118,6 +127,30 @@ function initWorkMode(leafletMap) {
         try { map.invalidateSize({ animate: false, pan: false }); } catch(e) {}
       }
     }, 300);
+  }
+
+  // ── 기본값 설정: GPS OFF, 동/구 ON, 자동복사 ON, 교차만 ON ──
+  // GPS 추적 OFF
+  _gpsTracking = false;
+  setGpsTrackBtn(false);
+  setGpsDot('wait');
+
+  // 동/구 표시 ON
+  if (!_dongVisible) {
+    _wmToggleShowDong();
+  }
+
+  // 자동복사 ON
+  if (!_autoCopy) {
+    _autoCopy = true;
+    setAutoCopyBtn(true);
+  }
+
+  // 교차만 ON (동/구 표시가 켜진 후 실행)
+  if (!_dongFilterMode) {
+    _dongFilterMode = true;
+    setDongFilterBtn(true);
+    // 아직 결과 없으므로 필터 적용은 도형 생성 후 자동
   }
 
   // GPS 5초 자동이동 타이머 시작
@@ -219,8 +252,19 @@ function exitWorkMode() {
 // 4. 모드 전환
 // ════════════════════════════════════════════════════════════════
 
+/** 완료 상태 리셋 — 모드버튼/추가버튼 클릭 시 먼저 호출 */
+function _wmDoneReset() {
+  // 슬라이더바는 setActiveModeBtn(mode) 안의 _showSliderRows에서 표시됨
+  // 여기서는 별도 처리 불필요 (확장용 훅)
+}
+
 function _wmSwitchMode(mode) {
-  if (_currentMode === mode) return;
+  if (_currentMode === mode) {
+    // 같은 모드 재클릭 → 완료와 동일하게 비활성화
+    _currentMode = null;
+    setActiveModeBtn(null);
+    return;
+  }
   _wmDestroyShapes();
   _currentMode = mode;
   setActiveModeBtn(mode);
