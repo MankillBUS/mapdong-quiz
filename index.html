@@ -6342,6 +6342,10 @@ async function handlePaymentCallback(){
    🛎 고객센터 & 공지 롤링 시스템
    ════════════════════════════════════════════════════════ */
 
+/* ── cs 에디터 placeholder ── */
+#cs-content-editor:empty:before{content:attr(placeholder);color:var(--text-dim);pointer-events:none;}
+#cs-content-editor img{max-width:100%;border-radius:8px;margin:6px 0;display:block;}
+
 /* ── Supabase 고객센터 테이블: cs_posts
    컬럼: id, user_id, nickname, title, content, is_notice,
          created_at, updated_at
@@ -6692,7 +6696,7 @@ async function csViewPost(postId) {
         <span>✍️ ${escHtml(post.nickname||'익명')}</span>
         <span>🕐 ${fmtDate(post.created_at)}</span>
       </div>
-      <div class="cs-detail-body">${escHtml(post.content||'')}</div>
+      <div class="cs-detail-body" id="cs-view-content">${post.content||''}</div>
       <div class="cs-detail-btns">
         <button class="cs-btn-back" onclick="renderCSBoard()">← 목록</button>
         ${canEdit ? `<button class="cs-btn-edit" onclick="csEditForm(${post.id})">✏️ 수정</button>
@@ -6717,7 +6721,17 @@ function csWriteForm(editPost = null) {
         <span style="margin-left:6px;">📢 공지사항으로 등록 (관리자 전용)</span>
       </label>` : ''}
       <input class="cs-input" id="cs-title-input" placeholder="제목을 입력하세요" value="${isEdit ? escHtml(editPost.title) : ''}">
-      <textarea class="cs-textarea" id="cs-content-input" placeholder="내용을 입력하세요">${isEdit ? escHtml(editPost.content||'') : ''}</textarea>
+      <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px;">
+        <div style="display:flex;gap:6px;padding:8px 10px;background:var(--surface2);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;">
+          <button type="button" class="cs-btn-cancel" style="padding:4px 10px;font-size:.75rem;" onclick="csTriggerImgUpload()">🖼 이미지 삽입</button>
+          <span style="font-size:.68rem;color:var(--text-dim);">JPG·PNG·GIF·WEBP · 용량 제한 없음</span>
+        </div>
+        <input type="file" id="cs-img-file-input" accept="image/*" multiple style="display:none;" onchange="csHandleImgFiles(this.files)">
+        <div id="cs-content-editor" contenteditable="true"
+          style="min-height:160px;padding:12px 14px;font-size:.84rem;color:var(--text);outline:none;line-height:1.7;"
+          onpaste="csHandlePaste(event)" ondrop="csHandleDrop(event)" ondragover="event.preventDefault()"
+          placeholder="내용을 입력하세요">${isEdit ? (editPost.content||'') : ''}</div>
+      </div>
       <div class="cs-form-btns">
         <button class="cs-btn-cancel" onclick="${isEdit ? 'csViewPost('+editPost.id+')' : 'renderCSBoard()'}">취소</button>
         <button class="cs-btn-submit" onclick="${isEdit ? 'csUpdatePost('+editPost.id+')' : 'csSubmitPost()'}">
@@ -6735,11 +6749,15 @@ function csEditForm(postId) {
 /* ── 게시물 등록 ─────────────────────────────────────────── */
 async function csSubmitPost() {
   const title   = document.getElementById('cs-title-input')?.value.trim();
-  const content = document.getElementById('cs-content-input')?.value.trim();
+  // 에디터 방식 우선, 없으면 textarea fallback
+  const editorEl = document.getElementById('cs-content-editor');
+  const textareaEl = document.getElementById('cs-content-input');
+  const content = editorEl ? editorEl.innerHTML.trim() : (textareaEl?.value.trim() || '');
+  const contentText = editorEl ? editorEl.textContent.trim() : content;
   const isNotice= isAdmin() && document.getElementById('cs-is-notice')?.checked;
 
   if(!title)  { toast('제목을 입력해주세요','error'); return; }
-  if(!content){ toast('내용을 입력해주세요','error'); return; }
+  if(!contentText){ toast('내용을 입력해주세요','error'); return; }
 
   const nick = userProfile?.nickname || currentUser?.user_metadata?.name || currentUser?.email?.split('@')[0] || '회원';
 
@@ -6762,11 +6780,14 @@ async function csSubmitPost() {
 /* ── 게시물 수정 ─────────────────────────────────────────── */
 async function csUpdatePost(postId) {
   const title   = document.getElementById('cs-title-input')?.value.trim();
-  const content = document.getElementById('cs-content-input')?.value.trim();
+  const editorEl2 = document.getElementById('cs-content-editor');
+  const textareaEl2 = document.getElementById('cs-content-input');
+  const content = editorEl2 ? editorEl2.innerHTML.trim() : (textareaEl2?.value.trim() || '');
+  const contentText2 = editorEl2 ? editorEl2.textContent.trim() : content;
   const isNotice= isAdmin() && document.getElementById('cs-is-notice')?.checked;
 
   if(!title)  { toast('제목을 입력해주세요','error'); return; }
-  if(!content){ toast('내용을 입력해주세요','error'); return; }
+  if(!contentText2){ toast('내용을 입력해주세요','error'); return; }
 
   const { error } = await sb.from('cs_posts').update({
     title, content, is_notice: isNotice, updated_at: new Date().toISOString()
@@ -8604,6 +8625,57 @@ function copyAuthLog() {
 <script src="gps/drawFan.js"></script>
 <script src="gps/spatial.js"></script>
 <script src="gps/ui.js"></script>
-<script src="gps/index.js"></script>
+<script src="gps/index.js">
+/* ── 공지사항 이미지 업로드 ── */
+function csTriggerImgUpload(){
+  var el = document.getElementById('cs-img-file-input');
+  if(el){ el.value=''; el.click(); }
+}
+async function csHandleImgFiles(files){
+  for(const f of Array.from(files)){
+    if(!f.type.startsWith('image/')){ alert(f.name+': 이미지만 가능합니다'); continue; }
+    // 용량 제한 없음
+    await csInsertImgToEditor(f);
+  }
+}
+async function csHandlePaste(e){
+  const items = e.clipboardData?.items;
+  if(!items) return;
+  for(const item of Array.from(items)){
+    if(item.type.startsWith('image/')){
+      e.preventDefault();
+      const f = item.getAsFile();
+      await csInsertImgToEditor(f);
+    }
+  }
+}
+async function csHandleDrop(e){
+  e.preventDefault();
+  if(e.dataTransfer?.files) await csHandleImgFiles(e.dataTransfer.files);
+}
+async function csInsertImgToEditor(file){
+  const reader = new FileReader();
+  const dataUrl = await new Promise(res=>{ reader.onload=e=>res(e.target.result); reader.readAsDataURL(file); });
+  const editor = document.getElementById('cs-content-editor');
+  if(!editor) return;
+  editor.focus();
+  const img = document.createElement('img');
+  img.src = dataUrl;
+  img.style.cssText = 'max-width:100%;border-radius:8px;margin:6px 0;display:block;border:1px solid var(--border);cursor:pointer;';
+  img.onclick = () => { if(typeof openLightbox==='function') openLightbox(img.src); };
+  const sel = window.getSelection();
+  if(sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)){
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(img);
+    range.setStartAfter(img);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } else {
+    editor.appendChild(img);
+  }
+}
+</script>
 </body>
 </html>
