@@ -103,6 +103,23 @@ function initWorkMode(leafletMap) {
   var sbEl = document.getElementById('stats-bar');
   if (sbEl) sbEl.style.display = 'none';
 
+  // 양쪽 사이드바 기본 접힘
+  var mainEl = document.getElementById('main');
+  if (mainEl) {
+    mainEl.classList.add('side-collapsed');
+    mainEl.classList.add('right-collapsed');
+    var sideToggle = document.getElementById('side-toggle');
+    if (sideToggle) sideToggle.textContent = '▶';
+    var rightToggle = document.getElementById('right-side-toggle');
+    if (rightToggle) rightToggle.textContent = '◀';
+    // 지도 크기 재계산
+    setTimeout(function() {
+      if (typeof map !== 'undefined' && map) {
+        try { map.invalidateSize({ animate: false, pan: false }); } catch(e) {}
+      }
+    }, 300);
+  }
+
   // GPS 5초 자동이동 타이머 시작
   _startGpsAutoTimer();
 
@@ -174,6 +191,22 @@ function exitWorkMode() {
   if (moEl) moEl.style.display = '';
   var sbEl2 = document.getElementById('stats-bar');
   if (sbEl2) sbEl2.style.display = '';
+
+  // 사이드바 원복
+  var mainEl2 = document.getElementById('main');
+  if (mainEl2) {
+    mainEl2.classList.remove('side-collapsed');
+    mainEl2.classList.remove('right-collapsed');
+    var sideToggle2 = document.getElementById('side-toggle');
+    if (sideToggle2) sideToggle2.textContent = '◀';
+    var rightToggle2 = document.getElementById('right-side-toggle');
+    if (rightToggle2) rightToggle2.textContent = '▶';
+    setTimeout(function() {
+      if (typeof map !== 'undefined' && map) {
+        try { map.invalidateSize({ animate: false, pan: false }); } catch(e) {}
+      }
+    }, 300);
+  }
 
   // #rbw 초기화 (다음 퀴즈/업무모드 진입 시 stag.sel 기준으로 참조)
   var rbwEl = document.getElementById('rbw');
