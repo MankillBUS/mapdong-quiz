@@ -336,8 +336,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 
   /* 헤더: 로고 + 유저칩만, 나머지 숨김 */
   #stats-bar{display:none;}
-  /* 업무모드에서 모바일 유저칩 숨기기 */
-  body.work-mode #user-chip { display: none !important; }
+  /* 업무모드 모바일: 헤더 오른쪽(통계+유저칩) 완전 제거 → 시야 확보 */
+  body.work-mode #header-right { display: none !important; }
   #header{
     justify-content:space-between;
     padding:5px 10px;
@@ -5043,7 +5043,9 @@ async function loadIndexNotifications(){
 function renderIndexNotifBadge(notifs){
   const unread = (notifs||[]).filter(n=>!n.is_read).length;
   const badge = document.getElementById('index-notif-badge');
+  const wmBadge = document.getElementById('wm-notif-badge');
   if(badge){ badge.textContent=unread>9?'9+':unread; badge.style.display=unread>0?'flex':'none'; }
+  if(wmBadge){ wmBadge.textContent=unread>9?'9+':unread; wmBadge.classList.toggle('has-notif',unread>0); }
   // 로그인 상태면 알림 영역 항상 표시
   const area = document.getElementById('index-notif-area');
   if(area) area.style.display = currentUser ? 'block' : 'none';
