@@ -531,8 +531,9 @@ function _injectStyles() {
       align-items: center;
       gap: 6px;
       padding: 5px 10px;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       min-height: 38px;
+      overflow: hidden;
     }
     .wm-fixed-divider {
       width: 1px;
@@ -635,7 +636,7 @@ function _injectStyles() {
     }
 
     /* ── 버튼 그룹 ── */
-    .wm-btn-group { display: flex; gap: 4px; flex-wrap: wrap; }
+    .wm-btn-group { display: flex; gap: 4px; flex-wrap: nowrap; }
 
     /* ── 공통 버튼 ── */
     .wm-btn {
@@ -782,12 +783,16 @@ function _injectStyles() {
     }
 
     /* ── 모바일 480px 이하 ── */
-    @media (max-width: 480px) {
+    @media (max-width: 600px) {
       .wm-lbl   { display: none; }
       .wm-label { display: none; }
-      .wm-btn   { padding: 4px 6px; }
-      .wm-fixed-bar { gap: 4px; padding: 4px 7px; }
+      .wm-btn   { padding: 4px 5px; font-size: .68rem; flex-shrink: 1; min-width: 0; }
+      .wm-icon  { font-size: .78rem; }
+      .wm-fixed-bar { gap: 3px; padding: 4px 6px; }
+      .wm-fixed-divider { margin: 0 1px; }
+      .wm-collapse-btn { padding: 4px 6px; }
       .wm-collapse-lbl { display: none; }
+      .wm-badge { font-size: .5rem; padding: 1px 2px; }
       .wm-search-input::placeholder { font-size: .65rem; }
     }
   `;
