@@ -1115,6 +1115,11 @@ window.startWorkMode = function() {
   var selected = document.querySelectorAll('.stag.sel');
   if (!selected.length) { alert('먼저 지역을 선택해주세요.'); return; }
 
+  // 퀴즈 모드의 #rbw 버튼 초기화
+  // → _getActiveKeys()가 .stag.sel만 참조하도록 강제
+  var rbw = document.getElementById('rbw');
+  if (rbw) rbw.innerHTML = '';
+
   var doStart = function() {
     if (typeof map !== 'undefined' && map && _isMapAliveExternal(map)) {
       initWorkMode(map);
