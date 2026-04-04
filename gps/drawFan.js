@@ -1,34 +1,36 @@
 /**
- * drawFan.js — 부채꼴 Polygon 생성 모듈 (각도 스윕 방식)
+ * drawFan.js — 부채꼴 Polygon 생성 모듈 (외접선 + 원호, 검증된 공식)
  * ✅ 외부 호출 금지. index.js에서만 사용
  *
- * [v2] tangent 기반 → 각도 스윕(angle sweep) 방식으로 전면 재작성
+ * [v3] first-principles 외접선 공식 적용
  *
- * 핵심 원리:
- *   1. 시작점 → 끝점 방향각 θ = atan2(dy, dx)
- *   2. 끝점 반경 r2와 거리 d로 부채꼴 반각 α = atan2(r2, d) 계산
- *      → atan2 사용으로 모든 방향 완벽 대칭
- *      → tan 기반 발산 없음
- *   3. 시작 원 호: θ-α ~ θ+α (c1 주변, r1)
- *   4. 끝 원 호:   (θ+α) ~ (θ-α) 반대편 (c2 주변, r2)
- *   5. 두 호의 양 끝을 직선으로 연결 → 닫기
+ * ┌──────────────────────────────────────────────────────────┐
+ * │  핵심 수학 (외접선 법선벡터 n)                             │
+ * │                                                          │
+ * │  조건: n · (C2-C1) = r2 - r1  (단위벡터 n)              │
+ * │  → sinφ = (r2-r1)/d, cosφ = sqrt(1 - sinφ²)            │
+ * │  → n_right = sinφ·d_hat + cosφ·d_perp                  │
+ * │  → n_left  = sinφ·d_hat - cosφ·d_perp                  │
+ * │  접점: P = C - r·n  (법선 반대 방향이 접점)              │
+ * │                                                          │
+ * │  도형 구조:                                               │
+ * │    t1R ─────────────────── t2R                          │
+ * │   ╱    (오른쪽 외접선)        ╲                          │
+ * │  C1(r1)                      C2(r2)                     │
+ * │   ╲    (왼쪽 외접선)          ╱                          │
+ * │    t1L ─────────────────── t2L                          │
+ * └──────────────────────────────────────────────────────────┘
  *
- * 공개 함수:
- *   buildFanPolygon(start, end, r1, r2, tangentFn, arcFn, angleFn)
- *     tangentFn, arcFn, angleFn — index.js가 주입 (하위 호환 유지, 내부 미사용)
- *
- * @param {{ lat, lng }} start  GPS 현재 위치
- * @param {{ lat, lng }} end    최초 클릭 고정점
- * @param {number}       r1     시작 원 반경 (km)
- * @param {number}       r2     끝 원 반경   (km)
- * @param {function}     tangentFn  (하위 호환용, 미사용)
- * @param {function}     arcFn      (하위 호환용, 미사용)
- * @param {function}     angleFn    (하위 호환용, 미사용)
- * @returns {{ polygon: object, layer: object } | null}
+ * 외곽선 순서:
+ *   t1L → t2L (왼쪽 직선)
+ *   → C2 원호 (왼→오른, 바깥쪽)
+ *   → t2R → t1R (오른쪽 직선)
+ *   → C1 원호 (오른→왼, 안쪽)
+ *   → 닫기
  */
 
 // ── 상수 ─────────────────────────────────────────────────────────
-const FAN_ARC_SEGMENTS = 48;      // 호 분할 수 (많을수록 부드러움)
+const FAN_ARC_SEGMENTS = 48;
 const EARTH_R_KM_FAN   = 6371;
 const _FAN_REF_LAT     = 37.5665;
 const _FAN_REF_LNG     = 126.9780;
@@ -45,70 +47,89 @@ function buildFanPolygon(start, end, r1, r2, tangentFn, arcFn, angleFn) {
   const dy = c2.y - c1.y;
   const d  = Math.sqrt(dx * dx + dy * dy);
 
-  // 끝점과 너무 가까우면 그릴 수 없음
   if (d < 1e-6) return null;
 
-  // ── 2. 중심축 방향각 θ (c1 → c2) ───────────────────────────
-  const theta = Math.atan2(dy, dx);
+  // ── 2. 외접선 법선벡터 계산 (검증된 공식) ───────────────────
+  //
+  //   d_hat = (ux, uy) : C1→C2 단위벡터
+  //   d_perp = (-uy, ux) : 수직 단위벡터 (반시계 90도)
+  //   sinP = (r2 - r1) / d
+  //   cosP = sqrt(1 - sinP²)
+  //
+  //   n_right = sinP * d_hat + cosP * d_perp
+  //   n_left  = sinP * d_hat - cosP * d_perp
+  //
+  //   접점 = 원 중심 - r * n  (법선 반대 방향)
+  //
+  const ux = dx / d;
+  const uy = dy / d;
+  const px = -uy;   // d_perp
+  const py =  ux;
 
-  // ── 3. 부채꼴 반각 α 계산 ───────────────────────────────────
-  // atan2(r2, d): c2까지 거리 d에서 반경 r2가 차지하는 각도
-  // → r2가 클수록, d가 작을수록 넓어지는 자연스러운 시야각
-  const alpha = Math.atan2(r2, d);
+  const sinP = (r2 - r1) / d;
+  const cosP = Math.sqrt(Math.max(0, 1 - sinP * sinP));
 
-  // alpha가 π/2 이상이면 시각적으로 너무 넓어짐 → 클램프
-  const clampedAlpha = Math.min(alpha, Math.PI * 0.72);
+  // 오른쪽 법선 (C1→C2 기준 오른쪽)
+  const n1x = sinP * ux + cosP * px;
+  const n1y = sinP * uy + cosP * py;
+  // 왼쪽 법선
+  const n2x = sinP * ux - cosP * px;
+  const n2y = sinP * uy - cosP * py;
 
-  // ── 4. 시작 원 호 (c1, r1): θ-α ~ θ+α ─────────────────────
-  // 안쪽 호: c1 주변, 작은 반원 형태
-  const c1ArcPts = _sweepArc(c1, r1, theta - clampedAlpha, theta + clampedAlpha, false);
+  // 접점 (C - r * n)
+  const t1R = { x: c1.x - r1 * n1x, y: c1.y - r1 * n1y };  // C1 오른쪽
+  const t2R = { x: c2.x - r2 * n1x, y: c2.y - r2 * n1y };  // C2 오른쪽
+  const t1L = { x: c1.x - r1 * n2x, y: c1.y - r1 * n2y };  // C1 왼쪽
+  const t2L = { x: c2.x - r2 * n2x, y: c2.y - r2 * n2y };  // C2 왼쪽
 
-  // ── 5. 끝 원 호 (c2, r2): θ+α 반대편 ~ θ-α 반대편 ─────────
-  // 바깥 호: c2 주변, 더 큰 호
-  // c2 기준으로 c1 방향은 theta + π
-  // c2 호 범위: (theta + π) ± alpha  →  시계방향으로 스윕
-  const c2BaseAngle = theta + Math.PI;
-  const c2ArcPts = _sweepArc(c2, r2,
-    c2BaseAngle + clampedAlpha,   // 오른쪽 접점 (c1 기준 오른쪽)
-    c2BaseAngle - clampedAlpha,   // 왼쪽 접점
-    false                          // 반시계 → c2 바깥쪽 호
-  );
+  // ── 3. 각 접점의 각도 (원 중심 기준) ─────────────────────────
+  const a1R = Math.atan2(t1R.y - c1.y, t1R.x - c1.x);  // C1 오른쪽 접점 각도
+  const a1L = Math.atan2(t1L.y - c1.y, t1L.x - c1.x);  // C1 왼쪽 접점 각도
+  const a2R = Math.atan2(t2R.y - c2.y, t2R.x - c2.x);  // C2 오른쪽 접점 각도
+  const a2L = Math.atan2(t2L.y - c2.y, t2L.x - c2.x);  // C2 왼쪽 접점 각도
 
-  // ── 6. 외곽선 조합 ───────────────────────────────────────────
-  // c1 호 왼쪽 끝 → c2 호 왼쪽 끝 (직선)
-  // → c2 호 (오른→왼)
-  // → c2 호 오른쪽 끝 → c1 호 오른쪽 끝 (직선)
-  // → c1 호 (오른→왼)
-  // → 닫기
+  // ── 4. 원호 생성 ─────────────────────────────────────────────
+  //
+  //   C1 안쪽 호: 오른쪽 접점 → 왼쪽 접점 (반시계, 부채꼴 안쪽)
+  //   C2 바깥 호: 왼쪽 접점 → 오른쪽 접점 (반시계, 부채꼴 바깥)
+  //
+  //   방향 결정:
+  //     C1 호: t1R → t1L 로 C1 뒤쪽(GPS 쪽) 원호 → 시계방향
+  //     C2 호: t2L → t2R 로 C2 앞쪽(끝점 쪽) 원호 → 반시계방향
+  //
+  const c1Arc = _fanArc(c1, r1, a1R, a1L, true);   // 시계방향 (안쪽 호)
+  const c2Arc = _fanArc(c2, r2, a2L, a2R, false);  // 반시계방향 (바깥 호)
+
+  // ── 5. 외곽선 조합 ───────────────────────────────────────────
+  //   왼쪽 직선: t1L → t2L
+  //   C2 바깥 호: t2L → t2R
+  //   오른쪽 직선: t2R → t1R
+  //   C1 안쪽 호: t1R → t1L
   const ring = [
-    ...c1ArcPts,          // c1 호: 왼쪽 → 오른쪽 (θ-α → θ+α)
-    ...c2ArcPts,          // c2 호: 오른쪽 → 왼쪽 (반대편)
+    t1L,
+    t2L,
+    ...c2Arc,   // C2 바깥 호 (왼→오른)
+    t2R,
+    t1R,
+    ...c1Arc,   // C1 안쪽 호 (오른→왼)
   ];
 
-  // ── 7. 평면 → 위경도 복원 ────────────────────────────────────
+  // ── 6. 평면 → 위경도 복원 ────────────────────────────────────
   const latlngs = ring.map(_fanXyToLatlng);
 
-  // ── 8. GeoJSON Polygon 생성 ──────────────────────────────────
+  // ── 7. GeoJSON Polygon ───────────────────────────────────────
   const coords = latlngs.map(p => [p.lng, p.lat]);
-  coords.push(coords[0]);  // 닫기
+  coords.push(coords[0]);
 
   const polygon = {
     type: 'Feature',
-    geometry: {
-      type: 'Polygon',
-      coordinates: [coords],
-    },
+    geometry: { type: 'Polygon', coordinates: [coords] },
   };
 
-  // ── 9. Leaflet 레이어 생성 ───────────────────────────────────
+  // ── 8. Leaflet 레이어 ────────────────────────────────────────
   const layer = L.polygon(
     latlngs.map(p => [p.lat, p.lng]),
-    {
-      color:       '#ff9f43',
-      fillColor:   '#ff9f43',
-      fillOpacity: 0.18,
-      weight:      2,
-    }
+    { color: '#ff9f43', fillColor: '#ff9f43', fillOpacity: 0.18, weight: 2 }
   );
 
   return { polygon, layer };
@@ -117,45 +138,47 @@ function buildFanPolygon(start, end, r1, r2, tangentFn, arcFn, angleFn) {
 // ── 내부 헬퍼 ────────────────────────────────────────────────────
 
 /**
- * 각도 스윕으로 원호 위의 점 배열 생성
- * startAngle → endAngle 방향으로 FAN_ARC_SEGMENTS개 분할
+ * 원호 포인트 생성 (startAngle → endAngle)
+ * clockwise=true : 시계방향 (sweep < 0)
+ * clockwise=false: 반시계방향 (sweep > 0)
  *
  * @param {{ x, y }} center
- * @param {number}   radius
+ * @param {number}   r
  * @param {number}   startAngle  (라디안)
  * @param {number}   endAngle    (라디안)
- * @param {boolean}  clockwise   true = 시계방향
+ * @param {boolean}  clockwise
  * @returns {{ x, y }[]}
  */
-function _sweepArc(center, radius, startAngle, endAngle, clockwise) {
-  const N = FAN_ARC_SEGMENTS;
+function _fanArc(center, r, startAngle, endAngle, clockwise) {
+  const N   = FAN_ARC_SEGMENTS;
   const pts = [];
 
-  // 각도 범위 (항상 short path)
   let sweep = endAngle - startAngle;
 
   if (clockwise) {
-    // 시계방향: sweep이 양수면 음수로
-    if (sweep > 0) sweep -= 2 * Math.PI;
+    // 시계방향: sweep이 양수면 한 바퀴 빼서 음수로
+    if (sweep > 1e-9) sweep -= 2 * Math.PI;
   } else {
-    // 반시계방향: sweep이 음수면 양수로
-    if (sweep < 0) sweep += 2 * Math.PI;
+    // 반시계방향: sweep이 음수면 한 바퀴 더해서 양수로
+    if (sweep < -1e-9) sweep += 2 * Math.PI;
   }
 
-  for (let i = 0; i <= N; i++) {
+  // sweep이 0에 가까우면 전체 원 방지
+  if (Math.abs(sweep) < 1e-9) return [];
+
+  for (let i = 1; i < N; i++) {  // 양 끝점은 외곽선이 포함
     const t     = i / N;
     const angle = startAngle + sweep * t;
     pts.push({
-      x: center.x + radius * Math.cos(angle),
-      y: center.y + radius * Math.sin(angle),
+      x: center.x + r * Math.cos(angle),
+      y: center.y + r * Math.sin(angle),
     });
   }
-
   return pts;
 }
 
 /**
- * 위경도 → 평면 km (Equirectangular)
+ * 위경도 → 평면 km
  */
 function _fanLatlngToXY(pos) {
   return {
