@@ -94,9 +94,11 @@ function initWorkMode(leafletMap) {
     function(v) { _fanR2 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); }
   );
 
-  // 업무모드 진입 시 오른쪽 버튼(#mo) 숨기기
+  // 업무모드 진입 시 오른쪽 버튼(#mo) + 정답범위(range-control) 숨기기
   var moEl = document.getElementById('mo');
   if (moEl) moEl.style.display = 'none';
+  var rcEl = document.getElementById('range-control');
+  if (rcEl) rcEl.style.display = 'none';
 
   // GPS 5초 자동이동 타이머 시작
   _startGpsAutoTimer();
@@ -166,6 +168,10 @@ function exitWorkMode() {
   // 업무모드 종료 시 오른쪽 버튼(#mo) 복원
   var moEl = document.getElementById('mo');
   if (moEl) moEl.style.display = '';
+
+  // #rbw 초기화 (다음 퀴즈/업무모드 진입 시 stag.sel 기준으로 참조)
+  var rbwEl = document.getElementById('rbw');
+  if (rbwEl) rbwEl.innerHTML = '';
 
   _map = null;
 }
@@ -1128,14 +1134,21 @@ window.startWorkMode = function() {
     var startEl = document.getElementById('start');
     if (startEl) startEl.classList.add('hidden');
     if (typeof initMap === 'function') initMap();
-    setTimeout(function() {
-      if (typeof map !== 'undefined' && map) {
+
+    // 폴링: map 생성 대기 (최대 3초, 100ms 간격)
+    var attempts = 0;
+    var maxAttempts = 30;
+    var poll = setInterval(function() {
+      attempts++;
+      if (typeof map !== 'undefined' && map && _isMapAliveExternal(map)) {
+        clearInterval(poll);
         initWorkMode(map);
-      } else {
+      } else if (attempts >= maxAttempts) {
+        clearInterval(poll);
         alert('지도 초기화 실패. 다시 시도해주세요.');
         if (startEl) startEl.classList.remove('hidden');
       }
-    }, 300);
+    }, 100);
   };
 
   if (typeof POLY_CACHE === 'undefined' || !POLY_CACHE) {
