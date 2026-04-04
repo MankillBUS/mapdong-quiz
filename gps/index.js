@@ -94,11 +94,14 @@ function initWorkMode(leafletMap) {
     function(v) { _fanR2 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); }
   );
 
-  // 업무모드 진입 시 오른쪽 버튼(#mo) + 정답범위(range-control) 숨기기
+  // 업무모드 진입 시 퀴즈 전용 UI 숨기기
+  document.body.classList.add('work-mode');
   var moEl = document.getElementById('mo');
   if (moEl) moEl.style.display = 'none';
   var rcEl = document.getElementById('range-control');
   if (rcEl) rcEl.style.display = 'none';
+  var sbEl = document.getElementById('stats-bar');
+  if (sbEl) sbEl.style.display = 'none';
 
   // GPS 5초 자동이동 타이머 시작
   _startGpsAutoTimer();
@@ -165,9 +168,12 @@ function exitWorkMode() {
 
   removeWorkModePanel();
 
-  // 업무모드 종료 시 오른쪽 버튼(#mo) 복원
+  // 업무모드 종료 시 퀴즈 전용 UI 복원
+  document.body.classList.remove('work-mode');
   var moEl = document.getElementById('mo');
   if (moEl) moEl.style.display = '';
+  var sbEl2 = document.getElementById('stats-bar');
+  if (sbEl2) sbEl2.style.display = '';
 
   // #rbw 초기화 (다음 퀴즈/업무모드 진입 시 stag.sel 기준으로 참조)
   var rbwEl = document.getElementById('rbw');
