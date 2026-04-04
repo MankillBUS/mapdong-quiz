@@ -121,6 +121,44 @@ function renderWorkModePanel(
     '    </button>',
     '  </div>',
 
+    '  <!-- 3행: 슬라이더 + 완료버튼 (모드 활성 시만 표시) -->',
+    '  <div id="wm-slider-bar" class="wm-slider-bar" style="display:none;">',
+    '    <!-- 선 버퍼 슬라이더 -->',
+    '    <div class="wm-row" id="wm-row-buf">',
+    '      <div class="wm-label">선 굵기</div>',
+    '      <div class="wm-slider-wrap">',
+    '        <span class="wm-sl-min">0.1</span>',
+    '        <input type="range" id="' + SLIDER_BUF_ID + '" min="0.1" max="15" step="0.1" value="0.3" class="wm-slider">',
+    '        <span class="wm-sl-max">15km</span>',
+    '        <span class="wm-sl-val" id="wm-buf-val">0.3km</span>',
+    '      </div>',
+    '    </div>',
+    '    <!-- 부채꼴 r1 슬라이더 -->',
+    '    <div class="wm-row" id="wm-row-r1">',
+    '      <div class="wm-label">시작반경</div>',
+    '      <div class="wm-slider-wrap">',
+    '        <span class="wm-sl-min">0.1</span>',
+    '        <input type="range" id="' + SLIDER_R1_ID + '" min="0.1" max="10" step="0.1" value="0.3" class="wm-slider">',
+    '        <span class="wm-sl-max">10km</span>',
+    '        <span class="wm-sl-val" id="wm-r1-val">0.3km</span>',
+    '      </div>',
+    '    </div>',
+    '    <!-- 부채꼴 r2 슬라이더 -->',
+    '    <div class="wm-row" id="wm-row-r2">',
+    '      <div class="wm-label">도착반경</div>',
+    '      <div class="wm-slider-wrap">',
+    '        <span class="wm-sl-min">0.2</span>',
+    '        <input type="range" id="' + SLIDER_R2_ID + '" min="0.2" max="15" step="0.1" value="0.8" class="wm-slider">',
+    '        <span class="wm-sl-max">15km</span>',
+    '        <span class="wm-sl-val" id="wm-r2-val">0.8km</span>',
+    '      </div>',
+    '    </div>',
+    '    <!-- 완료 버튼 -->',
+    '    <button id="wm-btn-done" class="wm-btn-done" title="그리기 완료 — 슬라이더 닫힘">',
+    '      ✅ 완료',
+    '    </button>',
+    '  </div>',
+
     '</div>',
 
     /* ══ 지역 검색창 (항상 보임) ════════════════════════════════ */
@@ -145,38 +183,7 @@ function renderWorkModePanel(
 
     '  <!-- 모드 버튼은 상단 fixed-bar로 이동됨 -->',
 
-    '  <!-- 선 버퍼 슬라이더 -->',
-    '  <div class="wm-row" id="wm-row-buf">',
-    '    <div class="wm-label">선 굵기</div>',
-    '    <div class="wm-slider-wrap">',
-    '      <span class="wm-sl-min">0.1</span>',
-    '      <input type="range" id="' + SLIDER_BUF_ID + '" min="0.1" max="15" step="0.1" value="0.3" class="wm-slider">',
-    '      <span class="wm-sl-max">3km</span>',
-    '      <span class="wm-sl-val" id="wm-buf-val">0.3km</span>',
-    '    </div>',
-    '  </div>',
-
-    '  <!-- 부채꼴 r1 슬라이더 -->',
-    '  <div class="wm-row" id="wm-row-r1">',
-    '    <div class="wm-label">시작반경</div>',
-    '    <div class="wm-slider-wrap">',
-    '      <span class="wm-sl-min">0.1</span>',
-    '      <input type="range" id="' + SLIDER_R1_ID + '" min="0.1" max="10" step="0.1" value="0.3" class="wm-slider">',
-    '      <span class="wm-sl-max">3km</span>',
-    '      <span class="wm-sl-val" id="wm-r1-val">0.3km</span>',
-    '    </div>',
-    '  </div>',
-
-    '  <!-- 부채꼴 r2 슬라이더 -->',
-    '  <div class="wm-row" id="wm-row-r2">',
-    '    <div class="wm-label">도착반경</div>',
-    '    <div class="wm-slider-wrap">',
-    '      <span class="wm-sl-min">0.2</span>',
-    '      <input type="range" id="' + SLIDER_R2_ID + '" min="0.2" max="15" step="0.1" value="0.8" class="wm-slider">',
-    '      <span class="wm-sl-max">5km</span>',
-    '      <span class="wm-sl-val" id="wm-r2-val">0.8km</span>',
-    '    </div>',
-    '  </div>',
+    '  <!-- 슬라이더는 3행(wm-slider-bar)으로 이동됨 -->',
 
     '  <!-- ── 모바일 유저 메뉴 (접히는 영역 내 — 데스크탑은 숨김) ──── -->',
     '  <div class="wm-user-menu">',
@@ -302,17 +309,31 @@ function renderWorkModePanel(
 
 /** 모드에 따라 슬라이더/추가버튼 표시 */
 function _showSliderRows(mode) {
-  var rowBuf  = document.getElementById('wm-row-buf');
-  var rowR1   = document.getElementById('wm-row-r1');
-  var rowR2   = document.getElementById('wm-row-r2');
-  var addLine = document.getElementById(BTN_ADD_LINE_ID);
-  var addFan  = document.getElementById(BTN_ADD_FAN_ID);
+  var sliderBar = document.getElementById('wm-slider-bar');
+  var rowBuf    = document.getElementById('wm-row-buf');
+  var rowR1     = document.getElementById('wm-row-r1');
+  var rowR2     = document.getElementById('wm-row-r2');
+  var addLine   = document.getElementById(BTN_ADD_LINE_ID);
+  var addFan    = document.getElementById(BTN_ADD_FAN_ID);
+
+  // 모드 있으면 3행 표시, 없으면 숨김
+  if (sliderBar) sliderBar.style.display = mode ? 'flex' : 'none';
 
   if (rowBuf)  rowBuf.style.display  = (mode === 'line') ? 'flex' : 'none';
   if (rowR1)   rowR1.style.display   = (mode === 'fan')  ? 'flex' : 'none';
   if (rowR2)   rowR2.style.display   = (mode === 'fan')  ? 'flex' : 'none';
   if (addLine) addLine.style.display = (mode === 'line') ? 'flex' : 'none';
   if (addFan)  addFan.style.display  = (mode === 'fan')  ? 'flex' : 'none';
+}
+
+/** 완료 버튼 클릭 — 3행 닫기, 지도 클릭 비활성화 */
+function _bindDoneBtn(onDoneFn) {
+  var btn = document.getElementById('wm-btn-done');
+  if (!btn) return;
+  btn.addEventListener('click', function() {
+    _showSliderRows(null);  // 3행 숨김
+    if (typeof onDoneFn === 'function') onDoneFn();
+  });
 }
 
 /** 활성 모드 버튼 강조 */
@@ -541,6 +562,38 @@ function _injectStyles() {
       width: 100%;
       flex-wrap: wrap;
     }
+
+    /* ── 3행: 슬라이더 바 ── */
+    #wm-slider-bar {
+      width: 100%;
+      flex-direction: column;
+      gap: 4px;
+      padding: 6px 10px;
+      background: rgba(0,0,0,.15);
+      border-top: 1px solid var(--border, #1e3a5f);
+    }
+
+    /* ── 완료 버튼 ── */
+    .wm-btn-done {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      align-self: flex-end;
+      background: linear-gradient(135deg, #00b894, #00916e);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      padding: 8px 24px;
+      font-size: .82rem;
+      font-weight: 700;
+      font-family: 'Noto Sans KR', sans-serif;
+      cursor: pointer;
+      min-width: 80px;
+      transition: all .15s;
+      margin-top: 4px;
+    }
+    .wm-btn-done:hover { background: linear-gradient(135deg,#00d4a7,#00b894); }
+    .wm-btn-done:active { transform: scale(.97); }
     .wm-fixed-divider {
       width: 1px;
       height: 18px;
