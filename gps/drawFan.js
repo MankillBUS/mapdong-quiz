@@ -1,129 +1,94 @@
 /**
- * drawFan.js — 부채꼴 Polygon 생성 모듈
+ * drawFan.js — 부채꼴 Polygon 생성 모듈 (각도 스윕 방식)
  * ✅ 외부 호출 금지. index.js에서만 사용
- * ❌ tangent.js 직접 호출 금지 → index.js가 주입
+ *
+ * [v2] tangent 기반 → 각도 스윕(angle sweep) 방식으로 전면 재작성
+ *
+ * 핵심 원리:
+ *   1. 시작점 → 끝점 방향각 θ = atan2(dy, dx)
+ *   2. 끝점 반경 r2와 거리 d로 부채꼴 반각 α = atan2(r2, d) 계산
+ *      → atan2 사용으로 모든 방향 완벽 대칭
+ *      → tan 기반 발산 없음
+ *   3. 시작 원 호: θ-α ~ θ+α (c1 주변, r1)
+ *   4. 끝 원 호:   (θ+α) ~ (θ-α) 반대편 (c2 주변, r2)
+ *   5. 두 호의 양 끝을 직선으로 연결 → 닫기
  *
  * 공개 함수:
- *   buildFanPolygon(start, end, r1, r2, tangentFn)
- *     → { polygon: GeoJSON, layer: L.Layer } | null
+ *   buildFanPolygon(start, end, r1, r2, tangentFn, arcFn, angleFn)
+ *     tangentFn, arcFn, angleFn — index.js가 주입 (하위 호환 유지, 내부 미사용)
  *
- * 입력:
- *   start      : { lat, lng }  — GPS (실시간 이동)
- *   end        : { lat, lng }  — 최초 클릭 고정점
- *   r1         : number (km)   — 시작 원 반경
- *   r2         : number (km)   — 끝 원 반경 (항상 r2 > r1)
- *   tangentFn  : function      — index.js가 주입하는 tangent 계산 함수
- *
- * 출력:
- *   null이면 polygon 생성 조건 불충족 (distance ≤ |r2 - r1|)
- *   아니면 { polygon, layer }
- *
- * 주의:
- *   arc 분할 = 30~50 포인트
+ * @param {{ lat, lng }} start  GPS 현재 위치
+ * @param {{ lat, lng }} end    최초 클릭 고정점
+ * @param {number}       r1     시작 원 반경 (km)
+ * @param {number}       r2     끝 원 반경   (km)
+ * @param {function}     tangentFn  (하위 호환용, 미사용)
+ * @param {function}     arcFn      (하위 호환용, 미사용)
+ * @param {function}     angleFn    (하위 호환용, 미사용)
+ * @returns {{ polygon: object, layer: object } | null}
  */
 
 // ── 상수 ─────────────────────────────────────────────────────────
-const FAN_ARC_SEGMENTS = 40;  // 호 분할 수 (설계 명세: 30~50)
+const FAN_ARC_SEGMENTS = 48;      // 호 분할 수 (많을수록 부드러움)
 const EARTH_R_KM_FAN   = 6371;
+const _FAN_REF_LAT     = 37.5665;
+const _FAN_REF_LNG     = 126.9780;
+const _FAN_LAT_RAD     = (_FAN_REF_LAT * Math.PI) / 180;
 
 // ── 공개 함수 ────────────────────────────────────────────────────
-
-/**
- * GPS 위치(start)와 고정 끝점(end) 사이에
- * 두 원의 외접선 + 원호로 이루어진 부채꼴 Polygon을 생성한다.
- *
- * 도형 구조:
- *
- *          t1L ════════════════ t2L
- *         ╱   (왼쪽 외접선)      ╲
- *   c1 ●                          ● c2
- *    (r1)                        (r2)
- *         ╲   (오른쪽 외접선)    ╱
- *          t1R ════════════════ t2R
- *
- *   외곽선 순서:
- *     t1R(c1 오른쪽 접점)
- *     → 오른쪽 외접선 → t2R(c2 오른쪽 접점)
- *     → c2 원호 (오른쪽 → 왼쪽, 바깥쪽 방향)
- *     → t2L(c2 왼쪽 접점)
- *     → 왼쪽 외접선 → t1L(c1 왼쪽 접점)
- *     → c1 원호 (왼쪽 → 오른쪽, 안쪽 방향)
- *     → 닫기
- *
- * ❌ tangent.js 직접 import 금지
- *    → tangentFn, arcFn, angleFn 을 index.js가 주입
- *
- * @param {{ lat, lng }} start      GPS 현재 위치 (실시간 갱신)
- * @param {{ lat, lng }} end        최초 클릭 고정점
- * @param {number}       r1         시작 원 반경 (km)
- * @param {number}       r2         끝 원 반경   (km, r2 > r1 권장)
- * @param {function}     tangentFn  calcExternalTangents — index.js가 주입
- * @param {function}     arcFn      calcArcPoints        — index.js가 주입
- * @param {function}     angleFn    calcAngle            — index.js가 주입
- * @returns {{ polygon: object, layer: object } | null}
- *   null  → distance ≤ |r2 - r1| (한 원이 다른 원 포함, 생성 불가)
- */
 function buildFanPolygon(start, end, r1, r2, tangentFn, arcFn, angleFn) {
 
   // ── 1. 위경도 → 평면 좌표 (km) ──────────────────────────────
-  const c1 = _latlngToXY(start);   // GPS 위치 (실시간)
-  const c2 = _latlngToXY(end);     // 고정 끝점
+  const c1 = _fanLatlngToXY(start);
+  const c2 = _fanLatlngToXY(end);
 
-  // ── 2. 외접선 계산 (tangent.js 위임) ────────────────────────
-  //   r2 가 항상 크도록 정규화: 두 원의 크기 순서를 맞춤
-  //   (r1 > r2 인 경우도 수학적으로 처리 가능하지만 설계 명세상 r2 > r1)
-  const tangents = tangentFn(c1, r1, c2, r2);
+  const dx = c2.x - c1.x;
+  const dy = c2.y - c1.y;
+  const d  = Math.sqrt(dx * dx + dy * dy);
 
-  if (!tangents) {
-    // distance ≤ |r2 - r1| → 생성 불가
-    return null;
-  }
+  // 끝점과 너무 가까우면 그릴 수 없음
+  if (d < 1e-6) return null;
 
-  const { left, right } = tangents;
-  // left.t1  = c1 위 왼쪽 접점
-  // left.t2  = c2 위 왼쪽 접점
-  // right.t1 = c1 위 오른쪽 접점
-  // right.t2 = c2 위 오른쪽 접점
+  // ── 2. 중심축 방향각 θ (c1 → c2) ───────────────────────────
+  const theta = Math.atan2(dy, dx);
 
-  // ── 3. 각 접점의 각도 계산 (원 중심 기준) ───────────────────
-  const a1R = angleFn(c1, right.t1);  // c1 오른쪽 접점 각도
-  const a1L = angleFn(c1, left.t1);   // c1 왼쪽 접점 각도
-  const a2R = angleFn(c2, right.t2);  // c2 오른쪽 접점 각도
-  const a2L = angleFn(c2, left.t2);   // c2 왼쪽 접점 각도
+  // ── 3. 부채꼴 반각 α 계산 ───────────────────────────────────
+  // atan2(r2, d): c2까지 거리 d에서 반경 r2가 차지하는 각도
+  // → r2가 클수록, d가 작을수록 넓어지는 자연스러운 시야각
+  const alpha = Math.atan2(r2, d);
 
-  // ── 4. 원호 생성 ────────────────────────────────────────────
-  //
-  //   c2 원호: 오른쪽 접점 → 왼쪽 접점 (바깥쪽, 반시계)
-  //     → c2가 끝 원이므로 더 넓은 호 (GPS에서 먼 쪽)
-  //
-  //   c1 원호: 왼쪽 접점 → 오른쪽 접점 (안쪽, 시계)
-  //     → c1이 GPS 원이므로 더 좁은 호
-  //
-  //   방향 결정:
-  //     두 원 중심을 잇는 벡터의 오른쪽/왼쪽 기준으로
-  //     각 호가 "바깥쪽"을 향하도록 방향을 선택
-  const c2Arc = arcFn(c2, r2, a2R, a2L, false, FAN_ARC_SEGMENTS); // 반시계
-  const c1Arc = arcFn(c1, r1, a1L, a1R, true,  FAN_ARC_SEGMENTS); // 시계
+  // alpha가 π/2 이상이면 시각적으로 너무 넓어짐 → 클램프
+  const clampedAlpha = Math.min(alpha, Math.PI * 0.72);
 
-  // ── 5. 외곽선 포인트 조합 ────────────────────────────────────
-  //   right.t1 → [직선] → right.t2
-  //   → c2 원호 (오른→왼)
-  //   → [직선] left.t2 → left.t1
-  //   → c1 원호 (왼→오른)
-  //   → 닫기
+  // ── 4. 시작 원 호 (c1, r1): θ-α ~ θ+α ─────────────────────
+  // 안쪽 호: c1 주변, 작은 반원 형태
+  const c1ArcPts = _sweepArc(c1, r1, theta - clampedAlpha, theta + clampedAlpha, false);
+
+  // ── 5. 끝 원 호 (c2, r2): θ+α 반대편 ~ θ-α 반대편 ─────────
+  // 바깥 호: c2 주변, 더 큰 호
+  // c2 기준으로 c1 방향은 theta + π
+  // c2 호 범위: (theta + π) ± alpha  →  시계방향으로 스윕
+  const c2BaseAngle = theta + Math.PI;
+  const c2ArcPts = _sweepArc(c2, r2,
+    c2BaseAngle + clampedAlpha,   // 오른쪽 접점 (c1 기준 오른쪽)
+    c2BaseAngle - clampedAlpha,   // 왼쪽 접점
+    false                          // 반시계 → c2 바깥쪽 호
+  );
+
+  // ── 6. 외곽선 조합 ───────────────────────────────────────────
+  // c1 호 왼쪽 끝 → c2 호 왼쪽 끝 (직선)
+  // → c2 호 (오른→왼)
+  // → c2 호 오른쪽 끝 → c1 호 오른쪽 끝 (직선)
+  // → c1 호 (오른→왼)
+  // → 닫기
   const ring = [
-    right.t1,
-    right.t2,
-    ...c2Arc,
-    left.t2,
-    left.t1,
-    ...c1Arc,
+    ...c1ArcPts,          // c1 호: 왼쪽 → 오른쪽 (θ-α → θ+α)
+    ...c2ArcPts,          // c2 호: 오른쪽 → 왼쪽 (반대편)
   ];
 
-  // ── 6. 평면 → 위경도 복원 ────────────────────────────────────
-  const latlngs = ring.map(_xyToLatlng);
+  // ── 7. 평면 → 위경도 복원 ────────────────────────────────────
+  const latlngs = ring.map(_fanXyToLatlng);
 
-  // ── 7. GeoJSON Polygon 생성 ──────────────────────────────────
+  // ── 8. GeoJSON Polygon 생성 ──────────────────────────────────
   const coords = latlngs.map(p => [p.lng, p.lat]);
   coords.push(coords[0]);  // 닫기
 
@@ -135,11 +100,11 @@ function buildFanPolygon(start, end, r1, r2, tangentFn, arcFn, angleFn) {
     },
   };
 
-  // ── 8. Leaflet 레이어 생성 ───────────────────────────────────
+  // ── 9. Leaflet 레이어 생성 ───────────────────────────────────
   const layer = L.polygon(
     latlngs.map(p => [p.lat, p.lng]),
     {
-      color:       '#ff9f43',   // 부채꼴은 주황색으로 선 모드와 구분
+      color:       '#ff9f43',
       fillColor:   '#ff9f43',
       fillOpacity: 0.18,
       weight:      2,
@@ -149,32 +114,62 @@ function buildFanPolygon(start, end, r1, r2, tangentFn, arcFn, angleFn) {
   return { polygon, layer };
 }
 
-// ── 내부 좌표 변환 (drawLine.js와 동일, 모듈 독립성 유지) ────────
-
-const _REF_LAT = 37.5665;
-const _REF_LNG = 126.9780;
-const _LAT_RAD = (_REF_LAT * Math.PI) / 180;
+// ── 내부 헬퍼 ────────────────────────────────────────────────────
 
 /**
- * 위경도 → 평면 km
- * @param {{ lat: number, lng: number }} pos
- * @returns {{ x: number, y: number }}
+ * 각도 스윕으로 원호 위의 점 배열 생성
+ * startAngle → endAngle 방향으로 FAN_ARC_SEGMENTS개 분할
+ *
+ * @param {{ x, y }} center
+ * @param {number}   radius
+ * @param {number}   startAngle  (라디안)
+ * @param {number}   endAngle    (라디안)
+ * @param {boolean}  clockwise   true = 시계방향
+ * @returns {{ x, y }[]}
  */
-function _latlngToXY(pos) {
+function _sweepArc(center, radius, startAngle, endAngle, clockwise) {
+  const N = FAN_ARC_SEGMENTS;
+  const pts = [];
+
+  // 각도 범위 (항상 short path)
+  let sweep = endAngle - startAngle;
+
+  if (clockwise) {
+    // 시계방향: sweep이 양수면 음수로
+    if (sweep > 0) sweep -= 2 * Math.PI;
+  } else {
+    // 반시계방향: sweep이 음수면 양수로
+    if (sweep < 0) sweep += 2 * Math.PI;
+  }
+
+  for (let i = 0; i <= N; i++) {
+    const t     = i / N;
+    const angle = startAngle + sweep * t;
+    pts.push({
+      x: center.x + radius * Math.cos(angle),
+      y: center.y + radius * Math.sin(angle),
+    });
+  }
+
+  return pts;
+}
+
+/**
+ * 위경도 → 평면 km (Equirectangular)
+ */
+function _fanLatlngToXY(pos) {
   return {
-    x: (pos.lng - _REF_LNG) * EARTH_R_KM_FAN * (Math.PI / 180) * Math.cos(_LAT_RAD),
-    y: (pos.lat - _REF_LAT) * EARTH_R_KM_FAN * (Math.PI / 180),
+    x: (pos.lng - _FAN_REF_LNG) * EARTH_R_KM_FAN * (Math.PI / 180) * Math.cos(_FAN_LAT_RAD),
+    y: (pos.lat - _FAN_REF_LAT) * EARTH_R_KM_FAN * (Math.PI / 180),
   };
 }
 
 /**
  * 평면 km → 위경도
- * @param {{ x: number, y: number }} pt
- * @returns {{ lat: number, lng: number }}
  */
-function _xyToLatlng(pt) {
+function _fanXyToLatlng(pt) {
   return {
-    lat: pt.y / (EARTH_R_KM_FAN * Math.PI / 180) + _REF_LAT,
-    lng: pt.x / (EARTH_R_KM_FAN * (Math.PI / 180) * Math.cos(_LAT_RAD)) + _REF_LNG,
+    lat: pt.y / (EARTH_R_KM_FAN * Math.PI / 180) + _FAN_REF_LAT,
+    lng: pt.x / (EARTH_R_KM_FAN * (Math.PI / 180) * Math.cos(_FAN_LAT_RAD)) + _FAN_REF_LNG,
   };
 }
