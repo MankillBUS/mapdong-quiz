@@ -180,6 +180,24 @@ function renderWorkModePanel(
     '  <div class="wm-user-menu">',
     '    <div style="border-top:1px solid var(--border);margin:4px 0 8px;"></div>',
     '    <div style="display:flex;gap:6px;flex-wrap:wrap;">',
+
+    '      <!-- 알림 버튼 -->',
+    '      <button class="wm-btn wm-btn--user" id="wm-btn-notif" onclick="(function(){',
+    '        var uc=document.getElementById(\'user-chip\');',
+    '        if(uc){ uc.style.display=\'\'; }',
+    '        if(typeof toggleDropdown===\'function\') toggleDropdown();',
+    '        setTimeout(function(){',
+    '          var area=document.getElementById(\'index-notif-area\');',
+    '          if(area){ area.style.display=\'block\'; }',
+    '        },100);',
+    '      })()">',
+    '        <span class="wm-icon">🔔</span>',
+    '        <span class="wm-lbl">알림</span>',
+    '        <span id="wm-notif-badge" style="display:none;background:#ff3c6e;color:#fff;border-radius:50%;',
+    '          width:14px;height:14px;font-size:.55rem;font-weight:700;align-items:center;',
+    '          justify-content:center;margin-left:1px;"></span>',
+    '      </button>',
+
     '      <button class="wm-btn wm-btn--user" onclick="goMyInfo&&goMyInfo()">',
     '        <span class="wm-icon">👤</span><span class="wm-lbl">내정보</span>',
     '      </button>',
@@ -656,6 +674,8 @@ function _injectStyles() {
     @media (max-width: 600px) {
       .wm-user-menu { display: block; }
     }
+    #wm-notif-badge { display: none; }
+    #wm-notif-badge.has-notif { display: inline-flex !important; }
     .wm-btn--danger:hover { border-color: var(--accent2,#ff3c6e); color: var(--accent2,#ff3c6e); }
     .wm-icon { font-size: .82rem; }
     .wm-lbl  { font-size: .7rem; }
