@@ -98,7 +98,7 @@ function buildFanPolygon(start, end, r1, r2, tangentFn, arcFn, angleFn) {
   //     C2 호: t2L → t2R 로 C2 앞쪽(끝점 쪽) 원호 → 반시계방향
   //
   const c1Arc = _fanArc(c1, r1, a1R, a1L, true);   // 시계방향 (안쪽 호)
-  const c2Arc = _fanArc(c2, r2, a2L, a2R, false);  // 반시계방향 (바깥 호)
+  const c2Arc = _fanArc(c2, r2, a2L, a2R, true);   // 시계방향 (바깥 호 — 끝점 앞쪽 볼록)
 
   // ── 5. 외곽선 조합 ───────────────────────────────────────────
   //   왼쪽 직선: t1L → t2L
