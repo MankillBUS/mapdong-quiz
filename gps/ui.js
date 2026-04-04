@@ -102,6 +102,25 @@ function renderWorkModePanel(
     '    </button>',
 
     '  </div>',
+
+    '  <div class="wm-fixed-divider"></div>',
+
+    '  <!-- 모드 버튼 그룹 (fixed-bar 2행) -->',
+    '  <div class="wm-btn-group wm-mode-group">',
+    '    <button id="' + BTN_LINE_ID + '" class="wm-btn wm-btn--mode" title="선 모드">',
+    '      <span class="wm-icon">📏</span><span class="wm-lbl">선 모드</span>',
+    '    </button>',
+    '    <button id="' + BTN_FAN_ID + '" class="wm-btn wm-btn--mode" title="부채꼴 모드">',
+    '      <span class="wm-icon">🔔</span><span class="wm-lbl">부채꼴</span>',
+    '    </button>',
+    '    <button id="' + BTN_ADD_LINE_ID + '" class="wm-btn wm-btn--add" title="이전 끝점에서 새 선 이어붙이기" style="display:none">',
+    '      <span class="wm-icon">➕📏</span><span class="wm-lbl">선 추가</span>',
+    '    </button>',
+    '    <button id="' + BTN_ADD_FAN_ID + '" class="wm-btn wm-btn--add" title="이전 끝점에서 새 부채꼴 이어붙이기" style="display:none">',
+    '      <span class="wm-icon">➕🔔</span><span class="wm-lbl">부채꼴 추가</span>',
+    '    </button>',
+    '  </div>',
+
     '</div>',
 
     /* ══ 지역 검색창 (항상 보임) ════════════════════════════════ */
@@ -124,24 +143,7 @@ function renderWorkModePanel(
     /* ══ 접히는 영역 ══════════════════════════════════════════════ */
     '<div id="' + COLLAPSIBLE_ID + '" class="wm-collapsible">',
 
-    '  <!-- 모드 선택 행 -->',
-    '  <div class="wm-row wm-row--mode">',
-    '    <div class="wm-label">모드</div>',
-    '    <div class="wm-btn-group">',
-    '      <button id="' + BTN_LINE_ID + '" class="wm-btn wm-btn--mode" title="선 모드">',
-    '        <span class="wm-icon">📏</span><span class="wm-lbl">선 모드</span>',
-    '      </button>',
-    '      <button id="' + BTN_FAN_ID + '" class="wm-btn wm-btn--mode" title="부채꼴 모드">',
-    '        <span class="wm-icon">🔔</span><span class="wm-lbl">부채꼴</span>',
-    '      </button>',
-    '      <button id="' + BTN_ADD_LINE_ID + '" class="wm-btn wm-btn--add" title="이전 끝점에서 새 선 이어붙이기" style="display:none">',
-    '        <span class="wm-icon">➕📏</span><span class="wm-lbl">선 추가</span>',
-    '      </button>',
-    '      <button id="' + BTN_ADD_FAN_ID + '" class="wm-btn wm-btn--add" title="이전 끝점에서 새 부채꼴 이어붙이기" style="display:none">',
-    '        <span class="wm-icon">➕🔔</span><span class="wm-lbl">부채꼴 추가</span>',
-    '      </button>',
-    '    </div>',
-    '  </div>',
+    '  <!-- 모드 버튼은 상단 fixed-bar로 이동됨 -->',
 
     '  <!-- 선 버퍼 슬라이더 -->',
     '  <div class="wm-row" id="wm-row-buf">',
@@ -531,9 +533,13 @@ function _injectStyles() {
       align-items: center;
       gap: 6px;
       padding: 5px 10px;
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
       min-height: 38px;
-      overflow: hidden;
+    }
+    /* 1행: 기능버튼, 2행: 모드버튼 */
+    .wm-mode-group {
+      width: 100%;
+      flex-wrap: wrap;
     }
     .wm-fixed-divider {
       width: 1px;
@@ -637,6 +643,7 @@ function _injectStyles() {
 
     /* ── 버튼 그룹 ── */
     .wm-btn-group { display: flex; gap: 4px; flex-wrap: nowrap; }
+    .wm-btn-group.wm-mode-group { flex-wrap: wrap; }
 
     /* ── 공통 버튼 ── */
     .wm-btn {
@@ -784,14 +791,15 @@ function _injectStyles() {
 
     /* ── 모바일 480px 이하 ── */
     @media (max-width: 600px) {
-      .wm-lbl   { display: none; }
+      /* wm-lbl: 모바일에서도 표시 (터치 편의성) */
+      .wm-lbl   { display: inline; font-size: .62rem; }
       .wm-label { display: none; }
-      .wm-btn   { padding: 4px 5px; font-size: .68rem; flex-shrink: 1; min-width: 0; }
-      .wm-icon  { font-size: .78rem; }
+      .wm-btn   { padding: 4px 6px; font-size: .65rem; flex-shrink: 1; min-width: 0; }
+      .wm-icon  { font-size: .75rem; }
       .wm-fixed-bar { gap: 3px; padding: 4px 6px; }
-      .wm-fixed-divider { margin: 0 1px; }
-      .wm-collapse-btn { padding: 4px 6px; }
-      .wm-collapse-lbl { display: none; }
+      .wm-fixed-divider { margin: 0 1px; height: 14px; }
+      .wm-collapse-btn { padding: 4px 6px; font-size: .65rem; }
+      .wm-collapse-lbl { display: inline; font-size: .62rem; }
       .wm-badge { font-size: .5rem; padding: 1px 2px; }
       .wm-search-input::placeholder { font-size: .65rem; }
     }
