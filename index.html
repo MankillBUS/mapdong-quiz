@@ -3161,7 +3161,6 @@ window.startRankingMode = function(){
   isDarkTheme = _savedTheme;
   initMap(); buildFilter(); reshuffleRanking(); nextQ();
   document.getElementById('range-control').style.display = 'block';
-  startNewMemberTimer();
 
   // 랭킹 모드 헤더 표시
   showRankingModeHeader();
@@ -3353,7 +3352,6 @@ window.startQuiz = function(){
     isDarkTheme = _savedTheme;
     initMap(); buildFilter(); reshuffle(); nextQ();
     document.getElementById('range-control').style.display = 'block';
-    startNewMemberTimer();
   };
 
   if(!POLY_CACHE){
@@ -3542,10 +3540,73 @@ window.goHome = function(){
     // 모바일 오버레이 숨기기
     updateMobileQCard(null);
 
+    // 퀴즈 상태 완전 초기화
+    _fullResetQuizState();
+
     // start 화면 표시
     showOnly('start');
     // 저장된 선택 복원
     if (_savedCitySelection) restoreQuizSelection();
+  }
+}
+
+/**
+ * 퀴즈/랭킹/업무모드 전환 시 완전 초기화
+ * - 퀴즈 큐, 타이머, UI 상태 모두 기본값으로 복원
+ */
+function _fullResetQuizState() {
+  // 퀴즈 핵심 상태
+  canAns  = false;
+  cur     = null;
+  queue   = [];
+  allDongs= [];
+
+  // 카운터
+  totC = 0; totW = 0; streak = 0; qCnt = 0; sessAns = 0;
+
+  // UI 초기화
+  const rangeCtrl = document.getElementById('range-control');
+  if (rangeCtrl) rangeCtrl.style.display = 'none';
+
+  const moverlay = document.getElementById('moverlay');
+  if (moverlay) { moverlay.classList.remove('show', 'no-mode'); }
+
+  const ansBar = document.getElementById('ans-bar');
+  if (ansBar) ansBar.classList.remove('show');
+
+  // rbw 초기화 (퀴즈 지역 버튼 제거 → 업무모드 지역 오염 방지)
+  const rbw = document.getElementById('rbw');
+  if (rbw) rbw.innerHTML = '';
+
+  // 광고 타이머 정리
+  if (typeof _adTimer !== 'undefined' && _adTimer) {
+    clearInterval(_adTimer);
+    _adTimer = null;
+  }
+
+  // 정답/오답 레이어 정리
+  if (typeof map !== 'undefined' && map) {
+    try {
+      if (typeof answerLayer !== 'undefined' && answerLayer) {
+        map.removeLayer(answerLayer); answerLayer = null;
+      }
+    } catch(e) {}
+    if (typeof wrongL !== 'undefined') {
+      wrongL.forEach(l => { try { map.removeLayer(l); } catch(e) {} });
+      wrongL = [];
+    }
+    if (typeof answerLayers !== 'undefined') {
+      answerLayers.forEach(l => { try { map.removeLayer(l); } catch(e) {} });
+      answerLayers = [];
+    }
+    if (typeof wrongLayers !== 'undefined') {
+      wrongLayers.forEach(l => { try { map.removeLayer(l); } catch(e) {} });
+      wrongLayers = [];
+    }
+    if (typeof tempL !== 'undefined') {
+      tempL.forEach(l => { try { map.removeLayer(l); } catch(e) {} });
+      tempL = [];
+    }
   }
 }
 
