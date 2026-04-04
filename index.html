@@ -3539,7 +3539,7 @@ function fullReset() {
   _adQuizCount  = 0;
   if (_adTimer) { clearInterval(_adTimer); _adTimer = null; }
 
-  // ── 6. UI 요소 숨기기 ─────────────────────────────────────────
+  // ── 6. UI 요소 숨기기 + 사이드패널 초기화 ──────────────────────
   const moverlay = document.getElementById('moverlay');
   if (moverlay) moverlay.classList.remove('show', 'no-mode');
   const ansBar = document.getElementById('ans-bar');
@@ -3551,6 +3551,23 @@ function fullReset() {
   updateMobileQCard(null);
   const mqc = document.getElementById('mobile-qcard-overlay');
   if (mqc) mqc.classList.remove('visible');
+
+  // ── 좌측 사이드패널 퀴즈 UI 초기화 ──────────────────────────
+  // 문제 카드
+  const _qR = document.getElementById('qR'); if (_qR) _qR.textContent = '';
+  const _qD = document.getElementById('qD'); if (_qD) _qD.textContent = '-';
+  const _qH = document.getElementById('qH'); if (_qH) _qH.textContent = '';
+  // 최근 결과 목록
+  const _rl = document.getElementById('rl'); if (_rl) _rl.innerHTML = '';
+  // 진행률
+  const _pT = document.getElementById('pT'); if (_pT) _pT.textContent = '0/0';
+  const _pF = document.getElementById('pF'); if (_pF) _pF.style.width = '0%';
+  // 통계 카운터
+  const _sQ = document.getElementById('sQ'); if (_sQ) _sQ.textContent = '0';
+  const _sC = document.getElementById('sC'); if (_sC) _sC.textContent = '0';
+  const _sW = document.getElementById('sW'); if (_sW) _sW.textContent = '0';
+  const _sR = document.getElementById('sR'); if (_sR) _sR.textContent = '-';
+  const _sS = document.getElementById('sS'); if (_sS) _sS.textContent = '0';
 
   // ── 7. 저장된 선택 복원 + 화면 전환 ─────────────────────────
   showOnly('start');
