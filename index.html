@@ -1923,9 +1923,9 @@ body.work-mode #header-right { display: none !important; }
     <div id="range-control" style="position:absolute;bottom:20px;left:20px;z-index:1000;background:rgba(13,25,41,.95);border:2px solid var(--border);border-radius:12px;padding:12px 16px;backdrop-filter:blur(8px);display:none;min-width:280px;">
       <div style="color:var(--text);font-size:.85rem;font-weight:600;margin-bottom:8px;">🎯 정답 범위: <span id="range-value-map" style="color:var(--accent);">1.5km</span></div>
       <div style="display:flex;align-items:center;gap:10px;">
-        <span style="font-size:.75rem;color:var(--text-dim);">쉬움</span>
-        <input type="range" id="range-slider-map" min="1" max="15" value="1.5" step="0.5" style="flex:1;height:5px;">
         <span style="font-size:.75rem;color:var(--text-dim);">어려움</span>
+        <input type="range" id="range-slider-map" min="1" max="15" value="1.5" step="0.5" style="flex:1;height:5px;">
+        <span style="font-size:.75rem;color:var(--text-dim);">쉬움</span>
       </div>
     </div>
     <!-- 데이터 출처: vuski/admdongkor (OpenStreetMap attribution 바로 위) -->
@@ -3162,6 +3162,8 @@ window.startRankingMode = function(){
 
   document.getElementById('start').classList.add('hidden');
   isDarkTheme = _savedTheme;
+  // 랭킹 시작 시 업무모드 저장 상태 초기화
+  if (typeof _wmSavedState !== 'undefined') { _wmSavedState = null; }
   initMap(); buildFilter(); reshuffleRanking(); nextQ();
   document.getElementById('range-control').style.display = 'block';
 
@@ -3353,7 +3355,9 @@ window.startQuiz = function(){
     document.getElementById('start').classList.add('hidden');
     // [수정4] 퀴즈 재시작 시 저장된 테마 복원
     isDarkTheme = _savedTheme;
-    initMap(); buildFilter(); reshuffle(); nextQ();
+    // 퀴즈 시작 시 업무모드 저장 상태 초기화
+  if (typeof _wmSavedState !== 'undefined') { _wmSavedState = null; }
+  initMap(); buildFilter(); reshuffle(); nextQ();
     document.getElementById('range-control').style.display = 'block';
   };
 
