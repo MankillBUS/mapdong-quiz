@@ -80,12 +80,12 @@ function initWorkMode(leafletMap) {
 
   // ui.js의 renderWorkModePanel 호출 (12개 콜백, GPS이동버튼 제거)
   renderWorkModePanel(
-    function() { _wmDoneReset(); _wmSwitchMode('line'); },   // 선 모드 (완료상태 리셋 후 시작)
-    function() { _wmDoneReset(); _wmSwitchMode('fan'); },    // 부채꼴 모드
+    function() { _wmSwitchMode('line'); },   // 선 모드
+    function() { _wmSwitchMode('fan'); },    // 부채꼴 모드
     function() { _toggleAutoCopy(); },              // 자동복사
     function() { _toggleGpsTracking(); },           // GPS 추적 ON/OFF
-    function() { _wmDoneReset(); _wmAddLineChain(); },       // 선 이어붙이기 (완료 리셋)
-    function() { _wmDoneReset(); _wmAddFanChain(); },        // 부채꼴 이어붙이기 (완료 리셋)
+    function() { _wmAddLineChain(); },       // 선 이어붙이기
+    function() { _wmAddFanChain(); },        // 부채꼴 이어붙이기
     function() { _wmToggleShowDong(); },            // 동/구 표시
     function() { _wmToggleDongFilter(); },          // 교차지역만 Show
     function() { _wmClearShapesOnly(); },           // 도형만 초기화
@@ -97,9 +97,7 @@ function initWorkMode(leafletMap) {
   // 완료 버튼 바인딩
   if (typeof _bindDoneBtn === 'function') {
     _bindDoneBtn(function() {
-      // 완료: 현재 모드 비활성화 → 지도 클릭해도 도형 변경 안됨
-      _currentMode = null;
-      setActiveModeBtn(null);
+      _wmDone();
     });
   }
 
@@ -202,6 +200,7 @@ function exitWorkMode() {
 
   _shapes       = [];
   _currentMode  = null;
+  _lastMode     = null;
   _endPoint     = null;
   _resultSet    = new Set();
   _autoCopy     = false;
@@ -252,23 +251,34 @@ function exitWorkMode() {
 // 4. 모드 전환
 // ════════════════════════════════════════════════════════════════
 
-/** 완료 상태 리셋 — 모드버튼/추가버튼 클릭 시 먼저 호출 */
-function _wmDoneReset() {
-  // 슬라이더바는 setActiveModeBtn(mode) 안의 _showSliderRows에서 표시됨
-  // 여기서는 별도 처리 불필요 (확장용 훅)
-}
+// 마지막 사용 모드 기억 (완료 후 추가버튼 사용 시 참조)
+let _lastMode = null;
 
 function _wmSwitchMode(mode) {
+  // 완료 상태에서 같은 모드 버튼 재클릭 → 새 작업 시작 (GPS 기준)
+  // 활성 상태에서 같은 모드 재클릭 → 완료 처리
   if (_currentMode === mode) {
-    // 같은 모드 재클릭 → 완료와 동일하게 비활성화
-    _currentMode = null;
-    setActiveModeBtn(null);
+    // 활성 → 완료
+    _wmDone();
     return;
   }
   _wmDestroyShapes();
   _currentMode = mode;
+  _lastMode    = mode;
   setActiveModeBtn(mode);
   if (mode === 'fan') _endPoint = null;
+}
+
+/** 완료 처리 — 3행 닫기, _currentMode null, 추가버튼/완료버튼 유지 */
+function _wmDone() {
+  var lastMode = _currentMode || _lastMode;
+  _currentMode = null;
+  setActiveModeBtn(lastMode ? 'done-' + lastMode : null);
+}
+
+function _wmDoneReset() {
+  // 추가버튼/모드버튼 클릭 시 완료 상태 리셋 → 정상 동작으로 복귀
+  // _currentMode는 호출부에서 설정
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -365,7 +375,13 @@ function _wmAddFan(clickPos) {
  * → 새 도착지점은 다음 지도 클릭으로 결정
  */
 function _wmAddLineChain() {
-  if (_currentMode !== 'line') return;
+  // 완료 상태(null)에서도 이전 선 작업이 있으면 추가 가능
+  if (_currentMode !== 'line' && _lastMode !== 'line') return;
+  if (_currentMode === null) {
+    // 완료 → 추가: 모드 재활성화
+    _currentMode = 'line';
+    setActiveModeBtn('line');
+  }
   var lineShapes = _shapes.filter(function(s) { return s.type === 'line'; });
   if (!lineShapes.length) {
     alert('먼저 선 모드에서 지도를 클릭해 첫 선을 만드세요.');
@@ -415,7 +431,13 @@ function _wmAddLineChain() {
  * GPS 위치에서 새 끝점으로 부채꼴 생성 (다음 클릭으로 끝점 확정)
  */
 function _wmAddFanChain() {
-  if (_currentMode !== 'fan') return;
+  // 완료 상태(null)에서도 이전 부채꼴 작업이 있으면 추가 가능
+  if (_currentMode !== 'fan' && _lastMode !== 'fan') return;
+  if (_currentMode === null) {
+    // 완료 → 추가: 모드 재활성화
+    _currentMode = 'fan';
+    setActiveModeBtn('fan');
+  }
 
   // 현재 부채꼴이 있어야 추가 가능
   var fanShapes = _shapes.filter(function(s) { return s.type === 'fan' && !s.pending; });
