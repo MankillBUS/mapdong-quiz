@@ -119,6 +119,10 @@ function renderWorkModePanel(
     '    <button id="' + BTN_ADD_FAN_ID + '" class="wm-btn wm-btn--add" title="이전 끝점에서 새 부채꼴 이어붙이기" style="display:none">',
     '      <span class="wm-icon">➕🔔</span><span class="wm-lbl">부채꼴 추가</span>',
     '    </button>',
+    '    <!-- 완료 버튼: 모드 활성 시만 표시 -->',
+    '    <button id="wm-btn-done" class="wm-btn-done" style="display:none;" title="그리기 완료">',
+    '      ✅ 완료',
+    '    </button>',
     '  </div>',
 
     '  <!-- 3행: 슬라이더 + 완료버튼 (모드 활성 시만 표시) -->',
@@ -153,10 +157,6 @@ function renderWorkModePanel(
     '        <span class="wm-sl-val" id="wm-r2-val">0.8km</span>',
     '      </div>',
     '    </div>',
-    '    <!-- 완료 버튼 -->',
-    '    <button id="wm-btn-done" class="wm-btn-done" title="그리기 완료 — 슬라이더 닫힘">',
-    '      ✅ 완료',
-    '    </button>',
     '  </div>',
 
     '</div>',
@@ -308,6 +308,11 @@ function renderWorkModePanel(
 // ── 공개 상태 갱신 함수 ──────────────────────────────────────────
 
 /** 모드에 따라 슬라이더/추가버튼 표시 */
+/**
+ * 슬라이더/버튼 표시 제어
+ * mode: 'line' | 'fan' | null(완료) | 'done-line' | 'done-fan'
+ * done-*: 완료 상태 (추가버튼 유지, 슬라이더 닫힘, 완료버튼 유지)
+ */
 function _showSliderRows(mode) {
   var sliderBar = document.getElementById('wm-slider-bar');
   var rowBuf    = document.getElementById('wm-row-buf');
@@ -315,32 +320,42 @@ function _showSliderRows(mode) {
   var rowR2     = document.getElementById('wm-row-r2');
   var addLine   = document.getElementById(BTN_ADD_LINE_ID);
   var addFan    = document.getElementById(BTN_ADD_FAN_ID);
+  var doneBtn   = document.getElementById('wm-btn-done');
 
-  // 모드 있으면 3행 표시, 없으면 숨김
-  if (sliderBar) sliderBar.style.display = mode ? 'flex' : 'none';
+  var isDone = (mode === 'done-line' || mode === 'done-fan');
+  var activeMode = isDone ? mode.replace('done-', '') : mode;
 
-  if (rowBuf)  rowBuf.style.display  = (mode === 'line') ? 'flex' : 'none';
-  if (rowR1)   rowR1.style.display   = (mode === 'fan')  ? 'flex' : 'none';
-  if (rowR2)   rowR2.style.display   = (mode === 'fan')  ? 'flex' : 'none';
-  if (addLine) addLine.style.display = (mode === 'line') ? 'flex' : 'none';
-  if (addFan)  addFan.style.display  = (mode === 'fan')  ? 'flex' : 'none';
+  // 3행: 활성 모드일 때만 표시 (완료 시 닫힘)
+  if (sliderBar) sliderBar.style.display = (mode && !isDone) ? 'flex' : 'none';
+
+  if (rowBuf) rowBuf.style.display = (activeMode === 'line' && !isDone) ? 'flex' : 'none';
+  if (rowR1)  rowR1.style.display  = (activeMode === 'fan'  && !isDone) ? 'flex' : 'none';
+  if (rowR2)  rowR2.style.display  = (activeMode === 'fan'  && !isDone) ? 'flex' : 'none';
+
+  // 추가버튼: 활성 모드 또는 완료 후에도 유지
+  if (addLine) addLine.style.display = (activeMode === 'line') ? 'flex' : 'none';
+  if (addFan)  addFan.style.display  = (activeMode === 'fan')  ? 'flex' : 'none';
+
+  // 완료버튼: 모드가 있을 때(활성/완료 모두)
+  if (doneBtn) doneBtn.style.display = mode ? 'flex' : 'none';
 }
 
-/** 완료 버튼 클릭 — 3행 닫기, 지도 클릭 비활성화 */
+/** 완료 버튼 클릭 — 3행 닫기, 추가버튼 유지, 지도 클릭 비활성화 */
 function _bindDoneBtn(onDoneFn) {
   var btn = document.getElementById('wm-btn-done');
   if (!btn) return;
   btn.addEventListener('click', function() {
-    _showSliderRows(null);  // 3행 숨김
     if (typeof onDoneFn === 'function') onDoneFn();
   });
 }
 
-/** 활성 모드 버튼 강조 */
+/** 활성 모드 버튼 강조 (done-* 포함) */
 function setActiveModeBtn(mode) {
   var lineBtn = document.getElementById(BTN_LINE_ID);
   var fanBtn  = document.getElementById(BTN_FAN_ID);
   if (!lineBtn || !fanBtn) return;
+  // 완료 상태에서는 버튼 active 해제 (절전 상태 표시)
+  var isDone = (mode === 'done-line' || mode === 'done-fan');
   lineBtn.classList.toggle('wm-btn--active', mode === 'line');
   fanBtn.classList.toggle('wm-btn--active',  mode === 'fan');
   _showSliderRows(mode);
@@ -578,19 +593,18 @@ function _injectStyles() {
       display: flex;
       align-items: center;
       justify-content: center;
-      align-self: flex-end;
       background: linear-gradient(135deg, #00b894, #00916e);
       border: none;
       border-radius: 8px;
       color: #fff;
-      padding: 8px 24px;
-      font-size: .82rem;
+      padding: 4px 18px;
+      font-size: .75rem;
       font-weight: 700;
       font-family: 'Noto Sans KR', sans-serif;
       cursor: pointer;
-      min-width: 80px;
+      min-width: 72px;
       transition: all .15s;
-      margin-top: 4px;
+      flex-shrink: 0;
     }
     .wm-btn-done:hover { background: linear-gradient(135deg,#00d4a7,#00b894); }
     .wm-btn-done:active { transform: scale(.97); }
