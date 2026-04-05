@@ -134,37 +134,40 @@ function initWorkMode(leafletMap) {
   setGpsDot('wait');
 
   // ── 이전 업무모드 상태 복원 (처음으로 → 재진입 시) ─────────
-  if (_wmSavedState && _wmSavedState.hadShapes) {
-    // 슬라이더 값 복원
-    _lineBuffer = _wmSavedState.lineBuffer;
-    _fanR1      = _wmSavedState.fanR1;
-    _fanR2      = _wmSavedState.fanR2;
-    // 슬라이더 UI 복원
-    if (typeof setSliderVal === 'function') {
-      setSliderVal('buf', _lineBuffer);
-      setSliderVal('r1',  _fanR1);
-      setSliderVal('r2',  _fanR2);
-    }
-    // 끝점/모드 복원
-    _endPoint  = _wmSavedState.endPoint;
-    _lastMode  = _wmSavedState.lastMode;
-    // 도형은 GPS 수신 후 rebuild로 재생성
-    _wmNeedDefaultFan = false;  // 기본 부채꼴 불필요 (복원)
-    _wmSavedState = null;       // 복원 완료 후 클리어
+  if (_wmSavedState) {
+    // ── 저장된 업무모드 상태 복원 ──────────────────────────────
+    var s = _wmSavedState;
+    _wmSavedState = null;  // 복원 완료 즉시 클리어
 
-    // 동/구 + 교차만 즉시 활성화 (기존 도형 기준 재계산)
-    setTimeout(function() {
-      if (!_dongVisible) _wmToggleShowDong();
-      if (!_dongFilterMode) {
-        _dongFilterMode = true;
-        setDongFilterBtn(true);
-        _wmApplyDongFilter();
-      }
-    }, 500);
+    _lineBuffer  = s.lineBuffer;
+    _fanR1       = s.fanR1;
+    _fanR2       = s.fanR2;
+    _endPoint    = s.endPoint;
+    _lastMode    = s.lastMode;
+    _autoCopy    = s.autoCopy;
+    if (s.resultSet) _resultSet = new Set(s.resultSet);
+
+    // 슬라이더 UI 값 동기화
+    var slBuf = document.getElementById('wm-slider-buf');
+    var slR1  = document.getElementById('wm-slider-r1');
+    var slR2  = document.getElementById('wm-slider-r2');
+    if (slBuf) slBuf.value = _lineBuffer;
+    if (slR1)  slR1.value  = _fanR1;
+    if (slR2)  slR2.value  = _fanR2;
+
+    if (s.autoCopy) setAutoCopyBtn(true);
+
+    // GPS 수신 후 도형 재생성 + 동구/교차 복원
+    _wmNeedDefaultFan = false;
+    _wmRestoreAfterGps = {
+      dongVisible:  s.dongVisible,
+      dongFilter:   s.dongFilter,
+      hadShapes:    s.hadShapes,
+    };
   } else {
-    // 동/구 표시 + 교차만 ON은 GPS 수신 후 기본 부채꼴 생성 이후 활성화
-    _wmNeedDefaultFan = true;  // GPS 수신 대기 플래그
-    _wmSavedState = null;
+    // 첫 진입: GPS 수신 후 기본 부채꼴 생성
+    _wmNeedDefaultFan = true;
+    _wmRestoreAfterGps = null;
   }
 
   // 자동복사 ON
@@ -222,17 +225,6 @@ function exitWorkMode() {
     _wmVisibilityFn = null;
   }
 
-  // 업무모드 상태 저장 (재진입 시 복원용)
-  _wmSavedState = {
-    shapes:     _shapes.slice(),   // 도형 배열 스냅샷
-    endPoint:   _endPoint,
-    lastMode:   _lastMode,
-    lineBuffer: _lineBuffer,
-    fanR1:      _fanR1,
-    fanR2:      _fanR2,
-    hadShapes:  _shapes.length > 0
-  };
-
   _shapes       = [];
   _currentMode  = null;
   _lastMode     = null;
@@ -288,10 +280,43 @@ function exitWorkMode() {
 
 // 마지막 사용 모드 기억 (완료 후 추가버튼 사용 시 참조)
 let _lastMode = null;
-let _wmNeedDefaultFan = false;  // 업무모드 시작 시 기본 부채꼴 생성 대기
+let _wmNeedDefaultFan     = false;  // 업무모드 시작 시 기본 부채꼴 생성 대기
+let _wmRestoreAfterGps    = null;   // GPS 수신 후 복원할 동구/교차 상태
 
 // ── 업무모드 이전 상태 저장 (처음으로 → 재진입 시 복원) ─────────
 var _wmSavedState = null;  // { shapes, endPoint, mode, lineBuffer, fanR1, fanR2 }
+
+/**
+ * 현재 업무모드 상태 전체 저장 (goHome 직전 호출)
+ * index.html goHome()에서 호출
+ */
+window.saveWorkModeState = function() {
+  if (typeof _map === 'undefined' || !_map) return;  // 업무모드 아님
+  _wmSavedState = {
+    shapes:       _shapes.slice(),
+    endPoint:     _endPoint,
+    lastMode:     _lastMode,
+    currentMode:  _currentMode,
+    lineBuffer:   _lineBuffer,
+    fanR1:        _fanR1,
+    fanR2:        _fanR2,
+    dongVisible:  _dongVisible,
+    dongFilter:   _dongFilterMode,
+    autoCopy:     _autoCopy,
+    resultSet:    new Set(_resultSet),
+    hadShapes:    _shapes.length > 0,
+  };
+};
+
+/** 저장된 상태 유효한지 확인 */
+window.hasWorkModeSavedState = function() {
+  return !!_wmSavedState;
+};
+
+/** 저장된 상태 클리어 (퀴즈/랭킹 시작 시) */
+window.clearWorkModeSavedState = function() {
+  _wmSavedState = null;
+};
 
 function _wmSwitchMode(mode) {
   // 완료 상태에서 같은 모드 버튼 재클릭 → 새 작업 시작 (GPS 기준)
@@ -337,11 +362,35 @@ function _wmOnGpsUpdate(pos) {
   // ── 내 위치 마커 갱신 ────────────────────────────────────────
   _wmUpdateGpsMarker(pos);
 
-  // ── 최초 GPS 수신 시 기본 부채꼴 자동 생성 ───────────────────
+  // ── 최초 GPS 수신 시 처리 ────────────────────────────────────
   if (_wmNeedDefaultFan && _isValidLatLng(pos)) {
     _wmNeedDefaultFan = false;
     _wmInitDefaultFan(pos);
-    return;  // 위에서 rebuild 처리됨
+    return;
+  }
+
+  // ── 저장 상태 복원 후 첫 GPS 수신 ───────────────────────────
+  if (_wmRestoreAfterGps && _isValidLatLng(pos)) {
+    var r = _wmRestoreAfterGps;
+    _wmRestoreAfterGps = null;
+
+    // 도형 재생성
+    if (r.hadShapes) {
+      _wmRebuildAll();
+      _wmRunIntersect();
+    }
+    // 동/구 표시 복원
+    if (r.dongVisible && !_dongVisible) {
+      _wmToggleShowDong();
+    }
+    // 교차만 복원
+    if (r.dongFilter) {
+      _dongFilterMode = true;
+      setDongFilterBtn(true);
+      if (_dongVisible) _wmApplyDongFilter();
+    }
+    _wmUpdateUI();
+    return;
   }
 
   if (_shapes.length === 0) return;
