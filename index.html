@@ -1699,7 +1699,7 @@ body.work-mode #header-right { display: none !important; }
   <button id="btn-ranking-start" class="sbtn" onclick="startRankingMode()"
     style="background:linear-gradient(135deg,var(--gold),#e6a800);color:#000;opacity:.4;cursor:not-allowed;"
     disabled>🏆 랭킹 시작</button>
-  <button class="sbtn" onclick="startWorkMode()"
+  <button class="sbtn" onclick="_lastActionMode='work'; startWorkMode()"
     style="background:linear-gradient(135deg,#6c5ce7,#a29bfe);color:#fff;">
     🗂 업무모드
   </button>
@@ -2019,6 +2019,7 @@ const DB={};  // 동적 로드 (polygon_cache.json)
 
 // ─── 랭킹 모드 상태 ────────────────────────────────────────
 let isRankingMode = false;        // 랭킹 모드 여부
+let _lastActionMode = null;       // 마지막 실행 모드: 'work' | 'quiz' | 'ranking'
 let rankingGroupKey = null;       // 선택된 큰 카테고리 키 (예: "🏙 서울")
 let rankingStartTime = null;      // 랭킹 시작 시각
 let rankingAnswered = new Set();  // 이미 정답/오답 처리된 동 키
@@ -3162,8 +3163,11 @@ window.startRankingMode = function(){
 
   document.getElementById('start').classList.add('hidden');
   isDarkTheme = _savedTheme;
-  // 랭킹 시작 시 업무모드 저장 상태 초기화
-  if (typeof _wmSavedState !== 'undefined') { _wmSavedState = null; }
+  // 랭킹 시작: 마지막 행동이 업무모드였으면 저장값 초기화
+  if (_lastActionMode === 'work') {
+    if (typeof clearWorkModeSavedState === 'function') clearWorkModeSavedState();
+  }
+  _lastActionMode = 'ranking';
   initMap(); buildFilter(); reshuffleRanking(); nextQ();
   document.getElementById('range-control').style.display = 'block';
 
@@ -3355,8 +3359,11 @@ window.startQuiz = function(){
     document.getElementById('start').classList.add('hidden');
     // [수정4] 퀴즈 재시작 시 저장된 테마 복원
     isDarkTheme = _savedTheme;
-    // 퀴즈 시작 시 업무모드 저장 상태 초기화
-  if (typeof _wmSavedState !== 'undefined') { _wmSavedState = null; }
+    // 퀴즈 시작: 마지막 행동이 업무모드였으면 저장값 초기화
+  if (_lastActionMode === 'work') {
+    if (typeof clearWorkModeSavedState === 'function') clearWorkModeSavedState();
+  }
+  _lastActionMode = 'quiz';
   initMap(); buildFilter(); reshuffle(); nextQ();
     document.getElementById('range-control').style.display = 'block';
   };
@@ -3584,6 +3591,15 @@ function fullReset() {
 window.goHome = function(){
   if(confirm('퀴즈를 종료하고 처음으로 돌아가시겠습니까?')){
     _savedTheme = isDarkTheme; // 테마 저장
+
+    if (_lastActionMode === 'work') {
+      // ── 업무모드에서 처음으로: 상태 먼저 저장 후 초기화 ─────
+      if (typeof saveWorkModeState === 'function') saveWorkModeState();
+    } else {
+      // 퀴즈/랭킹에서 처음으로: 업무모드 저장값 클리어
+      if (typeof clearWorkModeSavedState === 'function') clearWorkModeSavedState();
+    }
+
     fullReset();
   }
 }
