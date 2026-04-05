@@ -133,9 +133,38 @@ function initWorkMode(leafletMap) {
   setGpsTrackBtn(false);
   setGpsDot('wait');
 
-  // 동/구 표시 ON
-  if (!_dongVisible) {
-    _wmToggleShowDong();
+  // ── 이전 업무모드 상태 복원 (처음으로 → 재진입 시) ─────────
+  if (_wmSavedState && _wmSavedState.hadShapes) {
+    // 슬라이더 값 복원
+    _lineBuffer = _wmSavedState.lineBuffer;
+    _fanR1      = _wmSavedState.fanR1;
+    _fanR2      = _wmSavedState.fanR2;
+    // 슬라이더 UI 복원
+    if (typeof setSliderVal === 'function') {
+      setSliderVal('buf', _lineBuffer);
+      setSliderVal('r1',  _fanR1);
+      setSliderVal('r2',  _fanR2);
+    }
+    // 끝점/모드 복원
+    _endPoint  = _wmSavedState.endPoint;
+    _lastMode  = _wmSavedState.lastMode;
+    // 도형은 GPS 수신 후 rebuild로 재생성
+    _wmNeedDefaultFan = false;  // 기본 부채꼴 불필요 (복원)
+    _wmSavedState = null;       // 복원 완료 후 클리어
+
+    // 동/구 + 교차만 즉시 활성화 (기존 도형 기준 재계산)
+    setTimeout(function() {
+      if (!_dongVisible) _wmToggleShowDong();
+      if (!_dongFilterMode) {
+        _dongFilterMode = true;
+        setDongFilterBtn(true);
+        _wmApplyDongFilter();
+      }
+    }, 500);
+  } else {
+    // 동/구 표시 + 교차만 ON은 GPS 수신 후 기본 부채꼴 생성 이후 활성화
+    _wmNeedDefaultFan = true;  // GPS 수신 대기 플래그
+    _wmSavedState = null;
   }
 
   // 자동복사 ON
@@ -144,12 +173,7 @@ function initWorkMode(leafletMap) {
     setAutoCopyBtn(true);
   }
 
-  // 교차만 ON (동/구 표시가 켜진 후 실행)
-  if (!_dongFilterMode) {
-    _dongFilterMode = true;
-    setDongFilterBtn(true);
-    // 아직 결과 없으므로 필터 적용은 도형 생성 후 자동
-  }
+  // 교차만 ON은 기본 부채꼴 생성 후 _wmInitDefaultFan에서 활성화
 
   // GPS 5초 자동이동 타이머 시작
   _startGpsAutoTimer();
@@ -197,6 +221,17 @@ function exitWorkMode() {
     document.removeEventListener('visibilitychange', _wmVisibilityFn);
     _wmVisibilityFn = null;
   }
+
+  // 업무모드 상태 저장 (재진입 시 복원용)
+  _wmSavedState = {
+    shapes:     _shapes.slice(),   // 도형 배열 스냅샷
+    endPoint:   _endPoint,
+    lastMode:   _lastMode,
+    lineBuffer: _lineBuffer,
+    fanR1:      _fanR1,
+    fanR2:      _fanR2,
+    hadShapes:  _shapes.length > 0
+  };
 
   _shapes       = [];
   _currentMode  = null;
@@ -253,6 +288,10 @@ function exitWorkMode() {
 
 // 마지막 사용 모드 기억 (완료 후 추가버튼 사용 시 참조)
 let _lastMode = null;
+let _wmNeedDefaultFan = false;  // 업무모드 시작 시 기본 부채꼴 생성 대기
+
+// ── 업무모드 이전 상태 저장 (처음으로 → 재진입 시 복원) ─────────
+var _wmSavedState = null;  // { shapes, endPoint, mode, lineBuffer, fanR1, fanR2 }
 
 function _wmSwitchMode(mode) {
   // 완료 상태에서 같은 모드 버튼 재클릭 → 새 작업 시작 (GPS 기준)
@@ -298,9 +337,55 @@ function _wmOnGpsUpdate(pos) {
   // ── 내 위치 마커 갱신 ────────────────────────────────────────
   _wmUpdateGpsMarker(pos);
 
+  // ── 최초 GPS 수신 시 기본 부채꼴 자동 생성 ───────────────────
+  if (_wmNeedDefaultFan && _isValidLatLng(pos)) {
+    _wmNeedDefaultFan = false;
+    _wmInitDefaultFan(pos);
+    return;  // 위에서 rebuild 처리됨
+  }
+
   if (_shapes.length === 0) return;
 
   _wmRebuildAll();
+  _wmRunIntersect();
+  _wmUpdateUI();
+
+  // 4번: GPS 위치 변경 시 자동복사 갱신
+  if (_autoCopy && _resultSet.size > 0) {
+    var clipText = _normalizeForClipboard(_resultSet);
+    _prevResult = autoCopyIfChanged(clipText, _prevResult);
+  }
+}
+
+/**
+ * 업무모드 시작 시 GPS 기준 북쪽 1km 기본 부채꼴 자동 생성
+ * → 동/구 레이어 전체 표시 방지, 교차 필터 즉시 작동
+ */
+function _wmInitDefaultFan(pos) {
+  // 북쪽 1km 끝점 (경도는 같고 위도만 약 0.009도 증가)
+  var defaultEnd = {
+    lat: pos.lat + 0.009,  // ~1km 북쪽
+    lng: pos.lng
+  };
+  _endPoint   = L.latLng(defaultEnd.lat, defaultEnd.lng);
+  _currentMode = 'fan';
+  _lastMode    = 'fan';
+  setActiveModeBtn('fan');
+
+  // 부채꼴 생성
+  _wmRebuildAll();
+
+  // 동/구 표시 ON
+  if (!_dongVisible) {
+    _wmToggleShowDong();
+  }
+  // 교차만 ON
+  if (!_dongFilterMode) {
+    _dongFilterMode = true;
+    setDongFilterBtn(true);
+    _wmApplyDongFilter();
+  }
+
   _wmRunIntersect();
   _wmUpdateUI();
 }
@@ -972,9 +1057,21 @@ function _toggleGpsTracking() {
  */
 function _wmClearShapesOnly() {
   _wmDestroyShapes();
-  // 교차필터 모드는 건드리지 않음 (교차만 ON/OFF 상태 유지)
-  // 도형이 없어지면 교차 결과가 자연히 비워짐
-  // 동/구 표시 자체도 그대로 유지
+
+  // 교차 결과 초기화
+  _resultSet = new Set();
+
+  // 교차 필터 해제 → 모든 동/구 레이어 숨기기
+  // (도형이 없으면 교차 범위가 없으므로 전체 숨김이 맞음)
+  if (_dongVisible) {
+    // 동/구 레이어 전체 숨기기
+    _dongLayers.forEach(function(layer) {
+      try { layer.setStyle({ opacity: 0, fillOpacity: 0 }); } catch(e) {}
+    });
+  }
+
+  // UI 초기화
+  _wmUpdateUI();
 }
 
 // ════════════════════════════════════════════════════════════════
