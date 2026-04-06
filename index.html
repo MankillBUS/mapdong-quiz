@@ -4649,6 +4649,21 @@ function openGoogleSignupModal(){
 
 /* ── 구글 가입자 회원가입 제출 (submitSignup 오버라이드) ──
    비밀번호 없이 user_profiles만 PATCH */
+// ── 현재 세션 토큰 반환 (만료 시 자동 갱신) ──────────────────
+async function _getTokenWithRefresh() {
+  try {
+    // 1) sb.auth.getSession으로 현재 세션 확인
+    const { data: { session } } = await sb.auth.getSession();
+    if(session?.access_token) return session.access_token;
+    // 2) 세션 없으면 refreshSession 시도
+    const { data: { session: refreshed } } = await sb.auth.refreshSession();
+    return refreshed?.access_token || null;
+  } catch(e) {
+    console.warn('[_getTokenWithRefresh]', e);
+    return null;
+  }
+}
+
 async function submitGoogleSignup(){
   document.getElementById('su-err').style.display='none';
   const nickname  = document.getElementById('su-nickname').value.trim();
