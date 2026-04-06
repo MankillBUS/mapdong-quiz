@@ -1342,11 +1342,24 @@ function _isValidLatLng(pos) {
 
 function _isValidPolygon(polygon) {
   try {
-    var coords = polygon.geometry.coordinates[0];
-    for (var i = 0; i < coords.length; i++) {
-      if (isNaN(coords[i][0]) || isNaN(coords[i][1])) return false;
+    var geo   = polygon.geometry || polygon;
+    var type  = geo.type;
+    var ring;
+    if (type === 'Polygon') {
+      ring = geo.coordinates[0];
+    } else if (type === 'MultiPolygon') {
+      // MultiPolygon: 가장 긴 링 선택
+      ring = geo.coordinates.reduce(function(best, poly) {
+        return poly[0].length > best.length ? poly[0] : best;
+      }, []);
+    } else {
+      return false;
     }
-    return coords.length >= 3;
+    if (!ring || ring.length < 3) return false;
+    for (var i = 0; i < ring.length; i++) {
+      if (isNaN(ring[i][0]) || isNaN(ring[i][1])) return false;
+    }
+    return true;
   } catch(e) { return false; }
 }
 
