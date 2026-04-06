@@ -753,11 +753,9 @@ function _wmToggleShowDong() {
         var geo = (typeof _geo === 'function') ? _geo(node) : null;
         if (!geo && node.geometry) geo = node.geometry;
         if (geo) {
-          var lyr = drawPolygon(geo, '#a29bfe', 0.18);
+          var lyr = _wmDrawPolygon(geo, '#a29bfe', 0.18);
           if (lyr) {
-            // uniqueName으로 태그: 도시가 다른 같은 이름 동 구분
             lyr._wmDongName = dong.rn + '|' + (dong.gu && dong.gu !== dong.rn ? dong.gu : '') + '|' + dong.d;
-            lyr.addTo(_map);
             _dongLayers.push(lyr);
           }
         }
@@ -776,11 +774,9 @@ function _wmToggleShowDong() {
         done.add(gk);
         var guGeo = (typeof getGuGeo === 'function') ? getGuGeo(dong.rn, dong.gu) : null;
         if (!guGeo) return;
-        var lyr2 = drawPolygon(guGeo, '#a29bfe', 0.18);
+        var lyr2 = _wmDrawPolygon(guGeo, '#a29bfe', 0.18);
         if (lyr2) {
-          // 구 모드: "도시명|구명|" 형태로 uniqueName
           lyr2._wmDongName = dong.rn + '|' + dong.gu + '|';
-          lyr2.addTo(_map);
           _dongLayers.push(lyr2);
         }
         var ctr = (typeof getCenter === 'function') ? getCenter(guGeo) : null;
@@ -804,11 +800,9 @@ function _wmToggleShowDong() {
       var geo = (typeof _geo === 'function') ? _geo(node) : null;
       if (!geo && node.geometry) geo = node.geometry;
       if (geo) {
-        var lyr = drawPolygon(geo, '#a29bfe', 0.18);
+        var lyr = _wmDrawPolygon(geo, '#a29bfe', 0.18);
         if (lyr) {
-          // uniqueName으로 태그
           lyr._wmDongName = dong.rn + '|' + (dong.gu && dong.gu !== dong.rn ? dong.gu : '') + '|' + dong.d;
-          lyr.addTo(_map);
           _dongLayers.push(lyr);
         }
       }
@@ -1338,6 +1332,27 @@ function _isMapAlive() {
 function _isValidLatLng(pos) {
   return pos && typeof pos.lat === 'number' && !isNaN(pos.lat) &&
                 typeof pos.lng === 'number' && !isNaN(pos.lng);
+}
+
+// ── 업무모드 전용 폴리곤 그리기 ─────────────────────────────────
+// drawPolygon은 퀴즈용 map에 addTo하므로 업무모드에서는 직접 사용
+function _wmDrawPolygon(geo, color, fillOpacity) {
+  if (!geo || !_map) return null;
+  var geoInput;
+  if (geo.type === 'Feature' || geo.type === 'FeatureCollection') {
+    geoInput = geo;
+  } else if (geo.type === 'Polygon' || geo.type === 'MultiPolygon') {
+    geoInput = { type: 'Feature', geometry: geo, properties: {} };
+  } else if (geo.geometry) {
+    geoInput = { type: 'Feature', geometry: geo.geometry, properties: {} };
+  } else {
+    return null;
+  }
+  try {
+    return L.geoJSON(geoInput, {
+      style: { color: color, weight: 2, fillColor: color, fillOpacity: fillOpacity }
+    }).addTo(_map);
+  } catch(e) { return null; }
 }
 
 function _isValidPolygon(polygon) {
