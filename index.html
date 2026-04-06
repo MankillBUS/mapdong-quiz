@@ -2247,6 +2247,23 @@ function _geo(node) {
   return null;
 }
 
+/**
+ * _geo 반환값 중 MultiPolygon이 모두 2점 이하면
+ * 가장 긴 링 Polygon으로 변환 → drawPolygon 렌더 보장
+ */
+function _geoForRender(node) {
+  const g = _geo(node);
+  if (!g) return null;
+  if (g.type !== 'MultiPolygon') return g;
+  const coords = g.coordinates || [];
+  const allTiny = coords.every(poly => !poly[0] || poly[0].length <= 2);
+  if (!allTiny) return g;
+  const longest = coords.reduce((best, poly) =>
+    (poly[0] && poly[0].length > best.length) ? poly[0] : best, []);
+  if (longest.length < 3) return null;
+  return { type: 'Polygon', coordinates: [longest] };
+}
+
 function buildCityMetaFromCache(polyCache) {
   if (!polyCache) return;
   CITY_META_V4 = [];
@@ -3403,6 +3420,23 @@ function getPolygonKey(rn, gu, d){ return `${rn}|${gu}|${d}`; }
 
 function drawPolygon(geo, color='#00d4ff', fillOpacity=0.3){
   if(!geo || !map) return null;
+  // MultiPolygon이 모두 2점 이하인 경우 → 가장 긴 링으로 Polygon 변환
+  const g = geo.geometry || geo;
+  if(g && g.type === 'MultiPolygon') {
+    const allTiny = g.coordinates.every(poly => !poly[0] || poly[0].length <= 2);
+    if(allTiny) {
+      const longestRing = g.coordinates.reduce((best, poly) =>
+        (poly[0] && poly[0].length > best.length) ? poly[0] : best, []);
+      if(longestRing.length >= 3) {
+        const fixedGeo = { type:'Feature', geometry:{ type:'Polygon', coordinates:[longestRing] }, properties:{} };
+        return L.geoJSON(fixedGeo, {
+          style: { color, weight:2, fillColor:color, fillOpacity }
+        }).addTo(map);
+      }
+      // 모든 링이 2점 이하 → center 마커로 대체 렌더링 불가, null 반환
+      return null;
+    }
+  }
   return L.geoJSON(geo, {
     style: { color, weight:2, fillColor:color, fillOpacity }
   }).addTo(map);
@@ -4141,7 +4175,7 @@ window.toggleShowAll = function(){
         // 구 없는 도시: 동 폴리곤 + 동/읍/면 이름
         const node = POLY_CACHE ? getDongGeo(dong.rn, dong.gu, dong.d, dong.do_) : null;
         if(!node) return;
-        const geo = _geo(node);
+        const geo = _geoForRender(node);
         if(geo){
           const lyr = drawPolygon(geo, '#00d4ff', 0.15);
           if(lyr) allAnswerLayers.push(lyr);
@@ -4184,7 +4218,7 @@ window.toggleShowAll = function(){
       const node = POLY_CACHE ? getDongGeo(dong.rn, dong.gu, dong.d, dong.do_) : null;
       if(!node) return;
       // node는 전체 노드 객체 — geometry 필드 추출
-      const geo = _geo(node);
+      const geo = _geoForRender(node);
       if(geo){
         const lyr = drawPolygon(geo, '#00d4ff', 0.15);
         if(lyr) allAnswerLayers.push(lyr);
@@ -4267,7 +4301,7 @@ function doOk(dist, clickLat, clickLng){
     } else {
       // 구 없는 도시 or 동퀴즈: 동 폴리곤
       node = getDongGeo(cur.rn, cur.gu, cur.d, cur.do_);
-      geo  = _geo(node) || null;
+      geo  = _geoForRender(node) || null;
     }
     if(geo){
       answerLayer = drawPolygon(geo, '#39ff14', 0.25);
@@ -4372,7 +4406,7 @@ function doNo(dist, clickLat, clickLng){
         geo  = node || null;
       } else {
         node = getDongGeo(snapCur.rn, snapCur.gu, snapCur.d, snapCur.do_);
-        geo  = _geo(node) || null;
+        geo  = _geoForRender(node) || null;
       }
       if(geo){
         answerLayer = drawPolygon(geo, '#ff3c6e', 0.3);
