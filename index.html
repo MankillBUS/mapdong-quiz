@@ -1619,15 +1619,15 @@ body.work-mode #header-right { display: none !important; }
 
 <!-- 시작 화면 -->
 <div id="start" class="fs-screen hidden">
-  <!-- 디버그 버튼 (일시 숨김) -->
-  <div style="display:none;position:fixed;bottom:16px;right:16px;z-index:9999;flex-direction:column;gap:6px;align-items:flex-end;">
+  <!-- 디버그 버튼 (활성화) -->
+  <div style="display:flex;position:fixed;bottom:16px;right:16px;z-index:9999;flex-direction:column;gap:6px;align-items:flex-end;">
     <button onclick="window.location.href='debug_ranking.html'"
       style="background:rgba(0,212,255,.15);border:1px dashed var(--accent);
         color:var(--accent);border-radius:8px;padding:6px 12px;
         font-size:.72rem;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">
       🏆 Ranking 디버그
     </button>
-    <button onclick="window.location.href='debug_auth.html'"
+    <button onclick="runAuthDebug()"
       style="background:rgba(255,165,0,.2);border:1px dashed #ff8c00;
         color:#ff8c00;border-radius:8px;padding:6px 12px;
         font-size:.72rem;font-family:'Noto Sans KR',sans-serif;cursor:pointer;">
@@ -8587,6 +8587,28 @@ async function runAuthDebug() {
   modal.style.display = 'flex';
   box.textContent = '🔄 분석 중...';
 
+  // ── 회원가입 직접 테스트 (더미 이메일로 500 에러 재현) ────────
+  // 실제 가입 말고 preflight 체크만
+  let signupTestResult = '미실행';
+  try {
+    const testRes = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+      body: JSON.stringify({ email: '__debug_test__@mapdong.invalid', password: 'TestPass1!@#' }),
+    });
+    const testData = await testRes.json();
+    if(testRes.status === 500) {
+      signupTestResult = `❌ 500 에러: ${JSON.stringify(testData)}`;
+    } else if(testRes.status === 422 || testRes.status === 400) {
+      // 이메일 형식 오류 등 정상 검증 실패 → 서버는 살아있음
+      signupTestResult = `✅ 서버 정상 (${testRes.status}: ${testData.msg||testData.error||'검증 오류'})`;
+    } else {
+      signupTestResult = `${testRes.status}: ${JSON.stringify(testData).substring(0,100)}`;
+    }
+  } catch(e) {
+    signupTestResult = `❌ fetch 오류: ${e.message}`;
+  }
+
   let log = '';
   const ok   = (k,v) => { log += `  ✅ ${k}: ${v}\n`; };
   const ng   = (k,v,e) => { log += `  ❌ ${k}: ${v}  ← 기대값: ${e}\n`; };
@@ -8594,7 +8616,17 @@ async function runAuthDebug() {
   const sep  = () => { log += '─'.repeat(55) + '\n'; };
 
   log += '━'.repeat(55) + '\n';
-  log += `🔧 디버그: ${new Date().toLocaleString('ko-KR')}\n`;
+  log += `🔧 인증 디버그: ${new Date().toLocaleString('ko-KR')}\n`;
+  log += `Supabase URL: ${SUPABASE_URL}\n`;
+  sep();
+
+  // ── 0. 회원가입 서버 테스트
+  log += '\n[0] 회원가입 서버 응답 테스트\n';
+  log += `  결과: ${signupTestResult}\n`;
+  if(signupTestResult.includes('500')) {
+    log += '  → handle_new_user 트리거 또는 RLS INSERT 정책 문제!\n';
+    log += '  → Supabase Dashboard > Logs > Postgres 에서 상세 에러 확인\n';
+  }
   sep();
 
   // ── 1. currentUser 상태
@@ -8682,6 +8714,65 @@ async function runAuthDebug() {
     log += '  ⛔ 로그인 안되어 있어 DB 조회 건너뜀\n';
   }
   sep();
+
+  // ── 6. 구글 OAuth URL 생성 테스트
+  log += '\n[6] 구글 OAuth 설정 확인\n';
+  try {
+    const { data: oauthData, error: oauthErr } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin, skipBrowserRedirect: true }
+    });
+    if(oauthErr) {
+      log += `  ❌ OAuth URL 생성 실패: ${oauthErr.message}\n`;
+    } else if(oauthData?.url) {
+      log += `  ✅ OAuth URL 정상 생성됨\n`;
+      log += `  URL: ${oauthData.url.substring(0,80)}...\n`;
+    } else {
+      log += '  ⚠️ OAuth 응답이 비어있음\n';
+    }
+  } catch(e) {
+    log += `  ❌ OAuth 테스트 오류: ${e.message}\n`;
+  }
+  sep();
+
+  // ── 7. RLS 정책 확인 (anon key로 user_profiles INSERT 시도)
+  log += '\n[7] RLS INSERT 정책 테스트\n';
+  try {
+    const { error: rlsErr } = await sb
+      .from('user_profiles')
+      .insert({ user_id: '00000000-0000-0000-0000-000000000000' });
+    if(rlsErr) {
+      if(rlsErr.code === '42501') {
+        log += `  ⚠️ RLS 차단: ${rlsErr.message}\n`;
+        log += '  → INSERT 정책이 트리거 컨텍스트를 차단할 수 있음\n';
+      } else if(rlsErr.code === '23505') {
+        log += '  ✅ RLS 통과 (unique 제약 충돌 = 정상)\n';
+      } else {
+        log += `  ${rlsErr.code}: ${rlsErr.message}\n`;
+      }
+    } else {
+      log += '  ✅ INSERT 허용됨\n';
+    }
+  } catch(e) {
+    log += `  ❌ 테스트 오류: ${e.message}\n`;
+  }
+  sep();
+
+  // ── 8. free_trial_status 테이블 존재 확인
+  log += '\n[8] free_trial_status 테이블 확인\n';
+  try {
+    const { error: ftErr } = await sb.from('free_trial_status').select('user_id').limit(1);
+    if(ftErr) {
+      log += `  ❌ 테이블 오류: ${ftErr.message}\n`;
+      log += '  → create_trial_on_signup 트리거가 이 테이블에 INSERT하므로 에러 원인일 수 있음!\n';
+    } else {
+      log += '  ✅ 테이블 정상 접근\n';
+    }
+  } catch(e) {
+    log += `  ❌ 오류: ${e.message}\n`;
+  }
+  sep();
+
   log += '\n✅ 디버그 완료\n';
   box.textContent = log;
 }
