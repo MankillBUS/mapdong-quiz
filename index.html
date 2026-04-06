@@ -2223,6 +2223,23 @@ function _m(node, key) {
  * flat 구조: node.geometry
  * Feature 구조: node.type==='Feature' → node.geometry
  */
+
+/**
+ * geometry → 대표 좌표 링 반환 (Polygon/MultiPolygon 공통)
+ * Polygon      → coordinates[0]
+ * MultiPolygon → 가장 긴 외곽 링
+ */
+function _getRepresentativeRing(g) {
+  if (!g) return [];
+  if (g.type === 'Polygon') return g.coordinates[0] || [];
+  if (g.type === 'MultiPolygon') {
+    return g.coordinates.reduce(function(best, poly) {
+      return (poly[0] && poly[0].length > best.length) ? poly[0] : best;
+    }, []);
+  }
+  return [];
+}
+
 function _geo(node) {
   if (!node) return null;
   if (node.geometry) return node.geometry;
@@ -2256,10 +2273,12 @@ function buildCityMetaFromCache(polyCache) {
             if (ud?.center) { lats.push(ud.center[0]); lngs.push(ud.center[1]); }
             else if (_geo(ud)?.coordinates) {
               try {
-                const coords = _geo(ud).coordinates[0];
-                const la = coords.map(c=>c[1]), ln = coords.map(c=>c[0]);
-                lats.push(la.reduce((s,v)=>s+v,0)/la.length);
-                lngs.push(ln.reduce((s,v)=>s+v,0)/ln.length);
+                const coords = _getRepresentativeRing(_geo(ud));
+                if (coords.length) {
+                  const la = coords.map(c=>c[1]), ln = coords.map(c=>c[0]);
+                  lats.push(la.reduce((s,v)=>s+v,0)/la.length);
+                  lngs.push(ln.reduce((s,v)=>s+v,0)/ln.length);
+                }
               } catch(e) {}
             }
           }
@@ -2269,10 +2288,12 @@ function buildCityMetaFromCache(polyCache) {
         if (v.center) { lats.push(v.center[0]); lngs.push(v.center[1]); }
         else if (_geo(v)?.coordinates) {
           try {
-            const coords = _geo(v).coordinates[0];
-            const la = coords.map(c=>c[1]), ln = coords.map(c=>c[0]);
-            lats.push(la.reduce((s,v)=>s+v,0)/la.length);
-            lngs.push(ln.reduce((s,v)=>s+v,0)/ln.length);
+            const coords = _getRepresentativeRing(_geo(v));
+            if (coords.length) {
+              const la = coords.map(c=>c[1]), ln = coords.map(c=>c[0]);
+              lats.push(la.reduce((s,v)=>s+v,0)/la.length);
+              lngs.push(ln.reduce((s,v)=>s+v,0)/ln.length);
+            }
           } catch(e) {}
         }
       }
