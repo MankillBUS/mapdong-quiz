@@ -865,16 +865,15 @@ function renderLike(count){
 // ══════════════════════════════════════════════
 async function sendNotification(toUserId, type, postId, commentId, message){
   if(!currentUser || !toUserId) return;
-  // 자기 자신에게는 알림 발송 안 함
   if(toUserId === currentUser.id) return;
   try {
-    await sb.from('notifications').insert({
-      user_id:      toUserId,
-      from_user_id: currentUser.id,
-      type,
-      post_id:      postId || null,
-      comment_id:   commentId || null,
-      message,
+    // RLS 정책상 타인 알림은 DB 함수로 처리 (SECURITY DEFINER)
+    await sb.rpc('send_notification', {
+      p_to_user_id: toUserId,
+      p_type:       type,
+      p_post_id:    postId    || null,
+      p_comment_id: commentId || null,
+      p_message:    message,
     });
   } catch(e){ console.warn('알림 전송 실패:', e); }
 }
