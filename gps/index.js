@@ -1336,18 +1336,38 @@ function _isValidLatLng(pos) {
 
 // ── 업무모드 전용 폴리곤 그리기 ─────────────────────────────────
 // drawPolygon은 퀴즈용 map에 addTo하므로 업무모드에서는 직접 사용
+function _wmNormalizeGeo(geo) {
+  // geometry 또는 node → 렌더 가능한 GeoJSON Feature 반환
+  // MultiPolygon 전부 2점 이하이면 가장 긴 링으로 Polygon 변환
+  var g;
+  if (!geo) return null;
+  if (geo.type === 'Feature')            { g = geo.geometry; }
+  else if (geo.type === 'FeatureCollection') { g = (geo.features||[])[0]&&(geo.features[0].geometry); }
+  else if (geo.type === 'Polygon' || geo.type === 'MultiPolygon') { g = geo; }
+  else if (geo.geometry)                 { g = geo.geometry; }
+  else return null;
+
+  if (!g) return null;
+
+  if (g.type === 'MultiPolygon') {
+    var coords = g.coordinates || [];
+    var allTiny = coords.every(function(poly) { return !poly[0] || poly[0].length <= 2; });
+    if (allTiny) {
+      // 가장 긴 링 선택
+      var longest = coords.reduce(function(best, poly) {
+        return (poly[0] && poly[0].length > best.length) ? poly[0] : best;
+      }, []);
+      if (longest.length < 3) return null;
+      g = { type: 'Polygon', coordinates: [longest] };
+    }
+  }
+  return { type: 'Feature', geometry: g, properties: {} };
+}
+
 function _wmDrawPolygon(geo, color, fillOpacity) {
   if (!geo || !_map) return null;
-  var geoInput;
-  if (geo.type === 'Feature' || geo.type === 'FeatureCollection') {
-    geoInput = geo;
-  } else if (geo.type === 'Polygon' || geo.type === 'MultiPolygon') {
-    geoInput = { type: 'Feature', geometry: geo, properties: {} };
-  } else if (geo.geometry) {
-    geoInput = { type: 'Feature', geometry: geo.geometry, properties: {} };
-  } else {
-    return null;
-  }
+  var geoInput = _wmNormalizeGeo(geo);
+  if (!geoInput) return null;
   try {
     return L.geoJSON(geoInput, {
       style: { color: color, weight: 2, fillColor: color, fillOpacity: fillOpacity }
