@@ -4723,6 +4723,12 @@ async function submitGoogleSignup(){
   const fullAddr = addr ? (addrDt ? addr+' '+addrDt : addr) : '';
   const niceData = window._niceResult || {};
 
+  // ── 나이스 본인인증 결과 필수 확인 (nice_di 없으면 인증 미완료)
+  if(!niceData.nice_di) {
+    suErrG('휴대폰 본인인증을 완료해주세요. (인증 결과가 확인되지 않습니다.)');
+    return;
+  }
+
   const btn = document.getElementById('su-submit');
   btn.disabled=true; btn.textContent='저장 중...';
 
@@ -7441,10 +7447,12 @@ async function startNiceAuthSignup() {
 
                 toast('✅ 본인인증 완료! 실명이 자동으로 입력되었습니다.','success');
 
-                /* ✅ 이미 로그인된 사용자라면 user_profiles에 바로 저장 (fetch 직접 호출) */
-                if(currentUser?.id) {
+                /* ✅ 이미 로그인+가입완료 유저만 바로 저장
+                   구글 신규가입자(회원가입 폼 작성 중)는 skip → submitGoogleSignup에서 저장
+                   anon key 폴백 상태이면 RLS 차단되므로 토큰 확인 후만 저장 */
+                const _isCompletedUser = currentUser?.id && userProfile?.nickname;
+                if(_isCompletedUser) {
                   try {
-                    // localStorage에서 토큰 직접 읽기 (Lock 충돌 방지)
                     let accessToken = SUPABASE_KEY;
                     try {
                       const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
@@ -7453,27 +7461,29 @@ async function startNiceAuthSignup() {
                         if(parsed?.access_token) accessToken = parsed.access_token;
                       }
                     } catch(e) {}
-                    await fetch(
-                      `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${currentUser.id}`,
-                      {
-                        method: 'PATCH',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'apikey': SUPABASE_KEY,
-                          'Authorization': `Bearer ${accessToken}`,
-                          'Prefer': 'return=minimal',
-                        },
-                        body: JSON.stringify({
-                          real_name:   verifiedName,
-                          phone:       verifiedPhone,
-                          birth_date:  birthDateFormatted,
-                          nice_di:     verifiedDi,
-                          is_verified: true,
-                          verified_at: new Date().toISOString(),
-                          updated_at:  new Date().toISOString(),
-                        }),
-                      }
-                    );
+                    if(accessToken !== SUPABASE_KEY) {
+                      await fetch(
+                        `${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${currentUser.id}`,
+                        {
+                          method: 'PATCH',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Prefer': 'return=minimal',
+                          },
+                          body: JSON.stringify({
+                            real_name:   verifiedName,
+                            phone:       verifiedPhone,
+                            birth_date:  birthDateFormatted,
+                            nice_di:     verifiedDi,
+                            is_verified: true,
+                            verified_at: new Date().toISOString(),
+                            updated_at:  new Date().toISOString(),
+                          }),
+                        }
+                      );
+                    }
                   } catch(e) { console.warn('나이스 인증 저장 오류:', e); }
                 }
               } else {
@@ -7631,6 +7641,10 @@ async function submitSignup() {
   if(!job)                         { suErr('직업을 선택해주세요.'); return; }
   if(!signupPhoneVerified)         { suErr('휴대폰 본인인증을 먼저 완료해주세요.'); return; }
   if(!p1||!p2||!p3)                { suErr('휴대폰 번호를 입력해주세요.'); return; }
+
+  // ── 나이스 본인인증 결과 필수 확인 (nice_di 없으면 인증 미완료)
+  const _niceCheck = window._niceResult || {};
+  if(!_niceCheck.nice_di)          { suErr('휴대폰 본인인증을 완료해주세요. (인증 결과가 확인되지 않습니다.)'); return; }
 
   const phone = `${p1}-${p2}-${p3}`;
   const fullAddr = addr ? (addrDt ? addr+' '+addrDt : addr) : '';
