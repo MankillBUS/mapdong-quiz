@@ -698,7 +698,7 @@ body.work-mode #header-right { display: none !important; }
 .privacy-agree-check input{width:16px;height:16px;cursor:pointer;accent-color:var(--accent);}
 .privacy-btn-reject{flex:1;background:transparent;border:2px solid var(--border);color:var(--text-dim);border-radius:12px;padding:13px;font-size:.88rem;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;}
 .privacy-btn-reject:hover{border-color:#ff3c6e;color:#ff3c6e;}
-.privacy-btn-agree{flex:2;background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;border:none;border-radius:12px;padding:13px;font-size:.88rem;font-weight:900;font-family:'Black Han Sans',sans-serif;cursor:pointer;transition:all .2s;}
+.privacy-btn-agree{flex:2;background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;border:none;border-radius:12px;padding:13px;font-size:.88rem;font-weight:500;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;}
 .privacy-btn-agree:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,212,255,.4);}
 .privacy-btn-agree:disabled{opacity:.45;cursor:not-allowed;transform:none;}
 
@@ -5114,7 +5114,7 @@ async function loadProfile(sessionToken){
   // ── 구글 가입자 프로필 미완성 감지 → 추가 정보 입력 팝업
   if(isGoogleProfileIncomplete()){
     // 개인정보 약관 모달 없이 바로 구글용 회원가입 폼 열기
-    setTimeout(() => openGoogleSignupModal(), 400);
+    setTimeout(() => openPrivacyModal(true), 400); // 구글 가입 → 개인정보 동의 먼저
     return;
   }
 }
@@ -7115,11 +7115,16 @@ function updateNoticeBanner() {
 
 /* ── 약관 동의 상태 ── */
 let privacyAgreed = false;
+let locationAgreed = false; // 위치정보 동의 (필수로 변경)
 
-function openPrivacyModal() {
+function openPrivacyModal(isGoogle) {
   privacyAgreed = false;
+  locationAgreed = false;
   document.getElementById('privacy-agree-cb').checked = false;
+  document.getElementById('privacy-location-cb').checked = false;
   document.getElementById('privacy-btn-agree').disabled = true;
+  // 구글 가입 경로인지 기록 (동의 후 어떤 모달을 열지 결정)
+  document.getElementById('privacy-modal').dataset.googleMode = isGoogle ? '1' : '';
   document.getElementById('privacy-modal').classList.add('show');
 }
 
@@ -7129,13 +7134,27 @@ function closePrivacyModal() {
 
 function onPrivacyCheck(cb) {
   privacyAgreed = cb.checked;
-  document.getElementById('privacy-btn-agree').disabled = !privacyAgreed;
+  _updatePrivacyBtn();
+}
+function onLocationCheck(cb) {
+  locationAgreed = cb.checked;
+  _updatePrivacyBtn();
+}
+function _updatePrivacyBtn() {
+  const canAgree = privacyAgreed && locationAgreed;
+  document.getElementById('privacy-btn-agree').disabled = !canAgree;
 }
 
 function acceptPrivacyAndOpenSignup() {
-  if(!privacyAgreed){ toast('약관에 동의해 주세요.', 'error'); return; }
+  if(!privacyAgreed){ toast('개인정보 수집·이용 약관에 동의해 주세요.', 'error'); return; }
+  if(!locationAgreed){ toast('위치정보 수집·이용에 동의해 주세요.', 'error'); return; }
+  const isGoogle = document.getElementById('privacy-modal').dataset.googleMode === '1';
   closePrivacyModal();
-  openSignupModal();
+  if(isGoogle) {
+    openGoogleSignupModal();
+  } else {
+    openSignupModal();
+  }
 }
 
 function rejectPrivacy() {
@@ -7845,7 +7864,7 @@ window.toggleAuthMode = function() {
 
       <!-- ★ 위치정보 수집·이용 동의 -->
       <div class="privacy-section">
-        <div class="privacy-section-title">📍 위치정보 수집·이용 동의 (선택)</div>
+        <div class="privacy-section-title">📍 위치정보 수집·이용 동의 <span style="color:var(--accent2);font-size:.75rem;">(필수)</span></div>
         <div style="background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.2);
                     border-radius:8px;padding:12px 14px;font-size:.74rem;
                     color:#b0c8de;line-height:1.8;">
@@ -7915,16 +7934,18 @@ window.toggleAuthMode = function() {
       <div style="background:rgba(255,60,110,.06);border:1px solid rgba(255,60,110,.2);border-radius:8px;padding:10px 12px;font-size:.72rem;color:#b0c8de;line-height:1.7;margin-bottom:12px;">
         ※ 위 개인정보 수집·이용 동의를 거부할 권리가 있습니다. 단, 거부 시 MapDong 서비스 회원가입 및 이용이 제한됩니다.
       </div>
-      <label class="privacy-agree-check">
-        <input type="checkbox" id="privacy-location-cb">
-        <span style="font-size:.75rem;color:var(--text-dim);">
-          [선택] 위치정보 수집·이용에 동의합니다.
-          <span style="color:var(--text-dim);font-size:.68rem;">(업무모드 GPS 기능 이용 시 필요)</span>
+      <label class="privacy-agree-check" style="margin-top:4px;">
+        <input type="checkbox" id="privacy-location-cb" onchange="onLocationCheck(this)">
+        <span style="font-size:.75rem;color:var(--text);">
+          <strong style="color:var(--accent2);">[필수]</strong> 위치정보 수집·이용에 동의합니다.
+          <span style="color:var(--text-dim);font-size:.68rem;">(업무모드 GPS 기능 이용에 필요)</span>
         </span>
       </label>
       <label class="privacy-agree-check" style="margin-top:4px;">
         <input type="checkbox" id="privacy-agree-cb" onchange="onPrivacyCheck(this)">
-        위 개인정보 수집·이용 약관 및 재가입 제한 조항을 모두 읽었으며, <strong style="color:var(--accent);">&nbsp;전체 동의합니다.</strong>
+        <span style="font-size:.75rem;color:var(--text);">
+          <strong style="color:var(--accent2);">[필수]</strong> 위 개인정보 수집·이용 약관 및 재가입 제한 조항을 모두 읽었으며, <strong style="color:var(--accent);">&nbsp;전체 동의합니다.</strong>
+        </span>
       </label>
     </div>
     <div class="privacy-footer">
