@@ -4873,6 +4873,7 @@ window.doEmailAuth = async function(){
         user:          data.user,
       }));
       // setSession도 시도 (성공하면 onAuthStateChange 트리거)
+      window._profileAlreadyLoaded = true;
       sb.auth.setSession({
         access_token:  data.access_token,
         refresh_token: data.refresh_token,
@@ -4979,7 +4980,12 @@ sb.auth.onAuthStateChange(async(event, session) => {
   if(session?.user){
     currentUser = session.user;
 
-    
+    if(window._profileAlreadyLoaded) {
+      window._profileAlreadyLoaded = false;
+    } else {
+      await loadProfile(session.access_token);
+    }
+
     await loadProfile(session.access_token);
     // 퀴즈 중이면 routeUser 호출 안 함 (페이지 이동 방지)
     if(!quizActive()) routeUser();
