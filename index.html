@@ -4980,13 +4980,15 @@ sb.auth.onAuthStateChange(async(event, session) => {
   if(session?.user){
     currentUser = session.user;
 
+    // _profileAlreadyLoaded: doEmailAuth에서 직접 loadProfile 완료한 경우 skip
+    // → setSession이 onAuthStateChange를 재트리거해서 userProfile=null 되는 타이밍 버그 방지
     if(window._profileAlreadyLoaded) {
       window._profileAlreadyLoaded = false;
+      // loadProfile skip — userProfile은 이미 doEmailAuth에서 세팅 완료
     } else {
       await loadProfile(session.access_token);
     }
 
-    await loadProfile(session.access_token);
     // 퀴즈 중이면 routeUser 호출 안 함 (페이지 이동 방지)
     if(!quizActive()) routeUser();
     handlePaymentCallback();
