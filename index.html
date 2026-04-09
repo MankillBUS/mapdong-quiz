@@ -5002,46 +5002,18 @@ sb.auth.onAuthStateChange(async(event, session) => {
     document.getElementById('user-chip').classList.remove('visible');
     showOnly('screen-login');
   } else if(!session && currentUser) {
-    // 세션 만료 (이미 로그인 상태였을 때만)
+    // 세션 만료 — 조용히 처리 (confirm 팝업 없이)
     currentUser = null; userProfile = null;
     document.getElementById('user-chip').classList.remove('visible');
-    if(quizActive()){
-      if(confirm('⚠️ 로그인이 만료되었습니다.\n다시 로그인하시겠습니까?')){
-        showOnly('screen-login');
-      }
-    } else {
+    // 퀴즈/업무모드 중이면 화면 전환 안 함 (작업 보존)
+    if(!quizActive()) {
       showOnly('screen-login');
     }
   }
 });
 
-// ★ 탭 전환 시 세션 만료 감지 - getSession() 대신 localStorage 직접 읽기 (Lock 충돌 방지)
-document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState !== 'visible') return;
-  // 퀴즈 중이면 절대 화면 전환 안 함
-  if(quizActive()) return;
-  // 회원가입 모달이 열려있으면 체크 안함
-  const signupModal = document.getElementById('signup-modal');
-  if(signupModal && signupModal.style.display !== 'none' && signupModal.style.display !== '') return;
-
-  // localStorage에서 토큰 만료 확인 (getSession 호출 없음)
-  if(currentUser) {
-    try {
-      const raw = localStorage.getItem('sb-emgsueepzioudqnitkyn-auth-token');
-      if(raw) {
-        const parsed = JSON.parse(raw);
-        const exp = parsed?.expires_at || parsed?.currentSession?.expires_at || 0;
-        // 만료됐으면 로그아웃 처리
-        if(exp && (exp * 1000) < Date.now()) {
-          currentUser = null; userProfile = null;
-          document.getElementById('user-chip').classList.remove('visible');
-          showOnly('screen-login');
-        }
-        // 만료 안 됐으면 아무것도 안 함 (Supabase SDK가 자동 갱신)
-      }
-    } catch(e) {}
-  }
-});
+// ★ 탭 전환 체크 제거 — Supabase SDK가 토큰 자동 갱신 처리함
+// (visibilitychange 세션 체크는 UX 불편 + 불필요한 강제 로그아웃 유발로 제거)
 
 async function loadProfile(sessionToken){
   try {
@@ -5415,16 +5387,9 @@ function routeUser(){
   if(userProfile?.last_sidebar_category){
     _lastSidebarSlug = userProfile.last_sidebar_category;
   }
-  // 로그인 안 됨
+  // 로그인 안 됨 — 조용히 로그인 화면으로 이동 (confirm 팝업 없이)
   if(!currentUser){
-  
-    if(document.getElementById('start').classList.contains('hidden')){
-      if(confirm('로그인이 만료되었습니다. 다시 로그인하시겠습니까?')){
-        showOnly('screen-login');
-      }
-    } else {
-      showOnly('screen-login');
-    }
+    showOnly('screen-login');
     return;
   }
   // 프로필 없음
