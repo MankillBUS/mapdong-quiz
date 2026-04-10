@@ -1,9 +1,22 @@
 /**
  * ui.js — UI 렌더링 + 자동복사 모듈
  * ✅ 외부 호출 금지. index.js에서만 사용
+ *
+ * ⚠️ [중요도 최고] HTML 문자열 작성 규칙
+ * ─────────────────────────────────────────
+ * 이 파일의 HTML은 JS 배열 문자열('...')로 작성됨.
+ * onclick 속성값 안에 절대 작은따옴표(') 사용 금지!
+ *   ❌ 잘못된 예: onclick="_wmSetCircleColor('#ff0000',this)"
+ *   ✅ 올바른 예: onclick="_wmSetCircleColor(this.dataset.color,this)"
+ *   → data-color 속성에 색상값 저장, this.dataset.color로 접근
+ *
+ * 이 규칙을 어기면 JS 파싱 에러 → ui.js 전체 실행 중단
+ * → setGpsDot, setActiveModeBtn 등 모든 UI 함수 미정의
+ * → 지도 표시 불가, GPS 작동 불가 (치명적 연쇄 오류)
+ * ─────────────────────────────────────────
  */
 
-// ── 내부 상수 ────────────────────────────────────────────────────
+// ── 내부 상수 (⚠️ ID 변경 시 HTML과 동시에 변경 필요) ──────────────
 const PANEL_ID        = 'work-mode-panel';
 const RESULT_ID       = 'work-mode-result';
 const BTN_LINE_ID     = 'wm-btn-line';
@@ -36,6 +49,9 @@ const BTN_ADD_CIR_ID    = 'wm-btn-add-cir';    // 원형 추가
 const SLIDER_DRAW_ID    = 'wm-slider-draw';    // 그리기 굵기
 const SLIDER_CIR_ID     = 'wm-slider-cir';     // 원형 반경
 const SLIDER_DRAW_COLOR = 'wm-draw-color';     // 그리기 색상
+// ── 색상 행 ID (HTML과 반드시 일치해야 함) ────────────────────
+const ROW_DRAW_COLOR_ID = 'wm-row-draw-color';  // 그리기 색상 행
+const ROW_CIR_COLOR_ID  = 'wm-row-cir-color';   // 원형 색상 행
 
 // ── 공개 함수 ────────────────────────────────────────────────────
 
@@ -54,6 +70,11 @@ const SLIDER_DRAW_COLOR = 'wm-draw-color';     // 그리기 색상
  *   onR1ChangeFn(v)            r1 변경
  *   onR2ChangeFn(v)            r2 변경
  */
+// ⚠️ [중요] 파라미터 순서 변경 시 index.js의 호출부도 반드시 같이 변경
+// 현재 순서: onLineFn, onFanFn, onDrawFn, onCircleFn, onAutoCopyFn,
+//            onGpsTrackFn, onAddLineFn, onAddFanFn, onAddDrawFn, onAddCirFn,
+//            onShowDongFn, onDongFilterFn, onClearFn,
+//            onBufChangeFn, onR1ChangeFn, onR2ChangeFn, onDrawBufFn, onCirRadFn
 function renderWorkModePanel(
   onLineFn, onFanFn, onDrawFn, onCircleFn, // 모드 전환
   onAutoCopyFn,
@@ -207,12 +228,12 @@ function renderWorkModePanel(
     '    <div class="wm-row" id="wm-row-cir-color" style="display:none">',
     '      <div class="wm-label">원 색상</div>',
     '      <div class="wm-slider-wrap" style="gap:6px;flex-wrap:wrap;">',
-    '        <button class="wm-color-swatch wm-cir-color-active" data-color="#ff6b6b" style="background:#ff6b6b" title="빨강" onclick="_wmSetCircleColor('#ff6b6b',this)"></button>',
-    '        <button class="wm-color-swatch" data-color="#00d4ff" style="background:#00d4ff" title="하늘" onclick="_wmSetCircleColor('#00d4ff',this)"></button>',
-    '        <button class="wm-color-swatch" data-color="#39ff14" style="background:#39ff14" title="초록" onclick="_wmSetCircleColor('#39ff14',this)"></button>',
-    '        <button class="wm-color-swatch" data-color="#ffd700" style="background:#ffd700" title="노랑" onclick="_wmSetCircleColor('#ffd700',this)"></button>',
-    '        <button class="wm-color-swatch" data-color="#ff9f43" style="background:#ff9f43" title="주황" onclick="_wmSetCircleColor('#ff9f43',this)"></button>',
-    '        <button class="wm-color-swatch" data-color="#a29bfe" style="background:#a29bfe" title="보라" onclick="_wmSetCircleColor('#a29bfe',this)"></button>',
+    '        <button class="wm-color-swatch wm-cir-color-active" data-color="#ff6b6b" style="background:#ff6b6b" title="빨강" onclick="_wmSetCircleColor(this.dataset.color,this)"></button>',
+    '        <button class="wm-color-swatch" data-color="#00d4ff" style="background:#00d4ff" title="하늘" onclick="_wmSetCircleColor(this.dataset.color,this)"></button>',
+    '        <button class="wm-color-swatch" data-color="#39ff14" style="background:#39ff14" title="초록" onclick="_wmSetCircleColor(this.dataset.color,this)"></button>',
+    '        <button class="wm-color-swatch" data-color="#ffd700" style="background:#ffd700" title="노랑" onclick="_wmSetCircleColor(this.dataset.color,this)"></button>',
+    '        <button class="wm-color-swatch" data-color="#ff9f43" style="background:#ff9f43" title="주황" onclick="_wmSetCircleColor(this.dataset.color,this)"></button>',
+    '        <button class="wm-color-swatch" data-color="#a29bfe" style="background:#a29bfe" title="보라" onclick="_wmSetCircleColor(this.dataset.color,this)"></button>',
     '      </div>',
     '    </div>',
     '    <!-- 원형 반경 슬라이더 -->',
@@ -446,7 +467,7 @@ function _showSliderRows(mode) {
 
   var addDraw  = document.getElementById(BTN_ADD_DRAW_ID);
   var addCir   = document.getElementById(BTN_ADD_CIR_ID);
-  var rowDrawColor = document.getElementById('wm-row-draw-color');
+  var rowDrawColor = document.getElementById(ROW_DRAW_COLOR_ID);
 
   // 추가버튼: 해당 모드일 때 (done 포함 — 완료 후에도 추가 가능)
   if (addLine) addLine.style.display = (activeMode === 'line')   ? 'flex' : 'none';
@@ -456,7 +477,7 @@ function _showSliderRows(mode) {
 
   // 색상 선택창: 각 모드 활성 시만 (완료 시 숨김)
   if (rowDrawColor) rowDrawColor.style.display = (activeMode === 'draw'   && !isDone) ? 'flex' : 'none';
-  var rowCirColor  = document.getElementById('wm-row-cir-color');
+  var rowCirColor  = document.getElementById(ROW_CIR_COLOR_ID);
   if (rowCirColor) rowCirColor.style.display  = (activeMode === 'circle' && !isDone) ? 'flex' : 'none';
 
   // 완료버튼: 모드가 있을 때(활성/완료 모두)
@@ -514,6 +535,9 @@ function setGpsTrackBtn(isOn) {
 }
 
 /** GPS 상태 점 갱신 */
+// ⚠️ [중요] setGpsDot은 GPS 수신 즉시 호출됨 (initWorkMode → initGPS → onUpdate)
+// ui.js 로드 실패 시 이 함수가 없어 ReferenceError 발생 → 지도 전체 먹통
+// 연쇄 오류 방지: ui.js가 index.js보다 반드시 먼저 로드되어야 함
 function setGpsDot(state) {
   var dot = document.getElementById(GPS_DOT_ID);
   if (!dot) return;
@@ -1017,24 +1041,25 @@ function _injectStyles() {
   document.head.appendChild(style);
 }
 
-/** 그리기 색상 변경 */
-function _wmSetDrawColor(color, btn) {
-  window._drawColor = color;
-  // 그리기 스와치 active 상태 갱신
-  var row = document.getElementById('wm-row-draw-color');
+// ── 색상 스와치 공통 헬퍼 ─────────────────────────────────────────
+// ⚠️ [주의] 새 색상 선택창 추가 시 이 패턴 그대로 사용
+// rowId: 해당 색상 행의 ID (상수 사용 권장)
+// winKey: window 전역 색상 변수명 ('_drawColor' 또는 '_circleColor')
+function _wmApplyColorSwatch(rowId, winKey, color, btn) {
+  window[winKey] = color;
+  var row = document.getElementById(rowId);
   if (row) row.querySelectorAll('.wm-color-swatch').forEach(function(s){
     s.classList.remove('wm-color-active');
   });
   if (btn) btn.classList.add('wm-color-active');
 }
 
-/** 원형 색상 변경 */
+/** 그리기 색상 변경 (onclick에서 this.dataset.color, this 로 호출) */
+function _wmSetDrawColor(color, btn) {
+  _wmApplyColorSwatch(ROW_DRAW_COLOR_ID, '_drawColor', color, btn);
+}
+
+/** 원형 색상 변경 (onclick에서 this.dataset.color, this 로 호출) */
 function _wmSetCircleColor(color, btn) {
-  window._circleColor = color;
-  // 원형 스와치 active 상태 갱신
-  var row = document.getElementById('wm-row-cir-color');
-  if (row) row.querySelectorAll('.wm-color-swatch').forEach(function(s){
-    s.classList.remove('wm-color-active');
-  });
-  if (btn) btn.classList.add('wm-color-active');
+  _wmApplyColorSwatch(ROW_CIR_COLOR_ID, '_circleColor', color, btn);
 }
