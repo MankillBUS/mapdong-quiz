@@ -62,8 +62,9 @@ let _drawLayer     = null;  // 현재 드래그 중 표시 레이어 (Polyline �
 let _drawShapeLayers = [];  // 그리기 구간별 폴리곤 레이어 목록
 
 // ── 원형 모드 상태 ────────────────────────────────────────────────
-let _circleRadius  = 3.0;       // 원형 반경 (km)
-let _circleLayer   = null;      // 현재 원형 레이어
+let _circleRadius   = 3.0;        // 원형 반경 (km)
+let _circleLayer    = null;       // 현재 원형 레이어
+let _circleDoneOnce = false;      // 원 1개 생성 후 추가버튼 눌러야 재활성화
 window._circleColor = '#ff6b6b'; // 원형 기본 색상 (빨강)
 
 // ════════════════════════════════════════════════════════════════
@@ -271,7 +272,8 @@ function exitWorkMode() {
   // 그리기/원형 모드 상태 정리 + 이벤트 언바인딩
   _wmClearDrawState();
   _wmUnbindDrawEvents();
-  _wmUnlockScroll(); // 스크롤 잠금 해제 (드래그 중 종료 대비)
+  _wmUnlockScroll();   // 스크롤 잠금 해제 (드래그 중 종료 대비)
+  _wmShowResult();     // 교차지역 텍스트창 복원 (드래그 중 종료 대비)
 
   removeWorkModePanel();
 
@@ -350,35 +352,29 @@ window.clearWorkModeSavedState = function() {
 };
 
 function _wmSwitchMode(mode) {
-  // 활성 상태에서 같은 모드 재클릭 → 완료 처리
+  // ── draw/circle: 활성 중 재클릭 → 기존 도형 초기화 + 처음부터 재시작
+  // 슬라이더(색상/굵기/반경)는 닫히지 않음
+  if (_currentMode === mode && (mode === 'draw' || mode === 'circle')) {
+    _wmResetModeShapes(mode);
+    return;
+  }
+
+  // ── 선/부채꼴: 활성 중 재클릭 → 완료 처리 (기존 동작 유지)
   if (_currentMode === mode) {
     _wmDone();
     return;
   }
 
-  // done 상태(currentMode=null)에서 같은 모드 재클릭 → 전체 초기화 후 처음부터 재시작
-  // 그리기: 기존 draw 선 전부 삭제 → 1번째 드래그부터
-  // 원형: 기존 원 전부 삭제 → 1번째 원부터
-  // 선/부채꼴: 기존 도형 삭제 → 처음부터
+  // ── done 상태(currentMode=null)에서 같은 모드 재클릭 → 전체 초기화 후 재시작
   if (_currentMode === null && _lastMode === mode) {
-    // 해당 타입 shape + 레이어 전체 제거
-    _shapes.filter(function(s){ return s.type === mode; }).forEach(function(s){
-      if (s.layer) { try { _map.removeLayer(s.layer); } catch(x) {} }
-    });
-    _shapes = _shapes.filter(function(s){ return s.type !== mode; });
-    _wmClearDrawState();
-    _drawDoneOnce = false;
-    _currentMode  = mode;
-    _lastMode     = mode;
-    setActiveModeBtn(mode);
-    if (mode === 'fan')    _endPoint = null;
-    if (mode === 'circle') _circleLayer = null;
+    _wmResetModeShapes(mode);
     return;
   }
 
-  // 다른 모드로 전환 시 전체 초기화
+  // ── 다른 모드로 전환 시 전체 초기화
   _wmClearDrawState();
-  _drawDoneOnce = false;
+  _drawDoneOnce   = false;
+  _circleDoneOnce = false;
   _wmDestroyShapes();
   _currentMode = mode;
   _lastMode    = mode;
@@ -386,6 +382,32 @@ function _wmSwitchMode(mode) {
 
   if (mode === 'fan')    _endPoint = null;
   if (mode === 'circle') _circleLayer = null;
+}
+
+/**
+ * 해당 타입 shape 전부 삭제 후 처음부터 재시작
+ * draw/circle 재클릭 시 슬라이더 닫히지 않고 초기화
+ */
+function _wmResetModeShapes(mode) {
+  // 해당 타입 레이어 전부 지도에서 제거
+  _shapes.filter(function(s){ return s.type === mode; }).forEach(function(s){
+    if (s.layer) { try { _map.removeLayer(s.layer); } catch(x) {} }
+  });
+  _shapes = _shapes.filter(function(s){ return s.type !== mode; });
+
+  // draw 상태 초기화
+  _wmClearDrawState();
+  _drawDoneOnce   = false;
+  _circleDoneOnce = false;
+
+  _currentMode = mode;
+  _lastMode    = mode;
+
+  if (mode === 'fan')    _endPoint = null;
+  if (mode === 'circle') _circleLayer = null;
+
+  // 슬라이더 유지 (setActiveModeBtn('draw'/'circle') → 슬라이더 열린 상태 유지)
+  setActiveModeBtn(mode);
 }
 
 /** 완료 처리 — 3행 닫기, _currentMode null, 추가버튼/완료버튼 유지 */
@@ -527,7 +549,8 @@ function _wmMapClick(latlng) {
     _endPoint = latlng;
     _wmReplaceLastFan();
   } else if (_currentMode === 'circle') {
-    // 클릭 위치에 원 생성 (GPS 무관) — intersect/UI는 _wmAddCircle 내부에서 처리
+    // 원형 1회 제한 — 추가버튼 눌러야 재생성 가능
+    if (_circleDoneOnce) return;
     _wmAddCircle(latlng);
     return; // 아래 runIntersect/updateUI 중복 방지
   }
@@ -2198,7 +2221,9 @@ function _wmDrawStart(e) {
   _drawRawPts.push(latlng);
   // 지도 드래그 비활성화 (그리기 중)
   _map.dragging.disable();
-  // ⚠️ [모바일] 스크롤 잠금 — 교차지역 줄바꿈으로 인한 화면 흔들림 방지
+  // 교차지역 텍스트창 숨김 (줄바꿈으로 인한 화면 흔들림 방지)
+  _wmHideResult();
+  // ⚠️ [모바일] 스크롤 잠금
   _wmLockScroll();
 }
 
@@ -2213,6 +2238,8 @@ function _wmDrawStartTouch(e) {
   var latlng = _map.mouseEventToLatLng(touch);
   _drawRawPts.push(latlng);
   _map.dragging.disable();
+  // 교차지역 텍스트창 숨김
+  _wmHideResult();
   // ⚠️ [모바일] 스크롤 잠금
   _wmLockScroll();
 }
@@ -2255,6 +2282,8 @@ function _wmDrawEnd(e) {
   if (!_isDrawing || _currentMode !== 'draw') return;
   _isDrawing = false;
   _map.dragging.enable();
+  // 교차지역 텍스트창 다시 표시
+  _wmShowResult();
   // ⚠️ [모바일] 스크롤 해제
   _wmUnlockScroll();
 
@@ -2404,6 +2433,28 @@ function _downsamplePts(pts, maxPts) {
  * 그리기 상태 전체 초기화
  */
 // ════════════════════════════════════════════════════════════════
+// 교차지역 텍스트창 숨김/표시 — 드래그 중 줄바꿈 화면 흔들림 방지
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * 드래그 시작 시 교차지역 결과 텍스트창 숨김
+ * 줄바꿈으로 인한 레이아웃 변화 → 스크롤 자동 개입 방지
+ * ⚠️ 반드시 _wmShowResult와 쌍으로 사용
+ */
+function _wmHideResult() {
+  var el = document.getElementById('work-mode-result');
+  if (el) el.style.visibility = 'hidden';
+}
+
+/**
+ * 드래그 종료 시 교차지역 결과 텍스트창 다시 표시
+ */
+function _wmShowResult() {
+  var el = document.getElementById('work-mode-result');
+  if (el) el.style.visibility = '';
+}
+
+// ════════════════════════════════════════════════════════════════
 // 모바일 스크롤 잠금/해제 — 그리기 드래그 중 화면 흔들림 방지
 // ════════════════════════════════════════════════════════════════
 
@@ -2437,9 +2488,10 @@ function _wmUnlockScroll() {
 }
 
 function _wmClearDrawState() {
-  _isDrawing = false;
-  _drawDoneOnce = false; // 1회 제한 리셋
-  _drawRawPts = [];
+  _isDrawing      = false;
+  _drawDoneOnce   = false; // 드래그 1회 제한 리셋
+  _circleDoneOnce = false; // 원형 1회 제한 리셋
+  _drawRawPts     = [];
   if (_drawLayer && _map) {
     try { _map.removeLayer(_drawLayer); } catch(x) {}
     _drawLayer = null;
@@ -2482,6 +2534,7 @@ function _wmAddCircle(latlng) {
     color:   col
   });
 
+  _circleDoneOnce = true; // 1회 완료 → 원형추가버튼 눌러야 재활성화
   _wmRunIntersect();
   _wmUpdateUI();
   // ⚠️ 원 생성 후에도 'circle' 활성 상태 유지
@@ -2515,8 +2568,9 @@ function _wmAddDrawChain() {
  */
 function _wmAddCircleChain() {
   if (_currentMode !== 'circle' && _lastMode !== 'circle') return;
-  // done-circle → 'circle' 활성 상태로 전환 → 슬라이더(색상/반경) 다시 열림
-  _currentMode = 'circle';
+  // 원형추가 버튼 → 1회 제한 해제 → 다음 클릭으로 원 1개 추가 생성
+  _circleDoneOnce = false;
+  _currentMode    = 'circle';
   setActiveModeBtn('circle');
 }
 
