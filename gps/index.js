@@ -52,6 +52,9 @@ let _searchPolyLayers = [];  // 현재 표시 중인 검색 폴리곤 레이어
 let _searchPolyTimer  = null; // 5초 타이머
 
 // ── 그리기 모드 상태 ──────────────────────────────────────────────
+let _drawColor     = '#ff6b6b'; // 그리기 선 색상 (기본: 빨강)
+window._drawColor  = _drawColor; // ui.js의 _wmSetDrawColor에서 접근
+let _drawDoneOnce  = false;  // 드래그 1회 완료 여부 (추가버튼 눌러야 재활성화)
 let _drawBuffer    = 0.3;   // 그리기 선 굵기 (km)
 let _isDrawing     = false; // 드래그 중 여부
 let _drawRawPts    = [];    // 드래그로 수집된 원시 latlng 점들
@@ -99,6 +102,8 @@ function initWorkMode(leafletMap) {
     function() { _toggleGpsTracking(); },           // GPS 추적 ON/OFF
     function() { _wmAddLineChain(); },       // 선 이어붙이기
     function() { _wmAddFanChain(); },        // 부채꼴 이어붙이기
+    function() { _wmAddDrawChain(); },       // 그리기 추가
+    function() { _wmAddCircleChain(); },     // 원형 추가
     function() { _wmToggleShowDong(); },            // 동/구 표시
     function() { _wmToggleDongFilter(); },          // 교차지역만 Show
     function() { _wmClearShapesOnly(); },           // 도형만 초기화
@@ -349,8 +354,9 @@ function _wmSwitchMode(mode) {
     return;
   }
 
-  // 그리기 모드 전환 시 이전 드래그 상태 정리
+  // 모드 전환 시 이전 드래그 상태 + 1회 제한 리셋
   _wmClearDrawState();
+  _drawDoneOnce = false;
 
   _wmDestroyShapes();
   _currentMode = mode;
@@ -498,8 +504,9 @@ function _wmMapClick(latlng) {
     _endPoint = latlng;
     _wmReplaceLastFan();
   } else if (_currentMode === 'circle') {
-    // 클릭 위치에 원 생성 (GPS 무관)
+    // 클릭 위치에 원 생성 (GPS 무관) — intersect/UI는 _wmAddCircle 내부에서 처리
     _wmAddCircle(latlng);
+    return; // 아래 runIntersect/updateUI 중복 방지
   }
   // draw 모드는 드래그 이벤트로 처리 → 여기서 처리 안 함
 
@@ -2120,6 +2127,8 @@ function _wmUnbindDrawEvents() {
 
 function _wmDrawStart(e) {
   if (_currentMode !== 'draw') return;
+  // 드래그 1회 완료 후 추가버튼 누르지 않으면 새 드래그 차단
+  if (_drawDoneOnce) return;
   e.preventDefault();
   _isDrawing = true;
   _drawRawPts = [];
@@ -2133,6 +2142,7 @@ function _wmDrawStart(e) {
 
 function _wmDrawStartTouch(e) {
   if (_currentMode !== 'draw') return;
+  if (_drawDoneOnce) return;
   e.preventDefault();
   _isDrawing = true;
   _drawRawPts = [];
@@ -2161,13 +2171,14 @@ function _wmDrawMoveTouch(e) {
 function _wmDrawAddPoint(latlng) {
   _drawRawPts.push(latlng);
 
-  // 프리뷰: 실시간 Polyline 표시 (얇은 선으로 경로 표시)
+  // 프리뷰: 실시간 Polyline 표시
   if (_drawLayer) { try { _map.removeLayer(_drawLayer); } catch(x) {} }
+  var previewColor = window._drawColor || '#ff6b6b';
   _drawLayer = L.polyline(_drawRawPts, {
-    color: '#ff6b6b',
-    weight: Math.max(2, _drawBuffer * 20), // 굵기 시각화
-    opacity: 0.8,
-    pane: _SHAPE_PANE
+    color:   previewColor,
+    weight:  Math.max(3, _drawBuffer * 25),
+    opacity: 0.85,
+    pane:    _SHAPE_PANE
   }).addTo(_map);
 
   // 실시간 교차 계산 (10포인트마다 — 성능)
@@ -2204,8 +2215,11 @@ function _wmDrawEnd(e) {
   }
 
   _drawRawPts = [];
+  _drawDoneOnce = true; // 1회 완료 → 추가버튼 누르기 전까지 새 드래그 차단
   _wmRunIntersect();
   _wmUpdateUI();
+  // done-draw 상태로 전환 → 추가버튼 표시
+  setActiveModeBtn('done-draw');
 }
 
 /**
@@ -2229,6 +2243,9 @@ function _buildDrawSegmentPolygon(pts, bufferKm) {
     var res = buildLinePolygon(start, end, bufferKm);
     if (res && _isValidPolygon(res.polygon)) {
       segments.push(res.polygon);
+      // 색상 적용
+      var col = window._drawColor || '#ff6b6b';
+      res.layer.setStyle({ color: col, fillColor: col, fillOpacity: 0.25, weight: 2 });
       allLayers.push(res.layer);
     }
   }
@@ -2253,21 +2270,46 @@ function _wmDrawRunIntersectRealtime() {
   var dongPolygons = _getActiveDongPolygons();
   if (!dongPolygons.length) return;
 
-  var newSet = new Set(_resultSet); // 기존 결과 유지 + 추가
+  // ★ 기존 shapes(_shapes)의 결과는 유지하고, 드래그 실시간 결과만 추가
+  // _resultSet을 완전히 덮지 않고, 기존 교차 결과 위에 누적
+  var baseSet = new Set();
 
+  // 기존 완성된 shapes 결과 먼저 계산
+  _shapes.forEach(function(shape) {
+    if (shape.pending) return;
+    if (shape.type === 'draw' && shape.segments && shape.segments.length) {
+      shape.segments.forEach(function(seg) {
+        if (!_isValidPolygon(seg)) return;
+        intersectPolygon(seg, dongPolygons).forEach(function(n) { baseSet.add(n); });
+      });
+      return;
+    }
+    if (!shape.polygon) return;
+    intersectPolygon(shape.polygon, dongPolygons).forEach(function(n) { baseSet.add(n); });
+  });
+
+  // 드래그 중 실시간 구간 추가
   var sampled = _downsamplePts(_drawRawPts, 30);
   for (var i = 0; i < sampled.length - 1; i++) {
     var start = { lat: sampled[i].lat,   lng: sampled[i].lng };
     var end   = { lat: sampled[i+1].lat, lng: sampled[i+1].lng };
     var res = buildLinePolygon(start, end, _drawBuffer);
     if (res && _isValidPolygon(res.polygon)) {
-      var names = intersectPolygon(res.polygon, dongPolygons);
-      names.forEach(function(n) { newSet.add(n); });
+      intersectPolygon(res.polygon, dongPolygons).forEach(function(n) { baseSet.add(n); });
     }
   }
 
-  _resultSet = newSet;
-  _wmUpdateUI();
+  _resultSet = baseSet;
+
+  // 교차 필터 실시간 갱신 (폴리곤 사라지지 않도록)
+  if (_dongFilterMode && _dongVisible) {
+    _wmApplyDongFilter();
+  }
+  updateResultDisplay(_extractDisplayNames(_resultSet));
+  if (_autoCopy) {
+    var clipText = _normalizeForClipboard(_resultSet);
+    _prevResult = autoCopyIfChanged(clipText, _prevResult);
+  }
 }
 
 /**
@@ -2289,6 +2331,7 @@ function _downsamplePts(pts, maxPts) {
  */
 function _wmClearDrawState() {
   _isDrawing = false;
+  _drawDoneOnce = false; // 1회 제한 리셋
   _drawRawPts = [];
   if (_drawLayer && _map) {
     try { _map.removeLayer(_drawLayer); } catch(x) {}
@@ -2332,9 +2375,45 @@ function _wmAddCircle(latlng) {
     type:    'circle',
     layer:   res.layer,
     polygon: res.polygon,
-    endPt:   center,       // 재생성용 중심점
+    endPt:   center,
     radius:  _circleRadius
   });
+
+  _wmRunIntersect();
+  _wmUpdateUI();
+  // 원 1개 생성 후 done-circle 상태 → 원형 추가 버튼 표시
+  _currentMode = null;
+  _lastMode    = 'circle';
+  setActiveModeBtn('done-circle');
+}
+
+// ════════════════════════════════════════════════════════════════
+// 그리기 추가 / 원형 추가 — 완료 후 재활성화
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * 그리기 추가 버튼
+ * done-draw 상태에서 _drawDoneOnce를 리셋해 드래그 1회 더 허용
+ */
+function _wmAddDrawChain() {
+  if (_lastMode !== 'draw' && _currentMode !== 'draw') return;
+
+  // done 상태 → 활성으로 복귀
+  _drawDoneOnce  = false;
+  _currentMode   = 'draw';
+  setActiveModeBtn('draw');
+}
+
+/**
+ * 원형 추가 버튼
+ * done-circle 상태에서 클릭 한 번 더 허용
+ * (원형은 클릭마다 기존 원을 교체하므로 상태 전환만 하면 됨)
+ */
+function _wmAddCircleChain() {
+  if (_lastMode !== 'circle' && _currentMode !== 'circle') return;
+
+  _currentMode = 'circle';
+  setActiveModeBtn('circle');
 }
 
 window._wmSearch = function(query) {
