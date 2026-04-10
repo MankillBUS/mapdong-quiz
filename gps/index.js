@@ -355,21 +355,23 @@ function _wmSwitchMode(mode) {
     return;
   }
 
-  // done 상태(currentMode=null)에서 같은 모드 재클릭 → 해당 타입만 초기화 후 재시작
-  // 선/부채꼴: 기존 도형 전체 삭제 후 새로 그리기
-  // 그리기: 기존 draw shape만 삭제 후 드래그 재시작
-  // 원형: 기존 circle shape만 삭제 후 재시작
+  // done 상태(currentMode=null)에서 같은 모드 재클릭 → 전체 초기화 후 처음부터 재시작
+  // 그리기: 기존 draw 선 전부 삭제 → 1번째 드래그부터
+  // 원형: 기존 원 전부 삭제 → 1번째 원부터
+  // 선/부채꼴: 기존 도형 삭제 → 처음부터
   if (_currentMode === null && _lastMode === mode) {
-    // 해당 타입 shape만 제거
+    // 해당 타입 shape + 레이어 전체 제거
     _shapes.filter(function(s){ return s.type === mode; }).forEach(function(s){
       if (s.layer) { try { _map.removeLayer(s.layer); } catch(x) {} }
     });
     _shapes = _shapes.filter(function(s){ return s.type !== mode; });
     _wmClearDrawState();
     _drawDoneOnce = false;
-    _currentMode = mode;
+    _currentMode  = mode;
+    _lastMode     = mode;
     setActiveModeBtn(mode);
     if (mode === 'fan')    _endPoint = null;
+    if (mode === 'circle') _circleLayer = null;
     return;
   }
 
@@ -773,16 +775,49 @@ function _wmRebuildAll() {
       // 원형: GPS 무관, 클릭 위치 고정 (endPt = 원 중심)
       result = buildCirclePolygon(shape.endPt, shape.radius || _circleRadius);
     } else if (shape.type === 'draw') {
-      // 그리기: 구간별 폴리곤 재생성
-      result = _buildDrawSegmentPolygon(shape.pts, shape.bufferKm || _drawBuffer);
+      // ⚠️ [중요] draw는 Polyline으로 재생성 — pts/color/bufferKm 반드시 유지
+      // GPS 갱신·탭 전환 시 이 정보 없으면 그린 선이 사라짐
+      if (!shape.pts || shape.pts.length < 2) return;
+      var drawColor = shape.color || window._drawColor || '#ff6b6b';
+      var drawBuf   = shape.bufferKm || _drawBuffer;
+      var newLine   = L.polyline(shape.pts, {
+        color:   drawColor,
+        weight:  Math.max(3, drawBuf * 25),
+        opacity: 0.85,
+        pane:    _SHAPE_PANE
+      });
+      newLine.addTo(_map);
+      // 교차 연산용 폴리곤 재생성
+      var dp = _buildDrawSegmentPolygon(shape.pts, drawBuf);
+      updated.push({
+        type:     'draw',
+        layer:    newLine,
+        polygon:  dp ? dp.polygon  : shape.polygon,
+        segments: dp ? dp.segments : shape.segments,
+        pts:      shape.pts,
+        bufferKm: drawBuf,
+        color:    drawColor
+      });
+      return; // draw는 아래 공통 처리 사용 안 함 (forEach → return)
     }
 
     if (result && _isValidPolygon(result.polygon)) {
       // 재생성 시에도 커스텀 pane 유지
       result.layer.options.pane = _SHAPE_PANE;
       result.layer.addTo(_map);
-      updated.push({ type:shape.type, layer:result.layer, polygon:result.polygon,
-                     endPt:shape.endPt, chainFrom:shape.chainFrom });
+      // ⚠️ circle: color 반드시 유지
+      if (result.layer.setStyle && shape.color) {
+        result.layer.setStyle({ color: shape.color, fillColor: shape.color, fillOpacity: 0.18, weight: 2 });
+      }
+      updated.push({
+        type:      shape.type,
+        layer:     result.layer,
+        polygon:   result.polygon,
+        endPt:     shape.endPt,
+        chainFrom: shape.chainFrom,
+        radius:    shape.radius,
+        color:     shape.color
+      });
     }
   });
   _shapes = updated;
@@ -2248,8 +2283,9 @@ function _wmDrawEnd(e) {
   _drawDoneOnce = true; // 1회 완료 → 추가버튼으로만 재활성화
   _wmRunIntersect();
   _wmUpdateUI();
-  // 선모드/부채꼴과 동일하게 done-draw 상태 → 추가버튼+완료버튼 표시
-  setActiveModeBtn('done-draw');
+  // ⚠️ 드래그 완료 후에도 'draw' 활성 상태 유지 → 슬라이더(색상/굵기) 계속 열려 있음
+  // 완료버튼을 눌러야만 done-draw로 전환 → 슬라이더 닫힘
+  // setActiveModeBtn('draw') 호출하지 않음 — _currentMode가 이미 'draw'이므로 유지
 }
 
 /**
@@ -2407,10 +2443,9 @@ function _wmAddCircle(latlng) {
 
   _wmRunIntersect();
   _wmUpdateUI();
-  // 원 생성 후 done-circle 상태 → 원형 추가 버튼 표시 (부채꼴과 동일)
-  _currentMode = null;
-  _lastMode    = 'circle';
-  setActiveModeBtn('done-circle');
+  // ⚠️ 원 생성 후에도 'circle' 활성 상태 유지 → 슬라이더(색상/반경) 계속 열려 있음
+  // 완료버튼을 눌러야만 done-circle로 전환되어 슬라이더 닫힘
+  // _currentMode, _lastMode 변경 없음 — 이미 'circle' 상태
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -2422,21 +2457,13 @@ function _wmAddCircle(latlng) {
  * done-draw 상태에서 _drawDoneOnce를 리셋해 드래그 1회 더 허용
  */
 function _wmAddDrawChain() {
-  // 선모드 _wmAddLineChain과 동일한 메커니즘
   if (_currentMode !== 'draw' && _lastMode !== 'draw') return;
-  if (_currentMode === null) {
-    // done-draw → 활성화: 선모드처럼 모드 재활성화
-    _currentMode = 'draw';
-    setActiveModeBtn('draw');
-  }
-  // draw shape이 있어야 추가 가능
   var drawShapes = _shapes.filter(function(s){ return s.type === 'draw'; });
-  if (!drawShapes.length) {
-    alert('먼저 그리기 모드에서 드래그해 선을 그려주세요.');
-    return;
-  }
-  // 1회 제한 해제 → 새 드래그 가능
+  if (!drawShapes.length) return;
+  // done-draw → 'draw' 활성 상태로 전환 → 슬라이더(색상/굵기) 다시 열림
   _drawDoneOnce = false;
+  _currentMode  = 'draw';
+  setActiveModeBtn('draw');
 }
 
 /**
@@ -2445,13 +2472,10 @@ function _wmAddDrawChain() {
  * (원형은 클릭마다 기존 원을 교체하므로 상태 전환만 하면 됨)
  */
 function _wmAddCircleChain() {
-  // 부채꼴 _wmAddFanChain과 동일한 메커니즘
   if (_currentMode !== 'circle' && _lastMode !== 'circle') return;
-  if (_currentMode === null) {
-    // done-circle → 활성화: 클릭으로 원 추가 가능 상태로
-    _currentMode = 'circle';
-    setActiveModeBtn('circle');
-  }
+  // done-circle → 'circle' 활성 상태로 전환 → 슬라이더(색상/반경) 다시 열림
+  _currentMode = 'circle';
+  setActiveModeBtn('circle');
 }
 
 window._wmSearch = function(query) {
