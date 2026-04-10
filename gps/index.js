@@ -2437,21 +2437,27 @@ function _downsamplePts(pts, maxPts) {
 // ════════════════════════════════════════════════════════════════
 
 /**
- * 드래그 시작 시 교차지역 결과 텍스트창 숨김
- * 줄바꿈으로 인한 레이아웃 변화 → 스크롤 자동 개입 방지
+ * 드래그 시작 시 교차지역 결과창 완전 고정 (공간 포함)
+ *
+ * ⚠️ visibility:hidden 사용 금지 — 공간은 유지되므로
+ *    교차지역 늘어날 때 빈 공간도 늘어나 스크롤 영향 발생
+ *
+ * → wm-result--drawing 클래스: max-height:0 + padding:0 으로
+ *   공간 자체를 0으로 고정. 교차지역이 아무리 늘어나도 화면 변화 없음
  * ⚠️ 반드시 _wmShowResult와 쌍으로 사용
  */
 function _wmHideResult() {
   var el = document.getElementById('work-mode-result');
-  if (el) el.style.visibility = 'hidden';
+  if (el) el.classList.add('wm-result--drawing');
 }
 
 /**
- * 드래그 종료 시 교차지역 결과 텍스트창 다시 표시
+ * 드래그 종료 시 교차지역 결과창 복원
+ * 클래스 제거 → 원래 max-height/padding으로 자연스럽게 펼쳐짐
  */
 function _wmShowResult() {
   var el = document.getElementById('work-mode-result');
-  if (el) el.style.visibility = '';
+  if (el) el.classList.remove('wm-result--drawing');
 }
 
 // ════════════════════════════════════════════════════════════════
