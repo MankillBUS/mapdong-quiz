@@ -846,6 +846,17 @@ function _injectStyles() {
       border-top-width: 0;
     }
     .wm-result--copied { border-color: var(--accent3,#39ff14) !important; }
+    /* ⚠️ 드래그 중 결과창 완전 고정 — 공간 자체가 늘어나지 않음 */
+    /* visibility:hidden 은 공간 유지하므로 사용 금지. max-height:0으로 완전 차단 */
+    .wm-result--drawing {
+      max-height: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      border-top-width: 0 !important;
+      overflow: hidden !important;
+      opacity: 0 !important;
+      transition: none !important; /* 드래그 중 트랜지션 제거 — 지연 없이 즉시 고정 */
+    }
     .wm-result-header {
       display: flex;
       justify-content: space-between;
