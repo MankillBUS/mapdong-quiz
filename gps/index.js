@@ -62,8 +62,9 @@ let _drawLayer     = null;  // 현재 드래그 중 표시 레이어 (Polyline �
 let _drawShapeLayers = [];  // 그리기 구간별 폴리곤 레이어 목록
 
 // ── 원형 모드 상태 ────────────────────────────────────────────────
-let _circleRadius  = 3.0;   // 원형 반경 (km)
-let _circleLayer   = null;  // 현재 원형 레이어
+let _circleRadius  = 3.0;       // 원형 반경 (km)
+let _circleLayer   = null;      // 현재 원형 레이어
+window._circleColor = '#ff6b6b'; // 원형 기본 색상 (빨강)
 
 // ════════════════════════════════════════════════════════════════
 // 2. 업무모드 진입
@@ -354,10 +355,27 @@ function _wmSwitchMode(mode) {
     return;
   }
 
-  // 모드 전환 시 이전 드래그 상태 + 1회 제한 리셋
+  // done 상태(currentMode=null)에서 같은 모드 재클릭 → 해당 타입만 초기화 후 재시작
+  // 선/부채꼴: 기존 도형 전체 삭제 후 새로 그리기
+  // 그리기: 기존 draw shape만 삭제 후 드래그 재시작
+  // 원형: 기존 circle shape만 삭제 후 재시작
+  if (_currentMode === null && _lastMode === mode) {
+    // 해당 타입 shape만 제거
+    _shapes.filter(function(s){ return s.type === mode; }).forEach(function(s){
+      if (s.layer) { try { _map.removeLayer(s.layer); } catch(x) {} }
+    });
+    _shapes = _shapes.filter(function(s){ return s.type !== mode; });
+    _wmClearDrawState();
+    _drawDoneOnce = false;
+    _currentMode = mode;
+    setActiveModeBtn(mode);
+    if (mode === 'fan')    _endPoint = null;
+    return;
+  }
+
+  // 다른 모드로 전환 시 전체 초기화
   _wmClearDrawState();
   _drawDoneOnce = false;
-
   _wmDestroyShapes();
   _currentMode = mode;
   _lastMode    = mode;
@@ -380,6 +398,8 @@ function _wmDone() {
   _currentMode = null;
   setActiveModeBtn(lastMode ? 'done-' + lastMode : null);
 }
+
+
 
 function _wmDoneReset() {
   // 추가버튼/모드버튼 클릭 시 완료 상태 리셋 → 정상 동작으로 복귀
@@ -1169,13 +1189,17 @@ function _wmClearShapesOnly() {
   _resultSet = new Set();
 
   // 교차 필터 해제 → 모든 동/구 레이어 숨기기
-  // (도형이 없으면 교차 범위가 없으므로 전체 숨김이 맞음)
   if (_dongVisible) {
-    // 동/구 레이어 전체 숨기기
     _dongLayers.forEach(function(layer) {
       try { layer.setStyle({ opacity: 0, fillOpacity: 0 }); } catch(e) {}
     });
   }
+
+  // ── 모드 상태 완전 기본값 복귀 (선모드/부채꼴/그리기/원형 추가버튼 전부 숨김)
+  _currentMode = null;
+  _lastMode    = null;
+  _drawDoneOnce = false;
+  setActiveModeBtn(null); // mode=null → 모든 추가버튼/완료버튼 숨김
 
   // UI 초기화
   _wmUpdateUI();
@@ -2197,28 +2221,34 @@ function _wmDrawEnd(e) {
     return;
   }
 
-  // 프리뷰 제거
-  if (_drawLayer) { try { _map.removeLayer(_drawLayer); } catch(x) {} _drawLayer = null; }
+  // ── 프리뷰 Polyline을 고정 레이어로 전환 (제거하지 않고 유지)
+  // 선모드의 파란 폴리곤처럼 유저가 그린 선이 지도에 영구 표시됨
+  var fixedLayer = _drawLayer;
+  _drawLayer = null; // 참조만 해제 (지도에서 제거 안 함)
 
-  // 드로우 완료 → _shapes에 저장
+  // ── 교차 연산용 폴리곤 생성 (내부 계산 전용 — 지도 표시 안 함)
   var poly = _buildDrawSegmentPolygon(_drawRawPts, _drawBuffer);
-  if (poly && poly.polygon && poly.layer) {
-    poly.layer.options.pane = _SHAPE_PANE;
-    poly.layer.addTo(_map);
+  var polygon = poly ? poly.polygon : null;
+  var segments = poly ? poly.segments : [];
+
+  if (fixedLayer) {
+    fixedLayer.options.pane = _SHAPE_PANE;
     _shapes.push({
       type:     'draw',
-      layer:    poly.layer,
-      polygon:  poly.polygon,
-      pts:      _drawRawPts.slice(), // 점 배열 저장
-      bufferKm: _drawBuffer
+      layer:    fixedLayer,  // 고정된 선 레이어 (지도에 이미 표시 중)
+      polygon:  polygon,
+      segments: segments,
+      pts:      _drawRawPts.slice(),
+      bufferKm: _drawBuffer,
+      color:    window._drawColor || '#ff6b6b'
     });
   }
 
   _drawRawPts = [];
-  _drawDoneOnce = true; // 1회 완료 → 추가버튼 누르기 전까지 새 드래그 차단
+  _drawDoneOnce = true; // 1회 완료 → 추가버튼으로만 재활성화
   _wmRunIntersect();
   _wmUpdateUI();
-  // done-draw 상태로 전환 → 추가버튼 표시
+  // 선모드/부채꼴과 동일하게 done-draw 상태 → 추가버튼+완료버튼 표시
   setActiveModeBtn('done-draw');
 }
 
@@ -2360,15 +2390,10 @@ function _wmAddCircle(latlng) {
   var res = buildCirclePolygon(center, _circleRadius);
   if (!res || !_isValidPolygon(res.polygon)) return;
 
-  // 기존 원 제거
-  var circleShapes = _shapes.filter(function(s) { return s.type === 'circle'; });
-  circleShapes.forEach(function(s) {
-    if (s.layer) { try { _map.removeLayer(s.layer); } catch(x) {} }
-  });
-  _shapes = _shapes.filter(function(s) { return s.type !== 'circle'; });
-
+  // 기존 원 유지 + 새 원 추가 (선모드/부채꼴처럼 계속 추가)
+  var col = window._circleColor || '#ff6b6b';
   res.layer.options.pane = _SHAPE_PANE;
-  res.layer.setStyle({ color: '#a29bfe', fillColor: '#a29bfe', fillOpacity: 0.18, weight: 2 });
+  res.layer.setStyle({ color: col, fillColor: col, fillOpacity: 0.18, weight: 2 });
   res.layer.addTo(_map);
 
   _shapes.push({
@@ -2376,12 +2401,13 @@ function _wmAddCircle(latlng) {
     layer:   res.layer,
     polygon: res.polygon,
     endPt:   center,
-    radius:  _circleRadius
+    radius:  _circleRadius,
+    color:   col
   });
 
   _wmRunIntersect();
   _wmUpdateUI();
-  // 원 1개 생성 후 done-circle 상태 → 원형 추가 버튼 표시
+  // 원 생성 후 done-circle 상태 → 원형 추가 버튼 표시 (부채꼴과 동일)
   _currentMode = null;
   _lastMode    = 'circle';
   setActiveModeBtn('done-circle');
@@ -2396,12 +2422,21 @@ function _wmAddCircle(latlng) {
  * done-draw 상태에서 _drawDoneOnce를 리셋해 드래그 1회 더 허용
  */
 function _wmAddDrawChain() {
-  if (_lastMode !== 'draw' && _currentMode !== 'draw') return;
-
-  // done 상태 → 활성으로 복귀
-  _drawDoneOnce  = false;
-  _currentMode   = 'draw';
-  setActiveModeBtn('draw');
+  // 선모드 _wmAddLineChain과 동일한 메커니즘
+  if (_currentMode !== 'draw' && _lastMode !== 'draw') return;
+  if (_currentMode === null) {
+    // done-draw → 활성화: 선모드처럼 모드 재활성화
+    _currentMode = 'draw';
+    setActiveModeBtn('draw');
+  }
+  // draw shape이 있어야 추가 가능
+  var drawShapes = _shapes.filter(function(s){ return s.type === 'draw'; });
+  if (!drawShapes.length) {
+    alert('먼저 그리기 모드에서 드래그해 선을 그려주세요.');
+    return;
+  }
+  // 1회 제한 해제 → 새 드래그 가능
+  _drawDoneOnce = false;
 }
 
 /**
@@ -2410,10 +2445,13 @@ function _wmAddDrawChain() {
  * (원형은 클릭마다 기존 원을 교체하므로 상태 전환만 하면 됨)
  */
 function _wmAddCircleChain() {
-  if (_lastMode !== 'circle' && _currentMode !== 'circle') return;
-
-  _currentMode = 'circle';
-  setActiveModeBtn('circle');
+  // 부채꼴 _wmAddFanChain과 동일한 메커니즘
+  if (_currentMode !== 'circle' && _lastMode !== 'circle') return;
+  if (_currentMode === null) {
+    // done-circle → 활성화: 클릭으로 원 추가 가능 상태로
+    _currentMode = 'circle';
+    setActiveModeBtn('circle');
+  }
 }
 
 window._wmSearch = function(query) {
