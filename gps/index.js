@@ -271,6 +271,7 @@ function exitWorkMode() {
   // 그리기/원형 모드 상태 정리 + 이벤트 언바인딩
   _wmClearDrawState();
   _wmUnbindDrawEvents();
+  _wmUnlockScroll(); // 스크롤 잠금 해제 (드래그 중 종료 대비)
 
   removeWorkModePanel();
 
@@ -2197,6 +2198,8 @@ function _wmDrawStart(e) {
   _drawRawPts.push(latlng);
   // 지도 드래그 비활성화 (그리기 중)
   _map.dragging.disable();
+  // ⚠️ [모바일] 스크롤 잠금 — 교차지역 줄바꿈으로 인한 화면 흔들림 방지
+  _wmLockScroll();
 }
 
 function _wmDrawStartTouch(e) {
@@ -2210,6 +2213,8 @@ function _wmDrawStartTouch(e) {
   var latlng = _map.mouseEventToLatLng(touch);
   _drawRawPts.push(latlng);
   _map.dragging.disable();
+  // ⚠️ [모바일] 스크롤 잠금
+  _wmLockScroll();
 }
 
 function _wmDrawMove(e) {
@@ -2250,6 +2255,8 @@ function _wmDrawEnd(e) {
   if (!_isDrawing || _currentMode !== 'draw') return;
   _isDrawing = false;
   _map.dragging.enable();
+  // ⚠️ [모바일] 스크롤 해제
+  _wmUnlockScroll();
 
   if (_drawRawPts.length < 2) {
     _drawRawPts = [];
@@ -2283,9 +2290,10 @@ function _wmDrawEnd(e) {
   _drawDoneOnce = true; // 1회 완료 → 추가버튼으로만 재활성화
   _wmRunIntersect();
   _wmUpdateUI();
-  // ⚠️ 드래그 완료 후에도 'draw' 활성 상태 유지 → 슬라이더(색상/굵기) 계속 열려 있음
-  // 완료버튼을 눌러야만 done-draw로 전환 → 슬라이더 닫힘
-  // setActiveModeBtn('draw') 호출하지 않음 — _currentMode가 이미 'draw'이므로 유지
+  // ⚠️ 드래그 완료 후에도 'draw' 활성 상태 유지
+  // → 색상/굵기 슬라이더 계속 열림, 그리기추가 버튼 표시
+  // → 완료버튼 눌러야만 done-draw로 전환되어 닫힘
+  setActiveModeBtn('draw'); // UI 갱신 (addDraw 표시 + 슬라이더 유지)
 }
 
 /**
@@ -2395,6 +2403,39 @@ function _downsamplePts(pts, maxPts) {
 /**
  * 그리기 상태 전체 초기화
  */
+// ════════════════════════════════════════════════════════════════
+// 모바일 스크롤 잠금/해제 — 그리기 드래그 중 화면 흔들림 방지
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * 스크롤 잠금: 그리기 드래그 시작 시 호출
+ * 교차지역 줄바꿈으로 인한 스크롤 자동개입 방지
+ * ⚠️ 반드시 _wmUnlockScroll과 쌍으로 사용할 것
+ */
+function _wmLockScroll() {
+  document.body.style.overflow   = 'hidden';
+  document.body.style.position   = 'fixed';
+  document.body.style.width      = '100%';
+  // 현재 스크롤 위치 저장 (fixed 전환 후 복원용)
+  var scrollY = window.scrollY || window.pageYOffset || 0;
+  document.body.style.top = '-' + scrollY + 'px';
+  document.body.dataset.wmScrollY = scrollY;
+}
+
+/**
+ * 스크롤 해제: 드래그 종료 시 호출
+ * fixed 해제 후 스크롤 위치 복원
+ */
+function _wmUnlockScroll() {
+  var savedY = parseInt(document.body.dataset.wmScrollY || '0', 10);
+  document.body.style.overflow = '';
+  document.body.style.position = '';
+  document.body.style.width    = '';
+  document.body.style.top      = '';
+  delete document.body.dataset.wmScrollY;
+  window.scrollTo(0, savedY);
+}
+
 function _wmClearDrawState() {
   _isDrawing = false;
   _drawDoneOnce = false; // 1회 제한 리셋
@@ -2443,9 +2484,10 @@ function _wmAddCircle(latlng) {
 
   _wmRunIntersect();
   _wmUpdateUI();
-  // ⚠️ 원 생성 후에도 'circle' 활성 상태 유지 → 슬라이더(색상/반경) 계속 열려 있음
-  // 완료버튼을 눌러야만 done-circle로 전환되어 슬라이더 닫힘
-  // _currentMode, _lastMode 변경 없음 — 이미 'circle' 상태
+  // ⚠️ 원 생성 후에도 'circle' 활성 상태 유지
+  // → 색상/반경 슬라이더 계속 열림, 원형추가 버튼 표시
+  // → 완료버튼 눌러야만 done-circle로 전환되어 닫힘
+  setActiveModeBtn('circle'); // UI 갱신 (addCir 표시 + 슬라이더 유지)
 }
 
 // ════════════════════════════════════════════════════════════════
