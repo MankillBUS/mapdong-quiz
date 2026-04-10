@@ -435,26 +435,21 @@ function renderWorkModePanel(
 // ── 공개 상태 갱신 함수 ──────────────────────────────────────────
 
 /** 모드에 따라 슬라이더/추가버튼 표시 */
-/**
- * 슬라이더/버튼 표시 제어
- * mode: 'line' | 'fan' | null(완료) | 'done-line' | 'done-fan'
- * done-*: 완료 상태 (추가버튼 유지, 슬라이더 닫힘, 완료버튼 유지)
- */
 // ⚠️ [중요] _showSliderRows — 모드별 UI 표시 규칙
 // 변경 시 반드시 아래 표 기준으로 전체 확인할 것
-// ┌──────────────┬──────────┬──────────────┬──────────┬──────────┐
-// │   mode       │슬라이더바 │  슬라이더 행  │  추가버튼 │ 완료버튼  │
-// ├──────────────┼──────────┼──────────────┼──────────┼──────────┤
-// │ null         │  닫힘    │    닫힘       │   숨김   │   숨김   │
-// │ 'line'       │  열림    │ buf 열림      │   숨김   │   표시   │
-// │ 'fan'        │  열림    │ r1,r2 열림    │   숨김   │   표시   │
-// │ 'draw'       │  열림    │ 색상+굵기열림  │ 그리기추가│   표시   │  ← 추가버튼 활성 중에도 표시
-// │ 'circle'     │  열림    │ 색상+반경열림  │ 원형추가  │   표시   │  ← 추가버튼 활성 중에도 표시
-// │ 'done-line'  │  닫힘    │    닫힘       │ 선추가   │   표시   │
-// │ 'done-fan'   │  닫힘    │    닫힘       │ 부채추가  │   표시   │
-// │ 'done-draw'  │  닫힘    │    닫힘       │   숨김   │   표시   │
-// │ 'done-circle'│  닫힘    │    닫힘       │   숨김   │   표시   │
-// └──────────────┴──────────┴──────────────┴──────────┴──────────┘
+// ┌──────────────┬──────────┬──────────────┬──────────────┬──────────┐
+// │   mode       │슬라이더바 │  슬라이더 행  │    추가버튼   │ 완료버튼 │
+// ├──────────────┼──────────┼──────────────┼──────────────┼──────────┤
+// │ null         │  닫힘    │    닫힘       │    전부숨김   │   숨김  │
+// │ 'line'       │  열림    │ buf 열림      │  선추가 표시  │   표시  │ ← 활성 중 추가버튼 표시
+// │ 'fan'        │  열림    │ r1,r2 열림    │ 부채추가 표시 │   표시  │ ← 활성 중 추가버튼 표시
+// │ 'draw'       │  열림    │ 색상+굵기열림  │ 그리기추가표시│   표시  │
+// │ 'circle'     │  열림    │ 색상+반경열림  │ 원형추가 표시 │   표시  │
+// │ 'done-line'  │  닫힘    │    닫힘       │    전부숨김   │   표시  │ ← 완료버튼 누르면 추가 숨김
+// │ 'done-fan'   │  닫힘    │    닫힘       │    전부숨김   │   표시  │
+// │ 'done-draw'  │  닫힘    │    닫힘       │    전부숨김   │   표시  │
+// │ 'done-circle'│  닫힘    │    닫힘       │    전부숨김   │   표시  │
+// └──────────────┴──────────┴──────────────┴──────────────┴──────────┘
 function _showSliderRows(mode) {
   var sliderBar    = document.getElementById('wm-slider-bar');
   var rowBuf       = document.getElementById('wm-row-buf');
@@ -474,7 +469,7 @@ function _showSliderRows(mode) {
                     mode === 'done-draw' || mode === 'done-circle');
   var activeMode = isDone ? mode.replace('done-', '') : mode;
 
-  // ── 슬라이더 바: 활성 중만 열림
+  // ── 슬라이더 바: 활성 중만 열림, done-*/null 닫힘
   if (sliderBar) sliderBar.style.display = (mode && !isDone) ? 'flex' : 'none';
 
   // ── 슬라이더 행: 해당 모드 활성 중일 때만 표시
@@ -487,12 +482,10 @@ function _showSliderRows(mode) {
   if (rowCirColor)  rowCirColor.style.display  = (activeMode === 'circle' && !isDone) ? 'flex' : 'none';
 
   // ── 추가버튼 규칙 ──────────────────────────────────────────────
-  // 선/부채꼴: done 상태에서만 표시
-  if (addLine) addLine.style.display = (activeMode === 'line' && isDone)  ? 'flex' : 'none';
-  if (addFan)  addFan.style.display  = (activeMode === 'fan'  && isDone)  ? 'flex' : 'none';
-  // 그리기: 활성 중(draw)에 표시 | done-draw/null 숨김
-  if (addDraw) addDraw.style.display = (mode === 'draw') ? 'flex' : 'none';
-  // 원형: 활성 중(circle)에 표시 | done-circle/null 숨김
+  // 모든 추가버튼: 활성 중(!isDone)일 때만 표시, 완료(done-*)/null 이면 전부 숨김
+  if (addLine) addLine.style.display = (mode === 'line')   ? 'flex' : 'none';
+  if (addFan)  addFan.style.display  = (mode === 'fan')    ? 'flex' : 'none';
+  if (addDraw) addDraw.style.display = (mode === 'draw')   ? 'flex' : 'none';
   if (addCir)  addCir.style.display  = (mode === 'circle') ? 'flex' : 'none';
 
   // ── 완료버튼: 모드가 있을 때 항상 표시
