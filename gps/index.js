@@ -51,6 +51,17 @@ const _SHAPE_PANE = 'wm-shape-pane';
 let _searchPolyLayers = [];  // 현재 표시 중인 검색 폴리곤 레이어
 let _searchPolyTimer  = null; // 5초 타이머
 
+// ── 그리기 모드 상태 ──────────────────────────────────────────────
+let _drawBuffer    = 0.3;   // 그리기 선 굵기 (km)
+let _isDrawing     = false; // 드래그 중 여부
+let _drawRawPts    = [];    // 드래그로 수집된 원시 latlng 점들
+let _drawLayer     = null;  // 현재 드래그 중 표시 레이어 (Polyline 프리뷰)
+let _drawShapeLayers = [];  // 그리기 구간별 폴리곤 레이어 목록
+
+// ── 원형 모드 상태 ────────────────────────────────────────────────
+let _circleRadius  = 3.0;   // 원형 반경 (km)
+let _circleLayer   = null;  // 현재 원형 레이어
+
 // ════════════════════════════════════════════════════════════════
 // 2. 업무모드 진입
 // ════════════════════════════════════════════════════════════════
@@ -82,6 +93,8 @@ function initWorkMode(leafletMap) {
   renderWorkModePanel(
     function() { _wmSwitchMode('line'); },   // 선 모드
     function() { _wmSwitchMode('fan'); },    // 부채꼴 모드
+    function() { _wmSwitchMode('draw'); },   // 그리기 모드
+    function() { _wmSwitchMode('circle'); }, // 원형 모드
     function() { _toggleAutoCopy(); },              // 자동복사
     function() { _toggleGpsTracking(); },           // GPS 추적 ON/OFF
     function() { _wmAddLineChain(); },       // 선 이어붙이기
@@ -91,7 +104,9 @@ function initWorkMode(leafletMap) {
     function() { _wmClearShapesOnly(); },           // 도형만 초기화
     function(v) { _lineBuffer = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },
     function(v) { _fanR1 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },
-    function(v) { _fanR2 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); }
+    function(v) { _fanR2 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },
+    function(v) { _drawBuffer = v; _wmUpdateUI(); },   // 그리기 굵기
+    function(v) { _circleRadius = v; _wmUpdateUI(); }  // 원형 반경
   );
 
   // 완료 버튼 바인딩
@@ -183,9 +198,14 @@ function initWorkMode(leafletMap) {
 
   // 업무모드 전용 클릭핸들러 (퀴즈 onMapClick 덮어쓰기 방지)
   _wmClickFn = function(e) {
+    // draw 모드는 드래그 이벤트로 처리 → 클릭 무시
+    if (_currentMode === 'draw') return;
     if (_currentMode) { _wmMapClick(e.latlng); }
   };
   _map.on('click', _wmClickFn);
+
+  // ── 그리기 모드: 지도 컨테이너에 마우스/터치 이벤트 바인딩 ──────
+  _wmBindDrawEvents();
 
   // 탭 복귀 시 자동복사 갱신 (다른 탭 갔다 올 때)
   _wmVisibilityFn = function() {
@@ -241,6 +261,10 @@ function exitWorkMode() {
   _wmClearSearchPolygons();
   _gpsTracking  = true;
   _gpsAutoTimer = null;
+
+  // 그리기/원형 모드 상태 정리 + 이벤트 언바인딩
+  _wmClearDrawState();
+  _wmUnbindDrawEvents();
 
   removeWorkModePanel();
 
@@ -319,22 +343,33 @@ window.clearWorkModeSavedState = function() {
 };
 
 function _wmSwitchMode(mode) {
-  // 완료 상태에서 같은 모드 버튼 재클릭 → 새 작업 시작 (GPS 기준)
   // 활성 상태에서 같은 모드 재클릭 → 완료 처리
   if (_currentMode === mode) {
-    // 활성 → 완료
     _wmDone();
     return;
   }
+
+  // 그리기 모드 전환 시 이전 드래그 상태 정리
+  _wmClearDrawState();
+
   _wmDestroyShapes();
   _currentMode = mode;
   _lastMode    = mode;
   setActiveModeBtn(mode);
-  if (mode === 'fan') _endPoint = null;
+
+  if (mode === 'fan')    _endPoint = null;
+  if (mode === 'circle') _circleLayer = null;
 }
 
 /** 완료 처리 — 3행 닫기, _currentMode null, 추가버튼/완료버튼 유지 */
 function _wmDone() {
+  // 그리기 모드 완료 시 드래그 상태 강제 종료
+  if (_currentMode === 'draw' && _isDrawing) {
+    _isDrawing = false;
+    if (_map && _map.dragging) try { _map.dragging.enable(); } catch(x) {}
+    if (_drawLayer) { try { _map.removeLayer(_drawLayer); } catch(x) {} _drawLayer = null; }
+    _drawRawPts = [];
+  }
   var lastMode = _currentMode || _lastMode;
   _currentMode = null;
   setActiveModeBtn(lastMode ? 'done-' + lastMode : null);
@@ -459,13 +494,14 @@ function _wmMapClick(latlng) {
       _wmReplaceLastLine(latlng);
     }
   } else if (_currentMode === 'fan') {
-    // 선모드와 동일한 방식:
-    //   첫 클릭  → 끝점 설정 + 부채꼴 생성
-    //   이후 클릭 → 끝점 교체 + 부채꼴 교체 (방향 변경)
-    //   "부채꼴 추가" 버튼 → 현재 끝점 기준으로 새 부채꼴 추가 (다음 클릭으로 끝점 확정)
+    // 선모드와 동일한 방식
     _endPoint = latlng;
     _wmReplaceLastFan();
+  } else if (_currentMode === 'circle') {
+    // 클릭 위치에 원 생성 (GPS 무관)
+    _wmAddCircle(latlng);
   }
+  // draw 모드는 드래그 이벤트로 처리 → 여기서 처리 안 함
 
   _wmRunIntersect();
   _wmUpdateUI();
@@ -706,6 +742,12 @@ function _wmRebuildAll() {
     } else if (shape.type === 'fan') {
       result = buildFanPolygon(startPt, shape.endPt, _fanR1, _fanR2,
         calcExternalTangents, calcArcPoints, calcAngle);
+    } else if (shape.type === 'circle') {
+      // 원형: GPS 무관, 클릭 위치 고정 (endPt = 원 중심)
+      result = buildCirclePolygon(shape.endPt, shape.radius || _circleRadius);
+    } else if (shape.type === 'draw') {
+      // 그리기: 구간별 폴리곤 재생성
+      result = _buildDrawSegmentPolygon(shape.pts, shape.bufferKm || _drawBuffer);
     }
 
     if (result && _isValidPolygon(result.polygon)) {
@@ -842,7 +884,19 @@ function _wmRunIntersect() {
 
   var newSet = new Set();
   _shapes.forEach(function(shape) {
-    if (!shape.polygon || shape.pending) return;
+    if (shape.pending) return;
+
+    if (shape.type === 'draw' && shape.segments && shape.segments.length) {
+      // 그리기 모드: 구간별 폴리곤 각각 교차 판정
+      shape.segments.forEach(function(seg) {
+        if (!_isValidPolygon(seg)) return;
+        var names = intersectPolygon(seg, dongPolygons);
+        names.forEach(function(n) { newSet.add(n); });
+      });
+      return;
+    }
+
+    if (!shape.polygon) return;
     // intersectPolygon은 name(=uniqueName)을 반환
     var names = intersectPolygon(shape.polygon, dongPolygons);
     names.forEach(function(n) { newSet.add(n); });
@@ -1100,6 +1154,9 @@ function _toggleGpsTracking() {
  */
 function _wmClearShapesOnly() {
   _wmDestroyShapes();
+
+  // 그리기/원형 상태도 정리
+  _wmClearDrawState();
 
   // 교차 결과 초기화
   _resultSet = new Set();
@@ -2024,6 +2081,261 @@ function _searchRegionSmart(query) {
   return results.slice(0, 20);
 }
 
+
+// ════════════════════════════════════════════════════════════════
+// 그리기 모드 — 브러쉬(연필) 드래그 도형 생성
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * 드래그 이벤트 바인딩 (지도 컨테이너 DOM 기반)
+ * Leaflet 이벤트가 아닌 DOM 이벤트 사용 → 드래그 중 지도 이동 차단
+ */
+function _wmBindDrawEvents() {
+  var container = _map.getContainer();
+  if (!container) return;
+
+  // 마우스
+  container.addEventListener('mousedown', _wmDrawStart, { passive: false });
+  container.addEventListener('mousemove', _wmDrawMove,  { passive: false });
+  container.addEventListener('mouseup',   _wmDrawEnd,   { passive: false });
+  container.addEventListener('mouseleave',_wmDrawEnd,   { passive: false });
+
+  // 터치 (모바일)
+  container.addEventListener('touchstart', _wmDrawStartTouch, { passive: false });
+  container.addEventListener('touchmove',  _wmDrawMoveTouch,  { passive: false });
+  container.addEventListener('touchend',   _wmDrawEnd,        { passive: false });
+}
+
+function _wmUnbindDrawEvents() {
+  var container = _map && _map.getContainer ? _map.getContainer() : null;
+  if (!container) return;
+  container.removeEventListener('mousedown', _wmDrawStart);
+  container.removeEventListener('mousemove', _wmDrawMove);
+  container.removeEventListener('mouseup',   _wmDrawEnd);
+  container.removeEventListener('mouseleave',_wmDrawEnd);
+  container.removeEventListener('touchstart', _wmDrawStartTouch);
+  container.removeEventListener('touchmove',  _wmDrawMoveTouch);
+  container.removeEventListener('touchend',   _wmDrawEnd);
+}
+
+function _wmDrawStart(e) {
+  if (_currentMode !== 'draw') return;
+  e.preventDefault();
+  _isDrawing = true;
+  _drawRawPts = [];
+  // 기존 프리뷰 레이어 제거
+  if (_drawLayer) { try { _map.removeLayer(_drawLayer); } catch(x) {} _drawLayer = null; }
+  var latlng = _map.mouseEventToLatLng(e);
+  _drawRawPts.push(latlng);
+  // 지도 드래그 비활성화 (그리기 중)
+  _map.dragging.disable();
+}
+
+function _wmDrawStartTouch(e) {
+  if (_currentMode !== 'draw') return;
+  e.preventDefault();
+  _isDrawing = true;
+  _drawRawPts = [];
+  if (_drawLayer) { try { _map.removeLayer(_drawLayer); } catch(x) {} _drawLayer = null; }
+  var touch = e.touches[0];
+  var latlng = _map.mouseEventToLatLng(touch);
+  _drawRawPts.push(latlng);
+  _map.dragging.disable();
+}
+
+function _wmDrawMove(e) {
+  if (!_isDrawing || _currentMode !== 'draw') return;
+  e.preventDefault();
+  var latlng = _map.mouseEventToLatLng(e);
+  _wmDrawAddPoint(latlng);
+}
+
+function _wmDrawMoveTouch(e) {
+  if (!_isDrawing || _currentMode !== 'draw') return;
+  e.preventDefault();
+  var touch = e.touches[0];
+  var latlng = _map.mouseEventToLatLng(touch);
+  _wmDrawAddPoint(latlng);
+}
+
+function _wmDrawAddPoint(latlng) {
+  _drawRawPts.push(latlng);
+
+  // 프리뷰: 실시간 Polyline 표시 (얇은 선으로 경로 표시)
+  if (_drawLayer) { try { _map.removeLayer(_drawLayer); } catch(x) {} }
+  _drawLayer = L.polyline(_drawRawPts, {
+    color: '#ff6b6b',
+    weight: Math.max(2, _drawBuffer * 20), // 굵기 시각화
+    opacity: 0.8,
+    pane: _SHAPE_PANE
+  }).addTo(_map);
+
+  // 실시간 교차 계산 (10포인트마다 — 성능)
+  if (_drawRawPts.length % 10 === 0) {
+    _wmDrawRunIntersectRealtime();
+  }
+}
+
+function _wmDrawEnd(e) {
+  if (!_isDrawing || _currentMode !== 'draw') return;
+  _isDrawing = false;
+  _map.dragging.enable();
+
+  if (_drawRawPts.length < 2) {
+    _drawRawPts = [];
+    return;
+  }
+
+  // 프리뷰 제거
+  if (_drawLayer) { try { _map.removeLayer(_drawLayer); } catch(x) {} _drawLayer = null; }
+
+  // 드로우 완료 → _shapes에 저장
+  var poly = _buildDrawSegmentPolygon(_drawRawPts, _drawBuffer);
+  if (poly && poly.polygon && poly.layer) {
+    poly.layer.options.pane = _SHAPE_PANE;
+    poly.layer.addTo(_map);
+    _shapes.push({
+      type:     'draw',
+      layer:    poly.layer,
+      polygon:  poly.polygon,
+      pts:      _drawRawPts.slice(), // 점 배열 저장
+      bufferKm: _drawBuffer
+    });
+  }
+
+  _drawRawPts = [];
+  _wmRunIntersect();
+  _wmUpdateUI();
+}
+
+/**
+ * 드래그 경로(점 배열) → 구간별 폴리곤 합집합
+ * 실제 교차 연산 정확도를 위해 각 구간을 별도 GeoJSON으로 만들고
+ * 하나의 MultiPolygon처럼 intersectPolygon에 개별 전달
+ */
+function _buildDrawSegmentPolygon(pts, bufferKm) {
+  if (!pts || pts.length < 2) return null;
+
+  // 점이 너무 많으면 다운샘플 (성능)
+  var sampled = _downsamplePts(pts, 60);
+  var segments = [];
+  var allLayers = [];
+
+  for (var i = 0; i < sampled.length - 1; i++) {
+    var s = sampled[i];
+    var e = sampled[i + 1];
+    var start = { lat: s.lat, lng: s.lng };
+    var end   = { lat: e.lat, lng: e.lng };
+    var res = buildLinePolygon(start, end, bufferKm);
+    if (res && _isValidPolygon(res.polygon)) {
+      segments.push(res.polygon);
+      allLayers.push(res.layer);
+    }
+  }
+  if (!segments.length) return null;
+
+  // 여러 레이어를 하나의 LayerGroup으로 묶어 지도에 표시
+  var group = L.layerGroup(allLayers);
+
+  // 교차 연산용: 첫 번째 세그먼트를 대표 polygon으로 (실제는 _wmRunIntersect에서 개별 처리)
+  // → _shapes에 segments 배열도 저장해 교차 연산 시 모두 사용
+  return {
+    polygon:  segments[0],         // 대표 (AABB 필터용)
+    segments: segments,            // 전체 세그먼트 배열
+    layer:    group
+  };
+}
+
+/**
+ * 드래그 중 실시간 교차 계산 (완성 전 미리보기)
+ */
+function _wmDrawRunIntersectRealtime() {
+  var dongPolygons = _getActiveDongPolygons();
+  if (!dongPolygons.length) return;
+
+  var newSet = new Set(_resultSet); // 기존 결과 유지 + 추가
+
+  var sampled = _downsamplePts(_drawRawPts, 30);
+  for (var i = 0; i < sampled.length - 1; i++) {
+    var start = { lat: sampled[i].lat,   lng: sampled[i].lng };
+    var end   = { lat: sampled[i+1].lat, lng: sampled[i+1].lng };
+    var res = buildLinePolygon(start, end, _drawBuffer);
+    if (res && _isValidPolygon(res.polygon)) {
+      var names = intersectPolygon(res.polygon, dongPolygons);
+      names.forEach(function(n) { newSet.add(n); });
+    }
+  }
+
+  _resultSet = newSet;
+  _wmUpdateUI();
+}
+
+/**
+ * 포인트 배열 다운샘플 (최대 maxPts개)
+ */
+function _downsamplePts(pts, maxPts) {
+  if (pts.length <= maxPts) return pts;
+  var result = [];
+  var step = pts.length / maxPts;
+  for (var i = 0; i < maxPts; i++) {
+    result.push(pts[Math.floor(i * step)]);
+  }
+  result.push(pts[pts.length - 1]); // 끝점 항상 포함
+  return result;
+}
+
+/**
+ * 그리기 상태 전체 초기화
+ */
+function _wmClearDrawState() {
+  _isDrawing = false;
+  _drawRawPts = [];
+  if (_drawLayer && _map) {
+    try { _map.removeLayer(_drawLayer); } catch(x) {}
+    _drawLayer = null;
+  }
+  // 원형 레이어 정리
+  if (_circleLayer && _map) {
+    try { _map.removeLayer(_circleLayer); } catch(x) {}
+    _circleLayer = null;
+  }
+  // 드래그 활성화 복원
+  if (_map && _map.dragging) {
+    try { _map.dragging.enable(); } catch(x) {}
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// 원형 모드 — 클릭 위치에 원 생성
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * 클릭 위치에 원형 폴리곤 생성 (기존 원 교체)
+ */
+function _wmAddCircle(latlng) {
+  var center = { lat: latlng.lat, lng: latlng.lng };
+  var res = buildCirclePolygon(center, _circleRadius);
+  if (!res || !_isValidPolygon(res.polygon)) return;
+
+  // 기존 원 제거
+  var circleShapes = _shapes.filter(function(s) { return s.type === 'circle'; });
+  circleShapes.forEach(function(s) {
+    if (s.layer) { try { _map.removeLayer(s.layer); } catch(x) {} }
+  });
+  _shapes = _shapes.filter(function(s) { return s.type !== 'circle'; });
+
+  res.layer.options.pane = _SHAPE_PANE;
+  res.layer.setStyle({ color: '#a29bfe', fillColor: '#a29bfe', fillOpacity: 0.18, weight: 2 });
+  res.layer.addTo(_map);
+
+  _shapes.push({
+    type:    'circle',
+    layer:   res.layer,
+    polygon: res.polygon,
+    endPt:   center,       // 재생성용 중심점
+    radius:  _circleRadius
+  });
+}
 
 window._wmSearch = function(query) {
   return _searchRegionSmart(query);
