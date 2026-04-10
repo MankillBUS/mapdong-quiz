@@ -203,6 +203,18 @@ function renderWorkModePanel(
     '        <span class="wm-sl-val" id="wm-draw-val">0.3km</span>',
     '      </div>',
     '    </div>',
+    '    <!-- 원형 색상 선택 -->',
+    '    <div class="wm-row" id="wm-row-cir-color" style="display:none">',
+    '      <div class="wm-label">원 색상</div>',
+    '      <div class="wm-slider-wrap" style="gap:6px;flex-wrap:wrap;">',
+    '        <button class="wm-color-swatch wm-cir-color-active" data-color="#ff6b6b" style="background:#ff6b6b" title="빨강" onclick="_wmSetCircleColor('#ff6b6b',this)"></button>',
+    '        <button class="wm-color-swatch" data-color="#00d4ff" style="background:#00d4ff" title="하늘" onclick="_wmSetCircleColor('#00d4ff',this)"></button>',
+    '        <button class="wm-color-swatch" data-color="#39ff14" style="background:#39ff14" title="초록" onclick="_wmSetCircleColor('#39ff14',this)"></button>',
+    '        <button class="wm-color-swatch" data-color="#ffd700" style="background:#ffd700" title="노랑" onclick="_wmSetCircleColor('#ffd700',this)"></button>',
+    '        <button class="wm-color-swatch" data-color="#ff9f43" style="background:#ff9f43" title="주황" onclick="_wmSetCircleColor('#ff9f43',this)"></button>',
+    '        <button class="wm-color-swatch" data-color="#a29bfe" style="background:#a29bfe" title="보라" onclick="_wmSetCircleColor('#a29bfe',this)"></button>',
+    '      </div>',
+    '    </div>',
     '    <!-- 원형 반경 슬라이더 -->',
     '    <div class="wm-row" id="wm-row-cir">',
     '      <div class="wm-label">반경</div>',
@@ -442,8 +454,10 @@ function _showSliderRows(mode) {
   if (addDraw) addDraw.style.display = (activeMode === 'draw')   ? 'flex' : 'none';
   if (addCir)  addCir.style.display  = (activeMode === 'circle') ? 'flex' : 'none';
 
-  // 색상 선택창: 그리기 모드 활성 시만 (완료 시 숨김)
-  if (rowDrawColor) rowDrawColor.style.display = (activeMode === 'draw' && !isDone) ? 'flex' : 'none';
+  // 색상 선택창: 각 모드 활성 시만 (완료 시 숨김)
+  if (rowDrawColor) rowDrawColor.style.display = (activeMode === 'draw'   && !isDone) ? 'flex' : 'none';
+  var rowCirColor  = document.getElementById('wm-row-cir-color');
+  if (rowCirColor) rowCirColor.style.display  = (activeMode === 'circle' && !isDone) ? 'flex' : 'none';
 
   // 완료버튼: 모드가 있을 때(활성/완료 모두)
   if (doneBtn) doneBtn.style.display = mode ? 'flex' : 'none';
@@ -1005,11 +1019,22 @@ function _injectStyles() {
 
 /** 그리기 색상 변경 */
 function _wmSetDrawColor(color, btn) {
-  if (typeof _drawColor !== 'undefined') {
-    window._drawColor = color;
-  }
-  // 스와치 active 상태 갱신
-  var swatches = document.querySelectorAll('.wm-color-swatch');
-  swatches.forEach(function(s) { s.classList.remove('wm-color-active'); });
+  window._drawColor = color;
+  // 그리기 스와치 active 상태 갱신
+  var row = document.getElementById('wm-row-draw-color');
+  if (row) row.querySelectorAll('.wm-color-swatch').forEach(function(s){
+    s.classList.remove('wm-color-active');
+  });
+  if (btn) btn.classList.add('wm-color-active');
+}
+
+/** 원형 색상 변경 */
+function _wmSetCircleColor(color, btn) {
+  window._circleColor = color;
+  // 원형 스와치 active 상태 갱신
+  var row = document.getElementById('wm-row-cir-color');
+  if (row) row.querySelectorAll('.wm-color-swatch').forEach(function(s){
+    s.classList.remove('wm-color-active');
+  });
   if (btn) btn.classList.add('wm-color-active');
 }
