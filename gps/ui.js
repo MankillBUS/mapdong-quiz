@@ -29,10 +29,13 @@ const SEARCH_INPUT_ID   = 'wm-search-input';      // 지역 검색 입력
 const SEARCH_BTN_ID     = 'wm-search-btn';        // 검색 버튼
 const SEARCH_LIST_ID    = 'wm-search-list';        // 검색 결과 목록
 const BTN_DONG_FILTER_ID = 'wm-btn-dong-filter';  // 교차지역만 Show
-const BTN_DRAW_ID     = 'wm-btn-draw';     // 그리기 모드
-const BTN_CIRCLE_ID   = 'wm-btn-circle';   // 원형 모드
-const SLIDER_DRAW_ID  = 'wm-slider-draw';  // 그리기 굵기
-const SLIDER_CIR_ID   = 'wm-slider-cir';  // 원형 반경
+const BTN_DRAW_ID       = 'wm-btn-draw';       // 그리기 모드
+const BTN_CIRCLE_ID     = 'wm-btn-circle';     // 원형 모드
+const BTN_ADD_DRAW_ID   = 'wm-btn-add-draw';   // 그리기 추가
+const BTN_ADD_CIR_ID    = 'wm-btn-add-cir';    // 원형 추가
+const SLIDER_DRAW_ID    = 'wm-slider-draw';    // 그리기 굵기
+const SLIDER_CIR_ID     = 'wm-slider-cir';     // 원형 반경
+const SLIDER_DRAW_COLOR = 'wm-draw-color';     // 그리기 색상
 
 // ── 공개 함수 ────────────────────────────────────────────────────
 
@@ -55,7 +58,9 @@ function renderWorkModePanel(
   onLineFn, onFanFn, onDrawFn, onCircleFn, // 모드 전환
   onAutoCopyFn,
   onGpsTrackFn,                             // GPS 추적 ON/OFF
-  onAddLineFn, onAddFanFn, onShowDongFn,
+  onAddLineFn, onAddFanFn,
+  onAddDrawFn, onAddCirFn,                  // 그리기/원형 추가
+  onShowDongFn,
   onDongFilterFn,                           // 교차지역만 Show
   onClearFn,
   onBufChangeFn, onR1ChangeFn, onR2ChangeFn,
@@ -131,6 +136,12 @@ function renderWorkModePanel(
     '    <button id="' + BTN_ADD_FAN_ID + '" class="wm-btn wm-btn--add" title="이전 끝점에서 새 부채꼴 이어붙이기" style="display:none">',
     '      <span class="wm-icon">➕🔔</span><span class="wm-lbl">부채꼴 추가</span>',
     '    </button>',
+    '    <button id="' + BTN_ADD_DRAW_ID + '" class="wm-btn wm-btn--add" title="그리기 추가 (드래그 1회 더)" style="display:none">',
+    '      <span class="wm-icon">➕✏️</span><span class="wm-lbl">그리기 추가</span>',
+    '    </button>',
+    '    <button id="' + BTN_ADD_CIR_ID + '" class="wm-btn wm-btn--add" title="원형 추가 (클릭 위치에 원 하나 더)" style="display:none">',
+    '      <span class="wm-icon">➕⭕</span><span class="wm-lbl">원형 추가</span>',
+    '    </button>',
     '    <!-- 완료 버튼: 모드 활성 시만 표시 -->',
     '    <button id="wm-btn-done" class="wm-btn-done" style="display:none;" title="그리기 완료">',
     '      ✅ 완료',
@@ -167,6 +178,19 @@ function renderWorkModePanel(
     '        <input type="range" id="' + SLIDER_R2_ID + '" min="0.2" max="15" step="0.1" value="0.8" class="wm-slider">',
     '        <span class="wm-sl-max">15km</span>',
     '        <span class="wm-sl-val" id="wm-r2-val">0.8km</span>',
+    '      </div>',
+    '    </div>',
+    '    <!-- 그리기 색상 선택 -->',
+    '    <div class="wm-row" id="wm-row-draw-color" style="display:none">',
+    '      <div class="wm-label">선 색상</div>',
+    '      <div class="wm-slider-wrap" style="gap:6px;flex-wrap:wrap;">',
+    '        <button class="wm-color-swatch wm-color-active" data-color="#ff6b6b" style="background:#ff6b6b" title="빨강" onclick="_wmSetDrawColor('#ff6b6b',this)"></button>',
+    '        <button class="wm-color-swatch" data-color="#00d4ff" style="background:#00d4ff" title="하늘" onclick="_wmSetDrawColor('#00d4ff',this)"></button>',
+    '        <button class="wm-color-swatch" data-color="#39ff14" style="background:#39ff14" title="초록" onclick="_wmSetDrawColor('#39ff14',this)"></button>',
+    '        <button class="wm-color-swatch" data-color="#ffd700" style="background:#ffd700" title="노랑" onclick="_wmSetDrawColor('#ffd700',this)"></button>',
+    '        <button class="wm-color-swatch" data-color="#ff9f43" style="background:#ff9f43" title="주황" onclick="_wmSetDrawColor('#ff9f43',this)"></button>',
+    '        <button class="wm-color-swatch" data-color="#a29bfe" style="background:#a29bfe" title="보라" onclick="_wmSetDrawColor('#a29bfe',this)"></button>',
+    '        <button class="wm-color-swatch" data-color="#ffffff" style="background:#fff;border:1px solid #555" title="흰색" onclick="_wmSetDrawColor('#ffffff',this)"></button>',
     '      </div>',
     '    </div>',
     '    <!-- 그리기 굵기 슬라이더 -->',
@@ -348,6 +372,14 @@ function renderWorkModePanel(
     if (typeof onCircleFn === 'function') onCircleFn();
   });
 
+  // ── 그리기 추가 버튼 ─────────────────────────────────────────
+  var addDrawBtn = document.getElementById(BTN_ADD_DRAW_ID);
+  if (addDrawBtn && onAddDrawFn) addDrawBtn.addEventListener('click', onAddDrawFn);
+
+  // ── 원형 추가 버튼 ───────────────────────────────────────────
+  var addCirBtn = document.getElementById(BTN_ADD_CIR_ID);
+  if (addCirBtn && onAddCirFn) addCirBtn.addEventListener('click', onAddCirFn);
+
   // ── 그리기 굵기 슬라이더 ─────────────────────────────────────
   var slDraw = document.getElementById(SLIDER_DRAW_ID);
   var drawVal = document.getElementById('wm-draw-val');
@@ -400,9 +432,18 @@ function _showSliderRows(mode) {
   if (rowDraw) rowDraw.style.display = (activeMode === 'draw'   && !isDone) ? 'flex' : 'none';
   if (rowCir)  rowCir.style.display  = (activeMode === 'circle' && !isDone) ? 'flex' : 'none';
 
-  // 추가버튼: 선/부채꼴만 (그리기/원형은 추가버튼 없음)
-  if (addLine) addLine.style.display = (activeMode === 'line') ? 'flex' : 'none';
-  if (addFan)  addFan.style.display  = (activeMode === 'fan')  ? 'flex' : 'none';
+  var addDraw  = document.getElementById(BTN_ADD_DRAW_ID);
+  var addCir   = document.getElementById(BTN_ADD_CIR_ID);
+  var rowDrawColor = document.getElementById('wm-row-draw-color');
+
+  // 추가버튼: 해당 모드일 때 (done 포함 — 완료 후에도 추가 가능)
+  if (addLine) addLine.style.display = (activeMode === 'line')   ? 'flex' : 'none';
+  if (addFan)  addFan.style.display  = (activeMode === 'fan')    ? 'flex' : 'none';
+  if (addDraw) addDraw.style.display = (activeMode === 'draw')   ? 'flex' : 'none';
+  if (addCir)  addCir.style.display  = (activeMode === 'circle') ? 'flex' : 'none';
+
+  // 색상 선택창: 그리기 모드 활성 시만 (완료 시 숨김)
+  if (rowDrawColor) rowDrawColor.style.display = (activeMode === 'draw' && !isDone) ? 'flex' : 'none';
 
   // 완료버튼: 모드가 있을 때(활성/완료 모두)
   if (doneBtn) doneBtn.style.display = mode ? 'flex' : 'none';
@@ -945,6 +986,30 @@ function _injectStyles() {
       .wm-badge { font-size: .5rem; padding: 1px 2px; }
       .wm-search-input::placeholder { font-size: .65rem; }
     }
+
+    /* ── 색상 스와치 ── */
+    .wm-color-swatch {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      padding: 0;
+      transition: transform .15s, border-color .15s;
+      flex-shrink: 0;
+    }
+    .wm-color-swatch:hover { transform: scale(1.2); }
+    .wm-color-active { border-color: #fff !important; transform: scale(1.15); }
   `;
   document.head.appendChild(style);
+}
+
+/** 그리기 색상 변경 */
+function _wmSetDrawColor(color, btn) {
+  if (typeof _drawColor !== 'undefined') {
+    window._drawColor = color;
+  }
+  // 스와치 active 상태 갱신
+  var swatches = document.querySelectorAll('.wm-color-swatch');
+  swatches.forEach(function(s) { s.classList.remove('wm-color-active'); });
+  if (btn) btn.classList.add('wm-color-active');
 }
