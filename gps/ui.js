@@ -440,47 +440,59 @@ function renderWorkModePanel(
  * mode: 'line' | 'fan' | null(완료) | 'done-line' | 'done-fan'
  * done-*: 완료 상태 (추가버튼 유지, 슬라이더 닫힘, 완료버튼 유지)
  */
+// ⚠️ [중요] _showSliderRows 표시 규칙 — 변경 시 전체 흐름 재검토 필수
+// mode 값: null | 'line'|'fan'|'draw'|'circle' | 'done-line'|'done-fan'|'done-draw'|'done-circle'
+// ┌─────────────┬────────────┬──────────┬──────────┬──────────┐
+// │             │ 슬라이더바  │ 슬라이더행 │ 추가버튼  │ 완료버튼  │
+// ├─────────────┼────────────┼──────────┼──────────┼──────────┤
+// │ null        │ 닫힘       │ 닫힘      │ 숨김     │ 숨김     │
+// │ 활성(선/부채)│ 열림       │ 해당만 열림│ 숨김     │ 표시     │
+// │ 활성(그리/원)│ 열림       │ 해당만 열림│ 숨김     │ 표시     │
+// │ done-line   │ 닫힘       │ 닫힘      │ 선추가표시│ 표시     │
+// │ done-fan    │ 닫힘       │ 닫힘      │ 부채추가  │ 표시     │
+// │ done-draw   │ 닫힘       │ 닫힘      │ 숨김     │ 표시     │
+// │ done-circle │ 닫힘       │ 닫힘      │ 숨김     │ 표시     │
+// └─────────────┴────────────┴──────────┴──────────┴──────────┘
 function _showSliderRows(mode) {
-  var sliderBar = document.getElementById('wm-slider-bar');
-  var rowBuf    = document.getElementById('wm-row-buf');
-  var rowR1     = document.getElementById('wm-row-r1');
-  var rowR2     = document.getElementById('wm-row-r2');
-  var rowDraw   = document.getElementById('wm-row-draw');
-  var rowCir    = document.getElementById('wm-row-cir');
-  var addLine   = document.getElementById(BTN_ADD_LINE_ID);
-  var addFan    = document.getElementById(BTN_ADD_FAN_ID);
-  var doneBtn   = document.getElementById('wm-btn-done');
+  var sliderBar    = document.getElementById('wm-slider-bar');
+  var rowBuf       = document.getElementById('wm-row-buf');
+  var rowR1        = document.getElementById('wm-row-r1');
+  var rowR2        = document.getElementById('wm-row-r2');
+  var rowDraw      = document.getElementById('wm-row-draw');
+  var rowCir       = document.getElementById('wm-row-cir');
+  var rowDrawColor = document.getElementById(ROW_DRAW_COLOR_ID);
+  var rowCirColor  = document.getElementById(ROW_CIR_COLOR_ID);
+  var addLine      = document.getElementById(BTN_ADD_LINE_ID);
+  var addFan       = document.getElementById(BTN_ADD_FAN_ID);
+  var addDraw      = document.getElementById(BTN_ADD_DRAW_ID);
+  var addCir       = document.getElementById(BTN_ADD_CIR_ID);
+  var doneBtn      = document.getElementById('wm-btn-done');
 
-  var isDone = (mode === 'done-line' || mode === 'done-fan' ||
-                mode === 'done-draw' || mode === 'done-circle');
+  var isDone     = (mode === 'done-line' || mode === 'done-fan' ||
+                    mode === 'done-draw' || mode === 'done-circle');
   var activeMode = isDone ? mode.replace('done-', '') : mode;
 
-  // 3행: 활성 모드일 때만 표시 (완료 시 닫힘)
+  // ── 슬라이더 바: 활성 중만 열림, done-*/null 닫힘
   if (sliderBar) sliderBar.style.display = (mode && !isDone) ? 'flex' : 'none';
 
-  // 각 슬라이더 행: 해당 모드일 때만 표시
-  if (rowBuf)  rowBuf.style.display  = (activeMode === 'line'   && !isDone) ? 'flex' : 'none';
-  if (rowR1)   rowR1.style.display   = (activeMode === 'fan'    && !isDone) ? 'flex' : 'none';
-  if (rowR2)   rowR2.style.display   = (activeMode === 'fan'    && !isDone) ? 'flex' : 'none';
-  if (rowDraw) rowDraw.style.display = (activeMode === 'draw'   && !isDone) ? 'flex' : 'none';
-  if (rowCir)  rowCir.style.display  = (activeMode === 'circle' && !isDone) ? 'flex' : 'none';
-
-  var addDraw  = document.getElementById(BTN_ADD_DRAW_ID);
-  var addCir   = document.getElementById(BTN_ADD_CIR_ID);
-  var rowDrawColor = document.getElementById(ROW_DRAW_COLOR_ID);
-
-  // 추가버튼: 해당 모드일 때 (done 포함 — 완료 후에도 추가 가능)
-  if (addLine) addLine.style.display = (activeMode === 'line')   ? 'flex' : 'none';
-  if (addFan)  addFan.style.display  = (activeMode === 'fan')    ? 'flex' : 'none';
-  if (addDraw) addDraw.style.display = (activeMode === 'draw')   ? 'flex' : 'none';
-  if (addCir)  addCir.style.display  = (activeMode === 'circle') ? 'flex' : 'none';
-
-  // 색상 선택창: 각 모드 활성 시만 (완료 시 숨김)
+  // ── 슬라이더 행: 해당 모드 활성 중일 때만 표시
+  if (rowBuf)       rowBuf.style.display       = (activeMode === 'line'   && !isDone) ? 'flex' : 'none';
+  if (rowR1)        rowR1.style.display        = (activeMode === 'fan'    && !isDone) ? 'flex' : 'none';
+  if (rowR2)        rowR2.style.display        = (activeMode === 'fan'    && !isDone) ? 'flex' : 'none';
+  if (rowDraw)      rowDraw.style.display      = (activeMode === 'draw'   && !isDone) ? 'flex' : 'none';
+  if (rowCir)       rowCir.style.display       = (activeMode === 'circle' && !isDone) ? 'flex' : 'none';
   if (rowDrawColor) rowDrawColor.style.display = (activeMode === 'draw'   && !isDone) ? 'flex' : 'none';
-  var rowCirColor  = document.getElementById(ROW_CIR_COLOR_ID);
-  if (rowCirColor) rowCirColor.style.display  = (activeMode === 'circle' && !isDone) ? 'flex' : 'none';
+  if (rowCirColor)  rowCirColor.style.display  = (activeMode === 'circle' && !isDone) ? 'flex' : 'none';
 
-  // 완료버튼: 모드가 있을 때(활성/완료 모두)
+  // ── 추가버튼 ─────────────────────────────────────────────────
+  // 선/부채꼴: done 상태에서만 표시 (완료 후 추가 가능)
+  // 그리기/원형: 완료버튼 누르면(done-*) 숨김, 추가버튼 누르면 활성→슬라이더 재오픈
+  if (addLine) addLine.style.display = (activeMode === 'line' && isDone) ? 'flex' : 'none';
+  if (addFan)  addFan.style.display  = (activeMode === 'fan'  && isDone) ? 'flex' : 'none';
+  if (addDraw) addDraw.style.display = (activeMode === 'draw' && isDone) ? 'flex' : 'none';
+  if (addCir)  addCir.style.display  = (activeMode === 'circle' && isDone) ? 'flex' : 'none';
+
+  // ── 완료버튼: 모드가 있을 때 항상 표시
   if (doneBtn) doneBtn.style.display = mode ? 'flex' : 'none';
 }
 
