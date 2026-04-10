@@ -29,6 +29,10 @@ const SEARCH_INPUT_ID   = 'wm-search-input';      // 지역 검색 입력
 const SEARCH_BTN_ID     = 'wm-search-btn';        // 검색 버튼
 const SEARCH_LIST_ID    = 'wm-search-list';        // 검색 결과 목록
 const BTN_DONG_FILTER_ID = 'wm-btn-dong-filter';  // 교차지역만 Show
+const BTN_DRAW_ID     = 'wm-btn-draw';     // 그리기 모드
+const BTN_CIRCLE_ID   = 'wm-btn-circle';   // 원형 모드
+const SLIDER_DRAW_ID  = 'wm-slider-draw';  // 그리기 굵기
+const SLIDER_CIR_ID   = 'wm-slider-cir';  // 원형 반경
 
 // ── 공개 함수 ────────────────────────────────────────────────────
 
@@ -48,12 +52,14 @@ const BTN_DONG_FILTER_ID = 'wm-btn-dong-filter';  // 교차지역만 Show
  *   onR2ChangeFn(v)            r2 변경
  */
 function renderWorkModePanel(
-  onLineFn, onFanFn, onAutoCopyFn,
-  onGpsTrackFn,                           // GPS 추적 ON/OFF (이동버튼 제거)
+  onLineFn, onFanFn, onDrawFn, onCircleFn, // 모드 전환
+  onAutoCopyFn,
+  onGpsTrackFn,                             // GPS 추적 ON/OFF
   onAddLineFn, onAddFanFn, onShowDongFn,
-  onDongFilterFn,                         // 교차지역만 Show
+  onDongFilterFn,                           // 교차지역만 Show
   onClearFn,
-  onBufChangeFn, onR1ChangeFn, onR2ChangeFn
+  onBufChangeFn, onR1ChangeFn, onR2ChangeFn,
+  onDrawBufFn, onCirRadFn                   // 그리기 굵기 / 원형 반경
 ) {
   if (document.getElementById(PANEL_ID)) return;
 
@@ -113,6 +119,12 @@ function renderWorkModePanel(
     '    <button id="' + BTN_FAN_ID + '" class="wm-btn wm-btn--mode" title="부채꼴 모드">',
     '      <span class="wm-icon">🔔</span><span class="wm-lbl">부채꼴</span>',
     '    </button>',
+    '    <button id="' + BTN_DRAW_ID + '" class="wm-btn wm-btn--mode" title="자유 그리기 모드 (드래그)">',
+    '      <span class="wm-icon">✏️</span><span class="wm-lbl">그리기</span>',
+    '    </button>',
+    '    <button id="' + BTN_CIRCLE_ID + '" class="wm-btn wm-btn--mode" title="원형 모드 (클릭 위치에 원 생성)">',
+    '      <span class="wm-icon">⭕</span><span class="wm-lbl">원형</span>',
+    '    </button>',
     '    <button id="' + BTN_ADD_LINE_ID + '" class="wm-btn wm-btn--add" title="이전 끝점에서 새 선 이어붙이기" style="display:none">',
     '      <span class="wm-icon">➕📏</span><span class="wm-lbl">선 추가</span>',
     '    </button>',
@@ -155,6 +167,26 @@ function renderWorkModePanel(
     '        <input type="range" id="' + SLIDER_R2_ID + '" min="0.2" max="15" step="0.1" value="0.8" class="wm-slider">',
     '        <span class="wm-sl-max">15km</span>',
     '        <span class="wm-sl-val" id="wm-r2-val">0.8km</span>',
+    '      </div>',
+    '    </div>',
+    '    <!-- 그리기 굵기 슬라이더 -->',
+    '    <div class="wm-row" id="wm-row-draw">',
+    '      <div class="wm-label">선 굵기</div>',
+    '      <div class="wm-slider-wrap">',
+    '        <span class="wm-sl-min">0.1</span>',
+    '        <input type="range" id="' + SLIDER_DRAW_ID + '" min="0.1" max="15" step="0.1" value="0.3" class="wm-slider">',
+    '        <span class="wm-sl-max">15km</span>',
+    '        <span class="wm-sl-val" id="wm-draw-val">0.3km</span>',
+    '      </div>',
+    '    </div>',
+    '    <!-- 원형 반경 슬라이더 -->',
+    '    <div class="wm-row" id="wm-row-cir">',
+    '      <div class="wm-label">반경</div>',
+    '      <div class="wm-slider-wrap">',
+    '        <span class="wm-sl-min">0.5</span>',
+    '        <input type="range" id="' + SLIDER_CIR_ID + '" min="0.5" max="30" step="0.5" value="3" class="wm-slider">',
+    '        <span class="wm-sl-max">30km</span>',
+    '        <span class="wm-sl-val" id="wm-cir-val">3km</span>',
     '      </div>',
     '    </div>',
     '  </div>',
@@ -303,6 +335,36 @@ function renderWorkModePanel(
 
   // 초기 슬라이더 숨김
   _showSliderRows(null);
+
+  // ── 그리기 모드 버튼 ──────────────────────────────────────────
+  var drawBtn = document.getElementById(BTN_DRAW_ID);
+  if (drawBtn) drawBtn.addEventListener('click', function() {
+    if (typeof onDrawFn === 'function') onDrawFn();
+  });
+
+  // ── 원형 모드 버튼 ────────────────────────────────────────────
+  var circleBtn = document.getElementById(BTN_CIRCLE_ID);
+  if (circleBtn) circleBtn.addEventListener('click', function() {
+    if (typeof onCircleFn === 'function') onCircleFn();
+  });
+
+  // ── 그리기 굵기 슬라이더 ─────────────────────────────────────
+  var slDraw = document.getElementById(SLIDER_DRAW_ID);
+  var drawVal = document.getElementById('wm-draw-val');
+  if (slDraw) slDraw.addEventListener('input', function() {
+    var v = parseFloat(this.value);
+    if (drawVal) drawVal.textContent = v.toFixed(1) + 'km';
+    if (typeof onDrawBufFn === 'function') onDrawBufFn(v);
+  });
+
+  // ── 원형 반경 슬라이더 ───────────────────────────────────────
+  var slCir = document.getElementById(SLIDER_CIR_ID);
+  var cirVal = document.getElementById('wm-cir-val');
+  if (slCir) slCir.addEventListener('input', function() {
+    var v = parseFloat(this.value);
+    if (cirVal) cirVal.textContent = v.toFixed(1) + 'km';
+    if (typeof onCirRadFn === 'function') onCirRadFn(v);
+  });
 }
 
 // ── 공개 상태 갱신 함수 ──────────────────────────────────────────
@@ -318,21 +380,27 @@ function _showSliderRows(mode) {
   var rowBuf    = document.getElementById('wm-row-buf');
   var rowR1     = document.getElementById('wm-row-r1');
   var rowR2     = document.getElementById('wm-row-r2');
+  var rowDraw   = document.getElementById('wm-row-draw');
+  var rowCir    = document.getElementById('wm-row-cir');
   var addLine   = document.getElementById(BTN_ADD_LINE_ID);
   var addFan    = document.getElementById(BTN_ADD_FAN_ID);
   var doneBtn   = document.getElementById('wm-btn-done');
 
-  var isDone = (mode === 'done-line' || mode === 'done-fan');
+  var isDone = (mode === 'done-line' || mode === 'done-fan' ||
+                mode === 'done-draw' || mode === 'done-circle');
   var activeMode = isDone ? mode.replace('done-', '') : mode;
 
   // 3행: 활성 모드일 때만 표시 (완료 시 닫힘)
   if (sliderBar) sliderBar.style.display = (mode && !isDone) ? 'flex' : 'none';
 
-  if (rowBuf) rowBuf.style.display = (activeMode === 'line' && !isDone) ? 'flex' : 'none';
-  if (rowR1)  rowR1.style.display  = (activeMode === 'fan'  && !isDone) ? 'flex' : 'none';
-  if (rowR2)  rowR2.style.display  = (activeMode === 'fan'  && !isDone) ? 'flex' : 'none';
+  // 각 슬라이더 행: 해당 모드일 때만 표시
+  if (rowBuf)  rowBuf.style.display  = (activeMode === 'line'   && !isDone) ? 'flex' : 'none';
+  if (rowR1)   rowR1.style.display   = (activeMode === 'fan'    && !isDone) ? 'flex' : 'none';
+  if (rowR2)   rowR2.style.display   = (activeMode === 'fan'    && !isDone) ? 'flex' : 'none';
+  if (rowDraw) rowDraw.style.display = (activeMode === 'draw'   && !isDone) ? 'flex' : 'none';
+  if (rowCir)  rowCir.style.display  = (activeMode === 'circle' && !isDone) ? 'flex' : 'none';
 
-  // 추가버튼: 활성 모드 또는 완료 후에도 유지
+  // 추가버튼: 선/부채꼴만 (그리기/원형은 추가버튼 없음)
   if (addLine) addLine.style.display = (activeMode === 'line') ? 'flex' : 'none';
   if (addFan)  addFan.style.display  = (activeMode === 'fan')  ? 'flex' : 'none';
 
@@ -351,13 +419,20 @@ function _bindDoneBtn(onDoneFn) {
 
 /** 활성 모드 버튼 강조 (done-* 포함) */
 function setActiveModeBtn(mode) {
-  var lineBtn = document.getElementById(BTN_LINE_ID);
-  var fanBtn  = document.getElementById(BTN_FAN_ID);
+  var lineBtn   = document.getElementById(BTN_LINE_ID);
+  var fanBtn    = document.getElementById(BTN_FAN_ID);
+  var drawBtn   = document.getElementById(BTN_DRAW_ID);
+  var circleBtn = document.getElementById(BTN_CIRCLE_ID);
   if (!lineBtn || !fanBtn) return;
-  // 완료 상태에서는 버튼 active 해제 (절전 상태 표시)
-  var isDone = (mode === 'done-line' || mode === 'done-fan');
-  lineBtn.classList.toggle('wm-btn--active', mode === 'line');
-  fanBtn.classList.toggle('wm-btn--active',  mode === 'fan');
+
+  var isDone = (mode === 'done-line' || mode === 'done-fan' ||
+                mode === 'done-draw' || mode === 'done-circle');
+  var activeMode = isDone ? mode.replace('done-', '') : mode;
+
+  lineBtn.classList.toggle('wm-btn--active',   activeMode === 'line');
+  fanBtn.classList.toggle('wm-btn--active',    activeMode === 'fan');
+  if (drawBtn)   drawBtn.classList.toggle('wm-btn--active',   activeMode === 'draw');
+  if (circleBtn) circleBtn.classList.toggle('wm-btn--active', activeMode === 'circle');
   _showSliderRows(mode);
 }
 
