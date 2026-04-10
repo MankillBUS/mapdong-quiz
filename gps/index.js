@@ -382,6 +382,9 @@ function _wmSwitchMode(mode) {
 
   if (mode === 'fan')    _endPoint = null;
   if (mode === 'circle') _circleLayer = null;
+
+  // draw 버튼 클릭 순간부터 결과창 고정 (드래그 시작 전부터 레이아웃 변화 차단)
+  if (mode === 'draw') _wmHideResult();
 }
 
 /**
@@ -408,6 +411,9 @@ function _wmResetModeShapes(mode) {
 
   // 슬라이더 유지 (setActiveModeBtn('draw'/'circle') → 슬라이더 열린 상태 유지)
   setActiveModeBtn(mode);
+
+  // draw 재클릭(초기화) 시도 결과창 즉시 고정
+  if (mode === 'draw') _wmHideResult();
 }
 
 /** 완료 처리 — 3행 닫기, _currentMode null, 추가버튼/완료버튼 유지 */
@@ -422,6 +428,8 @@ function _wmDone() {
   var lastMode = _currentMode || _lastMode;
   _currentMode = null;
   setActiveModeBtn(lastMode ? 'done-' + lastMode : null);
+  // draw 완료 시 결과창 복원 (버튼 클릭 ~ 완료까지 고정됐던 창 해제)
+  if (lastMode === 'draw') _wmShowResult();
 }
 
 
@@ -2221,7 +2229,7 @@ function _wmDrawStart(e) {
   _drawRawPts.push(latlng);
   // 지도 드래그 비활성화 (그리기 중)
   _map.dragging.disable();
-  // 교차지역 텍스트창 숨김 (줄바꿈으로 인한 화면 흔들림 방지)
+  // 결과창은 버튼 클릭 시 이미 고정됨 — 드래그 시작 시 재호출은 안전장치
   _wmHideResult();
   // ⚠️ [모바일] 스크롤 잠금
   _wmLockScroll();
@@ -2238,7 +2246,7 @@ function _wmDrawStartTouch(e) {
   var latlng = _map.mouseEventToLatLng(touch);
   _drawRawPts.push(latlng);
   _map.dragging.disable();
-  // 교차지역 텍스트창 숨김
+  // 결과창은 버튼 클릭 시 이미 고정됨 — 안전장치로 재호출
   _wmHideResult();
   // ⚠️ [모바일] 스크롤 잠금
   _wmLockScroll();
@@ -2565,6 +2573,8 @@ function _wmAddDrawChain() {
   _drawDoneOnce = false;
   _currentMode  = 'draw';
   setActiveModeBtn('draw');
+  // 추가버튼 클릭 순간부터 결과창 고정 (다음 드래그 시작 전부터 차단)
+  _wmHideResult();
 }
 
 /**
