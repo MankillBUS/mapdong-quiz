@@ -6793,7 +6793,7 @@ async function renderCSBoard() {
               ${p.is_notice ? '<span class="cs-notice-badge">📢 공지</span>' : ''}
             </div>
             <div class="cs-post-meta">${escHtml(p.nickname || '익명')} · ${fmtDate(p.created_at)}</div>
-            <div class="cs-post-preview">${escHtml((p.content||'').slice(0,60))}${(p.content||'').length>60?'...':''}</div>
+            <div class="cs-post-preview">${(s=>{return s.length>60?escHtml(s.slice(0,60))+'...':escHtml(s);})(stripHtml(p.content||''))}</div>
           </div>`).join('')}
     </div>`;
 }
@@ -7063,6 +7063,28 @@ function showNoticeItem(idx) {
 /* ── 유틸 함수 ───────────────────────────────────────────── */
 function escHtml(str) {
   return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+/**
+ * HTML 태그 완전 제거 → 순수 텍스트 추출 (미리보기용)
+ * <br> → 공백, <span style="...">텍스트</span> → 텍스트
+ * &amp; &lt; 등 HTML 엔티티도 디코딩
+ */
+function stripHtml(html) {
+  if (!html) return '';
+  // <br> 계열 → 공백
+  var s = html.replace(/<br\s*\/?>/gi, ' ');
+  // 나머지 태그 전부 제거
+  s = s.replace(/<[^>]*>/g, '');
+  // HTML 엔티티 디코딩 (&amp; → &, &lt; → <, &nbsp; → 공백 등)
+  s = s.replace(/&amp;/g, '&')
+       .replace(/&lt;/g, '<')
+       .replace(/&gt;/g, '>')
+       .replace(/&quot;/g, '"')
+       .replace(/&#39;/g, "'")
+       .replace(/&nbsp;/g, ' ');
+  // 연속 공백 정리
+  s = s.replace(/\s+/g, ' ').trim();
+  return s;
 }
 function fmtDate(iso) {
   if(!iso) return '';
