@@ -1081,8 +1081,12 @@ function _nodeToFeature(node) {
 // ════════════════════════════════════════════════════════════════
 
 function _wmUpdateUI() {
-  // _resultSet은 uniqueName("이천시||신촌동") → 화면 표시 시 동명만 추출
-  updateResultDisplay(_extractDisplayNames(_resultSet));
+  // ── 화면 표시: 클립보드 정규화 결과와 동기화
+  // _extractDisplayNames: 동명 그대로 표시 (서초1동, 서초2동...)
+  // _normalizeForClipboard: 숫자 제거 + 중복 제거 후 표시 (서초, 잠실...)
+  // → 클립보드에 복사되는 최종 내용과 화면 표시를 일치시킴
+  var clipText = _normalizeForClipboard(_resultSet);
+  updateResultDisplay(_buildNormalizedDisplaySet(clipText));
 
   // 동/구 교차필터 모드 활성 시 교차 결과 변경마다 자동 갱신
   if (_dongFilterMode && _dongVisible) {
@@ -1090,9 +1094,20 @@ function _wmUpdateUI() {
   }
 
   if (_autoCopy) {
-    var clipText = _normalizeForClipboard(_resultSet);
     _prevResult = autoCopyIfChanged(clipText, _prevResult);
   }
+}
+
+/**
+ * _normalizeForClipboard 결과 문자열을 Set으로 변환 (화면 표시용)
+ * "서초,잠실,상계" → Set {"서초", "잠실", "상계"}
+ * @param {string} clipText  _normalizeForClipboard 반환값
+ * @returns {Set<string>}
+ */
+function _buildNormalizedDisplaySet(clipText) {
+  if (!clipText) return new Set();
+  var parts = clipText.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+  return new Set(parts);
 }
 
 /**
