@@ -2295,10 +2295,7 @@ function _wmDrawAddPoint(latlng) {
     pane:    _SHAPE_PANE
   }).addTo(_map);
 
-  // 실시간 교차 계산 (10포인트마다 — 성능)
-  if (_drawRawPts.length % 10 === 0) {
-    _wmDrawRunIntersectRealtime();
-  }
+  // 드래그 중 교차 계산 없음 — 드래그 끝나면 _wmDrawEnd에서 일괄 계산
 }
 
 function _wmDrawEnd(e) {
