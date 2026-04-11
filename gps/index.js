@@ -409,11 +409,21 @@ function _wmResetModeShapes(mode) {
   if (mode === 'fan')    _endPoint = null;
   if (mode === 'circle') _circleLayer = null;
 
+  // draw 재클릭 시 교차 결과 초기화 + 동/구 폴리곤 경계 숨김
+  // (그린 선이 사라졌으므로 교차 지역 경계도 함께 초기화)
+  if (mode === 'draw') {
+    _resultSet = new Set();
+    if (_dongVisible) {
+      _dongLayers.forEach(function(layer) {
+        try { layer.setStyle({ opacity: 0, fillOpacity: 0 }); } catch(e) {}
+      });
+    }
+    _wmUpdateUI();
+    _wmHideResult(); // 결과창 즉시 고정 (드래그 전까지 유지)
+  }
+
   // 슬라이더 유지 (setActiveModeBtn('draw'/'circle') → 슬라이더 열린 상태 유지)
   setActiveModeBtn(mode);
-
-  // draw 재클릭(초기화) 시도 결과창 즉시 고정
-  if (mode === 'draw') _wmHideResult();
 }
 
 /** 완료 처리 — 3행 닫기, _currentMode null, 추가버튼/완료버튼 유지 */
