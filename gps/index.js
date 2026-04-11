@@ -410,12 +410,14 @@ function _wmResetModeShapes(mode) {
   if (mode === 'circle') _circleLayer = null;
 
   // draw 재클릭 시 교차 결과 초기화 + 동/구 폴리곤 경계 숨김
-  // (그린 선이 사라졌으므로 교차 지역 경계도 함께 초기화)
+  // ⚠️ setStyle(opacity:0) 사용 금지 — _wmApplyDongFilter 복원 시 opacity가 남아
+  //    이후 교차 지역 경계가 보이지 않는 버그 발생
+  // → _wmSetLayerVisible(false) = display:none 방식으로 통일
   if (mode === 'draw') {
     _resultSet = new Set();
     if (_dongVisible) {
       _dongLayers.forEach(function(layer) {
-        try { layer.setStyle({ opacity: 0, fillOpacity: 0 }); } catch(e) {}
+        _wmSetLayerVisible(layer, false);
       });
     }
     _wmUpdateUI();
@@ -1121,20 +1123,24 @@ function _buildNormalizedDisplaySet(clipText) {
 }
 
 /**
- * 클립보드 저장 전 정규식 정리
+ * 클립보드 저장 전 정규식 정리 (화면 표시와 공용)
  *
- * 처리 방식:
- *   1. _dongNameMap[name] → utype 조회 (정확한 접미어 파악)
+ * 처리 순서:
+ *   1. utype 조회 (동/읍/면/리)
  *   2. 숫자 제거: "서초1동" → "서초동"
- *   3. 해당 utype 접미어만 정확히 제거: "서초동" → "서초"
- *   4. 중복 제거 후 쉼표 결합
+ *   3. 동가 패턴 제거: "영등포동가" → "영등포"  ← ~동1가, ~동2가 통합
+ *   4. 본동 패턴 제거: "방배본동" → "방배동"    ← ~본동, ~동 통합
+ *   5. utype 접미어 제거: "서초동" → "서초"
+ *   6. 1글자 남으면 접미어 복원: "제동" → "제동"
+ *   7. 중복 제거 후 쉼표 결합
  *
  * 예시:
- *   서초1동(동), 서초2동(동), 잠실1동(동), 잠실2동(동) → 서초,잠실
- *   상계1동,상계2동,상계3동 → 상계
- *   화전읍,화전1리 → 화전
- *   신당동,황학동 → 신당,황학
- *   가락본동,가락1동 → 가락본,가락
+ *   영등포동, 영등포본동, 영등포동가 → 영등포  (모두 통합)
+ *   방배동, 방배본동 → 방배
+ *   장기동, 장기본동 → 장기
+ *   서초1동, 서초2동 → 서초
+ *   본동 (2글자 단독) → 본동  (유지)
+ *   화전읍, 화전1리 → 화전
  *
  * @param {Set<string>} resultSet
  * @returns {string}
@@ -1173,9 +1179,21 @@ function _normalizeForClipboard(resultSet) {
     var utype = _dongNameMap[uniqueName] || _dongNameMap[name] || '';
 
     // 2. 숫자 제거 (아라비아 숫자)
+    //    "서초1동" → "서초동" / "영등포동2가" → "영등포동가"
     var base = name.replace(/[0-9]+/g, '');
 
-    // 3. utype 접미어 제거
+    // 3. '동가' 패턴 제거 (~동1가, ~동2가 → 숫자 제거 후 ~동가 → ~)
+    //    "영등포동가" → "영등포" / "당산동가" → "당산"
+    base = base.replace(/동가$/, '');
+
+    // 4. '본동' 패턴 제거 (~본동 → ~동)
+    //    "방배본동" → "방배동" / "장기본동" → "장기동"
+    //    단, '본동' 자체(2글자)는 유지
+    if (base.length >= 3) {
+      base = base.replace(/본(?=동$)/, '');
+    }
+
+    // 5. utype 접미어 제거
     //    - utype이 있으면 정확히 그 글자만 제거
     //    - utype 없으면 동/읍/면/리 중 맞는 것 제거
     if (utype && ['동','읍','면','리'].includes(utype)) {
@@ -1184,9 +1202,8 @@ function _normalizeForClipboard(resultSet) {
       base = base.replace(/(동|읍|면|리)$/, '');
     }
 
-    // 4. 접미어 제거 후 1글자만 남으면 접미어를 다시 붙임
+    // 6. 접미어 제거 후 1글자만 남으면 접미어를 다시 붙임
     //    예: "제1동" → "제동" (숫자만 제거, 접미어 유지)
-    //        "서초1동" → "서초" (2글자 이상 → 접미어 제거 유지)
     //    빈 문자열이면 원본 유지
     if (!base || base.length === 0) {
       base = name;
@@ -1194,7 +1211,7 @@ function _normalizeForClipboard(resultSet) {
       base = base + utype;
     }
 
-    // 5. 중복 제거
+    // 7. 중복 제거
     if (!seen.has(base)) {
       seen.add(base);
       out.push(base);
@@ -1281,9 +1298,10 @@ function _wmClearShapesOnly() {
   _resultSet = new Set();
 
   // 교차 필터 해제 → 모든 동/구 레이어 숨기기
+  // ⚠️ setStyle(opacity:0) 금지 — display:none 방식(_wmSetLayerVisible)으로 통일
   if (_dongVisible) {
     _dongLayers.forEach(function(layer) {
-      try { layer.setStyle({ opacity: 0, fillOpacity: 0 }); } catch(e) {}
+      _wmSetLayerVisible(layer, false);
     });
   }
 
