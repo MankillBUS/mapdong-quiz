@@ -1211,7 +1211,14 @@ function _normalizeForClipboard(resultSet) {
       base = base + utype;
     }
 
-    // 7. 중복 제거
+    // 7. 앞 2글자로 축약 (3글자 이상인 경우만)
+    //    "왕십리" → "왕십" / "영등포" → "영등"
+    //    "서초"(2글자), "서"(1글자) → 그대로 유지
+    if (base.length > 2) {
+      base = base.slice(0, 2);
+    }
+
+    // 8. 중복 제거
     if (!seen.has(base)) {
       seen.add(base);
       out.push(base);
