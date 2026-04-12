@@ -415,44 +415,17 @@ body.work-mode #header-right { display: none !important; }
     top:50px !important;
   }
 
-  /* ans-bar 모바일 — 정답 텍스트 위 / 버튼 두 개 아래 가로 배치 */
+  /* ans-bar 모바일 */
   #ans-bar{
     left:4px !important;
     right:4px !important;
     bottom:8px !important;
-    padding:0 !important;
-    font-size:.72rem !important;
-    gap:0;
+    min-width:0 !important;
+    padding:8px 10px !important;
   }
-  #ans-bar > div {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 6px !important;
-    padding: 8px 10px !important;
-    width: 100%;
-  }
-  /* 정답 텍스트: 줄바꿈 허용 (긴 동이름도 전체 표시) */
-  #ans-bar > div > span:first-child {
-    width: 100%;
-    white-space: normal !important;
-    word-break: keep-all;
-    font-size: .85rem;
-    line-height: 1.4;
-  }
-  /* 버튼 두 개를 가로로 나란히 */
-  #ans-bar .ab-btn-row {
-    display: flex;
-    gap: 6px;
-    width: 100%;
-  }
-  #ans-bar .ab-btn-row .ab-btn {
-    flex: 1;
-    text-align: center;
-    font-size: .78rem !important;
-    padding: 5px 6px !important;
-  }
-  #ans-bar .ab-label{ font-size:.7rem; }
-  #ans-bar .ab-dong{ font-size:.85rem; }
+  .ab-row-label{ font-size:.82rem; white-space:normal; word-break:keep-all; }
+  .ab-row-label strong{ font-size:.92rem; }
+  .ab-btn{ font-size:.75rem !important; padding:5px 6px !important; }
   #ans-bar .ab-close{ padding:4px 10px; font-size:.7rem; }
 
   /* 모바일 문제카드 오버레이 */
@@ -524,8 +497,16 @@ body.work-mode #header-right { display: none !important; }
 .mbt{background:linear-gradient(135deg,var(--accent),#0099bb);color:#000;border:none;border-radius:10px;padding:10px 26px;font-size:.9rem;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;}
 .mbt:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,212,255,.4);}
 /* 정답위치 표시 중 지도 위 고정 UI */
-#ans-bar{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:1000;display:none;align-items:center;gap:10px;background:rgba(17,24,39,.95);border:2px solid #ff3c6e;border-radius:12px;padding:10px 18px;box-shadow:0 0 20px rgba(255,60,110,.4);backdrop-filter:blur(8px);}
+#ans-bar{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:1000;display:none;flex-direction:column;gap:6px;background:rgba(17,24,39,.95);border:2px solid #ff3c6e;border-radius:12px;padding:10px 16px;box-shadow:0 0 20px rgba(255,60,110,.4);backdrop-filter:blur(8px);min-width:260px;}
 #ans-bar.show{display:flex;}
+/* 1행: 정답 텍스트 */
+.ab-row-label{display:flex;align-items:center;gap:6px;font-size:.9rem;color:var(--text);white-space:nowrap;}
+.ab-row-label span{color:#ff3c6e;font-weight:700;font-size:.78rem;}
+.ab-row-label strong{color:var(--accent);font-family:'Black Han Sans',sans-serif;font-size:1rem;}
+/* 2행: 버튼 두 개 가로 배치 */
+.ab-row-btns{display:flex;gap:8px;width:100%;}
+.ab-btn{flex:1;padding:6px 10px;border-radius:6px;font-size:.82rem;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-weight:600;white-space:nowrap;text-align:center;transition:opacity .2s;}
+.ab-btn:hover{opacity:.8;}
 #ans-bar .ab-label{font-size:.78rem;color:#ff3c6e;font-weight:700;white-space:nowrap;}
 #ans-bar .ab-dong{font-family:'Black Han Sans',sans-serif;font-size:1rem;color:var(--text);white-space:nowrap;}
 #ans-bar .ab-close{background:#ff3c6e;color:#000;border:none;border-radius:8px;padding:5px 12px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;transition:all .2s;}
@@ -1977,14 +1958,14 @@ body.work-mode #header-right { display: none !important; }
     </div>
     <!-- 오답 정답위치 표시 바 -->
     <div id="ans-bar">
-      <div style="display:flex;align-items:center;gap:12px;width:100%;padding:10px 18px;">
-        <span style="color:var(--text);font-size:.9rem;flex:1;">
-          <span id="ab-label">정답</span>: <strong id="ab-dong-name" style="color:var(--accent);"></strong>
-        </span>
-        <div class="ab-btn-row">
-          <button class="ab-btn" id="btn-hide-correct" onclick="hideCorrectBoundary()" style="background:rgba(57,255,20,0.2);border:1px solid #39ff14;color:#39ff14;padding:6px 12px;border-radius:6px;font-size:.85rem;cursor:pointer;">🟢 <span class="ab-btn-label">정답 경계</span></button>
-          <button class="ab-btn" id="btn-hide-wrong" onclick="hideWrongBoundary()" style="background:rgba(255,60,110,0.2);border:1px solid #ff3c6e;color:#ff3c6e;padding:6px 12px;border-radius:6px;font-size:.85rem;cursor:pointer;">🔴 <span class="ab-btn-label">틀린 경계</span></button>
-        </div>
+      <!-- 1행: 정답 텍스트 -->
+      <div class="ab-row ab-row-label">
+        <span id="ab-label">정답</span>: <strong id="ab-dong-name"></strong>
+      </div>
+      <!-- 2행: 경계 토글 버튼 -->
+      <div class="ab-row ab-row-btns">
+        <button class="ab-btn" id="btn-hide-correct" onclick="hideCorrectBoundary()" style="background:rgba(57,255,20,0.2);border:1px solid #39ff14;color:#39ff14;">🟢 <span class="ab-btn-label">정답 경계</span></button>
+        <button class="ab-btn" id="btn-hide-wrong" onclick="hideWrongBoundary()" style="background:rgba(255,60,110,0.2);border:1px solid #ff3c6e;color:#ff3c6e;">🔴 <span class="ab-btn-label">틀린 경계</span></button>
       </div>
     </div>
   </div>
