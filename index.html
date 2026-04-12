@@ -7269,19 +7269,22 @@ function checkSignupComplete() {
   const p2        = document.getElementById('su-phone2')?.value;
   const p3        = document.getElementById('su-phone3')?.value;
   const job       = document.getElementById('su-job')?.value;
+  // 주소: 주소검색으로 입력 (필수) + 상세주소는 선택
+  const addr      = document.getElementById('su-addr')?.value.trim();
 
   // ⚠️ [중요] 구글/일반 모드 분기 — isGoogleProfileIncomplete() 결과에 따라 조건 다름
   // 구글: emailChecked 제외 / 일반: emailChecked 필수
+  // 공통: addr(주소) 필수 — 주소검색 버튼으로 입력해야 활성화
   let allFilled;
   if(isGoogleProfileIncomplete()) {
     // 구글 모드: 이메일/비밀번호 체크 제외
-    allFilled = nickname && realName && p1 && p2 && p3 && job
+    allFilled = nickname && realName && p1 && p2 && p3 && job && addr
       && nicknameChecked && signupPhoneVerified;
   } else {
     const email = document.getElementById('su-email')?.value.trim();
     const pw    = document.getElementById('su-pw')?.value;
     const pw2   = document.getElementById('su-pw2')?.value;
-    allFilled = nickname && email && pw && pw2 && realName && p1 && p2 && p3 && job
+    allFilled = nickname && email && pw && pw2 && realName && p1 && p2 && p3 && job && addr
       && nicknameChecked && emailChecked && signupPhoneVerified;
   }
 
@@ -7599,6 +7602,9 @@ function openAddrSearch() {
     oncomplete: function(data) {
       document.getElementById('su-addr').value = data.roadAddress || data.jibunAddress;
       document.getElementById('su-addr-detail').focus();
+      // 주소 입력 완료 → 버튼 활성화 조건 재검사
+      // (su-addr은 readonly라 input 이벤트 미발생 → 직접 호출 필요)
+      checkSignupComplete();
     }
   }).open();
 }
