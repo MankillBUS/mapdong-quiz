@@ -3591,6 +3591,12 @@ function fullReset() {
   allDongs     = [];
   totC=0; totW=0; streak=0; qCnt=0; sessAns=0;
   allAnswersVisible = false;
+  // btn-show-all 버튼 텍스트/스타일 초기화 (처음으로 → 재시작 시 '숨기기' 상태 잔존 방지)
+  const _btnShowAll = document.getElementById('btn-show-all');
+  if (_btnShowAll) {
+    _btnShowAll.textContent = '📚 모든 정답 표시';
+    _btnShowAll.style.background = 'linear-gradient(135deg,#a29bfe,#6c5ce7)';
+  }
 
   // ── 4. 랭킹 모드 초기화 ──────────────────────────────────────
   isRankingMode    = false;
@@ -3793,6 +3799,14 @@ function buildFilter(){
         // 4) 활성 지역 기준으로 allDongs 재구성 → 큐 재시작
         _restartWithActiveRegions();
 
+        // 5) 모든 정답 표시 중이면 활성 지역 기준으로 즉시 재표시
+        if (allAnswersVisible) {
+          allAnswerLayers.forEach(l=>{ try{ map.removeLayer(l); }catch(e){} });
+          allAnswerLayers = [];
+          allAnswersVisible = false;
+          toggleShowAll(); // 활성 지역만으로 재표시
+        }
+
         toast(`${DB[r].name} 비활성화 — 퀴즈 재시작`, 'info');
 
       } else {
@@ -3809,6 +3823,15 @@ function buildFilter(){
         }
 
         _restartWithActiveRegions();
+
+        // 모든 정답 표시 중이면 활성 지역 기준으로 즉시 재표시
+        if (allAnswersVisible) {
+          allAnswerLayers.forEach(l=>{ try{ map.removeLayer(l); }catch(e){} });
+          allAnswerLayers = [];
+          allAnswersVisible = false;
+          toggleShowAll();
+        }
+
         toast(`${DB[r].name} 활성화`, 'info');
       }
     };
@@ -4164,12 +4187,18 @@ window.toggleShowAll = function(){
     toast('지역을 선택하고 퀴즈를 시작하세요!', 'error'); return;
   }
 
+  // ── 활성화된 지역만 표시 (비활성화된 rb.off 지역 제외)
+  const activeDongs = getActive();
+  if(!activeDongs.length){
+    toast('활성화된 지역이 없습니다.', 'error'); return;
+  }
+
   let count = 0;
 
   if(isGuQuizMode){
     // 구 모드: 구 폴리곤 + 구 이름 / 구 없는 도시는 동 폴리곤 + 동 이름
     const done = new Set();
-    allDongs.forEach(dong=>{
+    activeDongs.forEach(dong=>{
       const isNoGu = !dong.gu || dong.gu === dong.rn;
       if(isNoGu){
         // 구 없는 도시: 동 폴리곤 + 동/읍/면 이름
@@ -4214,7 +4243,7 @@ window.toggleShowAll = function(){
     });
   } else {
     // 동 모드: 동 폴리곤 + 동 이름
-    allDongs.forEach(dong=>{
+    activeDongs.forEach(dong=>{
       const node = POLY_CACHE ? getDongGeo(dong.rn, dong.gu, dong.d, dong.do_) : null;
       if(!node) return;
       // node는 전체 노드 객체 — geometry 필드 추출
