@@ -999,44 +999,6 @@ function _wmClearDongLayers() {
 // 12. 교차 연산
 // ════════════════════════════════════════════════════════════════
 
-/**
- * GPS 위치(lat/lng)가 GeoJSON Polygon 내부에 있는지 판정
- * spatial.js의 _pointInRing을 재사용
- * @param {{ lat:number, lng:number }} pos
- * @param {object} polygon  GeoJSON Polygon or Feature
- * @returns {boolean}
- */
-function _wmIsGpsInPolygon(pos, polygon) {
-  if (!pos || !polygon) return false;
-  try {
-    var geom = polygon.type === 'Feature' ? polygon.geometry : polygon;
-    if (!geom || geom.type !== 'Polygon') return false;
-    var ring = geom.coordinates[0];
-    if (!ring || !ring.length) return false;
-    // GeoJSON 좌표: [lng, lat] / GPS pos: { lat, lng }
-    return _pointInRing([pos.lng, pos.lat], ring);
-  } catch(e) {
-    return false;
-  }
-}
-
-/**
- * draw shape에서 GPS 위치가 선 버퍼 폴리곤 내부에 있는지 판정
- * segments(구간별 폴리곤) 중 하나라도 포함하면 true
- */
-function _wmIsGpsInDrawShape(pos, shape) {
-  if (!pos || !shape) return false;
-  // segments 기반 (구간별 교차 판정과 동일한 구조)
-  if (shape.segments && shape.segments.length) {
-    for (var i = 0; i < shape.segments.length; i++) {
-      if (_wmIsGpsInPolygon(pos, shape.segments[i])) return true;
-    }
-    return false;
-  }
-  // fallback: 단일 polygon
-  return _wmIsGpsInPolygon(pos, shape.polygon);
-}
-
 function _wmRunIntersect() {
   var dongPolygons = _getActiveDongPolygons();
   if (!dongPolygons.length) { _resultSet = new Set(); return; }
@@ -1044,22 +1006,6 @@ function _wmRunIntersect() {
   var newSet = new Set();
   _shapes.forEach(function(shape) {
     if (shape.pending) return;
-
-    // ── draw/circle: GPS 위치 기반 가시성 필터 ────────────────
-    // GPS 위치가 해당 도형 폴리곤 밖에 있으면 → 레이어 숨김 + 교차 제외
-    // 선/부채꼴과 동일한 동작: GPS 이탈 시 교차지역에서 자동 제거
-    if (shape.type === 'draw' || shape.type === 'circle') {
-      var gpsInside = false;
-      if (_gpsPos) {
-        gpsInside = (shape.type === 'draw')
-          ? _wmIsGpsInDrawShape(_gpsPos, shape)
-          : _wmIsGpsInPolygon(_gpsPos, shape.polygon);
-      }
-      // GPS 없으면 항상 표시 (GPS 수신 전 상태 유지)
-      var shouldShow = !_gpsPos || gpsInside;
-      _wmSetLayerVisible(shape.layer, shouldShow);
-      if (!shouldShow) return; // 교차 계산 제외
-    }
 
     if (shape.type === 'draw' && shape.segments && shape.segments.length) {
       // 그리기 모드: 구간별 폴리곤 각각 교차 판정
