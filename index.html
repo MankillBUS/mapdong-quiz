@@ -4632,6 +4632,12 @@ async function signInGoogle(){
 
 /* ── 구글 유저의 프로필 완성 여부 판단 ──
    nickname, phone, job 중 하나라도 없으면 미완성으로 판단 */
+/* ═══════════════════════════════════════════════════════════════
+   ⚠️ [CRITICAL - 절대 삭제/수정 금지] isGoogleProfileIncomplete
+   구글 유저의 프로필 완성 여부 판별 함수
+   - routeUser(), updateSignupBtn(), submitSignup() 등에서 참조
+   - 이 함수 없으면 구글 유저 라우팅 전체 오작동
+   ═══════════════════════════════════════════════════════════════ */
 function isGoogleProfileIncomplete(){
   if(!currentUser) return false;
   // admin 계정은 팝업 면제
@@ -4650,6 +4656,13 @@ function isGoogleProfileIncomplete(){
 /* ── 구글 가입자용 회원가입 폼 열기 ──
    기존 signup-modal을 재사용하되 이메일/비밀번호 필드 숨김
    구글 계정의 닉네임을 자동 입력 */
+/* ═══════════════════════════════════════════════════════════════
+   ⚠️ [CRITICAL - 절대 삭제/수정 금지] openGoogleSignupModal
+   구글 OAuth 사용자가 프로필 미완성 시 호출되는 진입점
+   - routeUser() → isGoogleProfileIncomplete() → 이 함수 호출
+   - 이메일/비밀번호 필드 숨김, 닉네임 자동입력 처리
+   - submitGoogleSignup()으로 제출 연결됨
+   ═══════════════════════════════════════════════════════════════ */
 function openGoogleSignupModal(){
   // 기존 openSignupModal() 호출하여 폼 초기화
   openSignupModal();
@@ -4683,8 +4696,14 @@ function openGoogleSignupModal(){
   const nickInput = document.getElementById('su-nickname');
   if(nickInput && safeNick){
     nickInput.value = safeNick;
-    // 닉네임 중복확인은 사용자가 직접 해야 함 (자동 입력이어도 중복 가능)
+    // ⚠️ 구글 자동입력 닉네임: 중복확인 버튼 자동 클릭 처리
+    // nicknameChecked는 checkNickname()이 성공 시 true로 세팅
+    // 자동으로 중복확인 실행 (비동기) → 완료 후 버튼 활성화
     nicknameChecked = false;
+    setTimeout(() => {
+      const checkBtn = document.getElementById('btn-check-nick');
+      if(checkBtn) checkBtn.click();
+    }, 300);
   }
 
   // ── 헤더 타이틀 변경
@@ -4736,6 +4755,13 @@ async function _getTokenWithRefresh() {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   ⚠️ [CRITICAL - 절대 삭제/수정 금지] submitGoogleSignup
+   구글 OAuth 회원가입 처리 함수
+   - isGoogleProfileIncomplete() → submitSignup()에서 자동 호출됨
+   - user_profiles PATCH: 사용자 세션 토큰 필수 (anon key 사용 시 RLS 차단)
+   - 이 함수 없으면 구글 신규 가입자 완전 차단됨
+   ═══════════════════════════════════════════════════════════════ */
 async function submitGoogleSignup(){
   document.getElementById('su-err').style.display='none';
   const nickname  = document.getElementById('su-nickname').value.trim();
@@ -7244,6 +7270,8 @@ function checkSignupComplete() {
   const p3        = document.getElementById('su-phone3')?.value;
   const job       = document.getElementById('su-job')?.value;
 
+  // ⚠️ [중요] 구글/일반 모드 분기 — isGoogleProfileIncomplete() 결과에 따라 조건 다름
+  // 구글: emailChecked 제외 / 일반: emailChecked 필수
   let allFilled;
   if(isGoogleProfileIncomplete()) {
     // 구글 모드: 이메일/비밀번호 체크 제외
@@ -7656,6 +7684,13 @@ async function checkNickname() {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   ⚠️ [CRITICAL - 절대 삭제/수정 금지] submitSignup
+   일반 회원가입 + 구글 회원가입 통합 진입점
+   - 구글 유저: submitGoogleSignup() 으로 위임
+   - 일반 유저: 이메일/비번/나이스 인증 후 signup API 호출
+   - PATCH 토큰: signupData.session.access_token 우선 사용 (anon key X)
+   ═══════════════════════════════════════════════════════════════ */
 async function submitSignup() {
   // ── 구글 가입자는 별도 함수로 처리 (비밀번호/이메일 불필요)
   if(isGoogleProfileIncomplete()) {
@@ -7755,16 +7790,24 @@ async function submitSignup() {
         updated_at:  new Date().toISOString(),
       };
 
-      // 트리거 row 생성 대기(최대 4초 폴링) 후 PATCH
+      // ⚠️ [중요] PATCH 인증 토큰 처리
+      // anon key(SUPABASE_KEY)로 PATCH하면 RLS에 막혀 실패함
+      // 회원가입 직후 발급된 사용자 세션 토큰을 우선 사용
+      // 없으면 서비스롤 정책이 허용하는 경우에 한해 anon key 폴백
+      const signupToken = signupData.session?.access_token
+        || signupData.access_token
+        || SUPABASE_KEY;
+
+      // 트리거 row 생성 대기(최대 5초 폴링) 후 PATCH
       let patched = false;
-      for(let i = 0; i < 8; i++) {
+      for(let i = 0; i < 10; i++) {
         await new Promise(r => setTimeout(r, 500));
         const patchRes = await fetch(`${SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${userId}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
             'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Authorization': `Bearer ${signupToken}`,
             'Prefer': 'return=representation',
           },
           body: JSON.stringify(updatePayload),
@@ -7774,7 +7817,7 @@ async function submitSignup() {
           if(Array.isArray(rows) && rows.length > 0) { patched = true; break; }
         }
       }
-      if(!patched) console.warn('[signup] user_profiles PATCH 실패 또는 행 없음');
+      if(!patched) console.warn('[signup] user_profiles PATCH 실패 또는 행 없음 — 이메일 인증 후 자동 처리됩니다');
     }
 
     // ③ OTP 발송
