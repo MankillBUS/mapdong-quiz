@@ -112,7 +112,10 @@ function initWorkMode(leafletMap) {
     function(v) { _lineBuffer = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },
     function(v) { _fanR1 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },
     function(v) { _fanR2 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },
-    function(v) { _drawBuffer = v; _wmUpdateUI(); },   // 그리기 굵기
+    function(v) {                                       // 그리기 굵기 — 마지막 그리기만 실시간 반영
+      _drawBuffer = v;
+      _wmUpdateLastDraw();
+    }
     function(v) {                                       // 원형 반경 — 마지막 원형만 실시간 반영
       _circleRadius = v;
       _wmUpdateLastCircle();
@@ -2664,6 +2667,62 @@ function _wmUpdateLastCircle() {
   _wmUpdateUI();
 }
 
+/**
+ * 마지막으로 그려진 draw shape만 굵기/색상 실시간 반영
+ * 슬라이더·색상 변경 시 호출 — 이전 그리기들은 고정 유지
+ */
+function _wmUpdateLastDraw() {
+  // draw 타입 중 마지막 shape 찾기 (역방향 탐색)
+  var idx = -1;
+  for (var i = _shapes.length - 1; i >= 0; i--) {
+    if (_shapes[i].type === 'draw') { idx = i; break; }
+  }
+
+  if (idx === -1) {
+    // 아직 그리기 없으면 UI만 갱신
+    _wmUpdateUI();
+    return;
+  }
+
+  var last     = _shapes[idx];
+  var col      = window._drawColor || '#ff6b6b';
+  var bufKm    = _drawBuffer;
+  var weight   = Math.max(3, bufKm * 25);
+
+  // ── 마지막 draw Polyline 레이어: setStyle로 실시간 업데이트 (재생성 없음)
+  // 재생성하면 pts 기반 폴리곤도 다시 만들어야 해서 비용이 크므로
+  // Polyline은 setStyle만, 교차 폴리곤만 _drawBuffer 변경 시 재계산
+  if (last.layer) {
+    try {
+      last.layer.setStyle({ color: col, weight: weight, opacity: 0.85 });
+    } catch(x) {}
+  }
+
+  // ── _shapes 배열에서 color / bufferKm 갱신
+  var needPolyRebuild = (last.bufferKm !== bufKm); // 굵기(버퍼) 변경 시 교차 폴리곤 재계산
+  _shapes[idx] = {
+    type:     'draw',
+    layer:    last.layer,
+    polygon:  last.polygon,
+    segments: last.segments,
+    pts:      last.pts,
+    bufferKm: bufKm,
+    color:    col
+  };
+
+  if (needPolyRebuild && last.pts && last.pts.length >= 2) {
+    // 버퍼 변경 → 교차 연산용 폴리곤 재계산 (지도 레이어 변경 없음)
+    var dp = _buildDrawSegmentPolygon(last.pts, bufKm);
+    if (dp) {
+      _shapes[idx].polygon  = dp.polygon;
+      _shapes[idx].segments = dp.segments;
+    }
+  }
+
+  _wmRunIntersect();
+  _wmUpdateUI();
+}
+
 // ════════════════════════════════════════════════════════════════
 // 그리기 추가 / 원형 추가 — 완료 후 재활성화
 // ════════════════════════════════════════════════════════════════
@@ -2701,6 +2760,13 @@ function _wmAddCircleChain() {
 window._wmOnCircleColorChange = function() {
   if (_currentMode === 'circle') {
     _wmUpdateLastCircle();
+  }
+};
+
+// 그리기 색상 변경 시 마지막 draw에 실시간 반영 (ui.js _wmSetDrawColor에서 호출)
+window._wmOnDrawColorChange = function() {
+  if (_currentMode === 'draw') {
+    _wmUpdateLastDraw();
   }
 };
 
