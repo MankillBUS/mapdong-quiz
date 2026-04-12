@@ -113,7 +113,10 @@ function initWorkMode(leafletMap) {
     function(v) { _fanR1 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },
     function(v) { _fanR2 = v; _wmRebuildAll(); _wmRunIntersect(); _wmUpdateUI(); },
     function(v) { _drawBuffer = v; _wmUpdateUI(); },   // 그리기 굵기
-    function(v) { _circleRadius = v; _wmUpdateUI(); }  // 원형 반경
+    function(v) {                                       // 원형 반경 — 마지막 원형만 실시간 반영
+      _circleRadius = v;
+      _wmUpdateLastCircle();
+    }
   );
 
   // 완료 버튼 바인딩
@@ -383,8 +386,17 @@ function _wmSwitchMode(mode) {
   if (mode === 'fan')    _endPoint = null;
   if (mode === 'circle') _circleLayer = null;
 
-  // draw 버튼 클릭 순간부터 결과창 고정 (드래그 시작 전부터 레이아웃 변화 차단)
-  if (mode === 'draw') _wmHideResult();
+  // ── 원형/그리기 최초 진입 시 폴리곤 경계 숨김 + 교차 결과 초기화
+  if (mode === 'draw' || mode === 'circle') {
+    _resultSet = new Set();
+    if (_dongVisible) {
+      _dongLayers.forEach(function(layer) {
+        _wmSetLayerVisible(layer, false);
+      });
+    }
+    _wmUpdateUI();
+  }
+  if (mode === 'draw') _wmHideResult(); // 그리기: 결과창 고정
 }
 
 /**
@@ -2604,6 +2616,54 @@ function _wmAddCircle(latlng) {
   setActiveModeBtn('circle'); // UI 갱신 (addCir 표시 + 슬라이더 유지)
 }
 
+/**
+ * 마지막으로 추가된 원형만 반경/색상 실시간 반영
+ * 슬라이더 조작 시 호출 — 이전 원들은 고정 유지
+ */
+function _wmUpdateLastCircle() {
+  // circle 타입 중 마지막 shape 찾기
+  var circles = _shapes.filter(function(s){ return s.type === 'circle'; });
+  if (!circles.length) {
+    // 아직 원이 없으면 UI만 갱신
+    _wmUpdateUI();
+    return;
+  }
+
+  var last = circles[circles.length - 1];
+  var col  = window._circleColor || '#ff6b6b';
+
+  // 마지막 원 레이어 제거 후 새 반경/색상으로 재생성
+  if (last.layer) {
+    try { _map.removeLayer(last.layer); } catch(x) {}
+  }
+
+  var res = buildCirclePolygon(last.endPt, _circleRadius);
+  if (!res || !_isValidPolygon(res.polygon)) return;
+
+  res.layer.options.pane = _SHAPE_PANE;
+  res.layer.setStyle({ color: col, fillColor: col, fillOpacity: 0.18, weight: 2 });
+  res.layer.addTo(_map);
+
+  // _shapes 배열에서 마지막 circle shape의 인덱스 탐색 (역방향)
+  var idx = -1;
+  for (var i = _shapes.length - 1; i >= 0; i--) {
+    if (_shapes[i].type === 'circle') { idx = i; break; }
+  }
+  if (idx !== -1) {
+    _shapes[idx] = {
+      type:    'circle',
+      layer:   res.layer,
+      polygon: res.polygon,
+      endPt:   last.endPt,
+      radius:  _circleRadius,
+      color:   col
+    };
+  }
+
+  _wmRunIntersect();
+  _wmUpdateUI();
+}
+
 // ════════════════════════════════════════════════════════════════
 // 그리기 추가 / 원형 추가 — 완료 후 재활성화
 // ════════════════════════════════════════════════════════════════
@@ -2636,6 +2696,13 @@ function _wmAddCircleChain() {
   _currentMode    = 'circle';
   setActiveModeBtn('circle');
 }
+
+// 원형 색상 변경 시 마지막 원에 실시간 반영 (ui.js _wmSetCircleColor에서 호출)
+window._wmOnCircleColorChange = function() {
+  if (_currentMode === 'circle') {
+    _wmUpdateLastCircle();
+  }
+};
 
 window._wmSearch = function(query) {
   return _searchRegionSmart(query);
