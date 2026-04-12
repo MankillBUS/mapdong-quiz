@@ -1071,6 +1071,15 @@ function _wmApplyColorSwatch(rowId, winKey, color, btn) {
     s.classList.remove('wm-color-active');
   });
   if (btn) btn.classList.add('wm-color-active');
+
+  // ── 색상 변경 즉시 지도 반영 ─────────────────────────────────
+  // index.js에 노출된 훅 호출 → 마지막 shape에 실시간 색상 적용
+  // (훅이 없으면 슬라이더 조작 시에만 색상 반영되는 문제 발생)
+  if (winKey === '_drawColor' && typeof window._wmOnDrawColorChange === 'function') {
+    window._wmOnDrawColorChange();
+  } else if (winKey === '_circleColor' && typeof window._wmOnCircleColorChange === 'function') {
+    window._wmOnCircleColorChange();
+  }
 }
 
 /** 그리기 색상 변경 (onclick에서 this.dataset.color, this 로 호출) */
