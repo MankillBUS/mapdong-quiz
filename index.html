@@ -415,15 +415,41 @@ body.work-mode #header-right { display: none !important; }
     top:50px !important;
   }
 
-  /* ans-bar 모바일 */
+  /* ans-bar 모바일 — 정답 텍스트 위 / 버튼 두 개 아래 가로 배치 */
   #ans-bar{
     left:4px !important;
     right:4px !important;
     bottom:8px !important;
-    padding:6px 10px !important;
+    padding:0 !important;
     font-size:.72rem !important;
-    flex-wrap:wrap;
-    gap:6px;
+    gap:0;
+  }
+  #ans-bar > div {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+    padding: 8px 10px !important;
+    width: 100%;
+  }
+  /* 정답 텍스트: 줄바꿈 허용 (긴 동이름도 전체 표시) */
+  #ans-bar > div > span:first-child {
+    width: 100%;
+    white-space: normal !important;
+    word-break: keep-all;
+    font-size: .85rem;
+    line-height: 1.4;
+  }
+  /* 버튼 두 개를 가로로 나란히 */
+  #ans-bar .ab-btn-row {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+  }
+  #ans-bar .ab-btn-row .ab-btn {
+    flex: 1;
+    text-align: center;
+    font-size: .78rem !important;
+    padding: 5px 6px !important;
   }
   #ans-bar .ab-label{ font-size:.7rem; }
   #ans-bar .ab-dong{ font-size:.85rem; }
@@ -1955,8 +1981,10 @@ body.work-mode #header-right { display: none !important; }
         <span style="color:var(--text);font-size:.9rem;flex:1;">
           <span id="ab-label">정답</span>: <strong id="ab-dong-name" style="color:var(--accent);"></strong>
         </span>
-        <button class="ab-btn" id="btn-hide-correct" onclick="hideCorrectBoundary()" style="background:rgba(57,255,20,0.2);border:1px solid #39ff14;color:#39ff14;padding:6px 12px;border-radius:6px;font-size:.85rem;cursor:pointer;">🟢 <span class="ab-btn-label">정답 경계</span></button>
-        <button class="ab-btn" id="btn-hide-wrong" onclick="hideWrongBoundary()" style="background:rgba(255,60,110,0.2);border:1px solid #ff3c6e;color:#ff3c6e;padding:6px 12px;border-radius:6px;font-size:.85rem;cursor:pointer;">🔴 <span class="ab-btn-label">틀린 경계</span></button>
+        <div class="ab-btn-row">
+          <button class="ab-btn" id="btn-hide-correct" onclick="hideCorrectBoundary()" style="background:rgba(57,255,20,0.2);border:1px solid #39ff14;color:#39ff14;padding:6px 12px;border-radius:6px;font-size:.85rem;cursor:pointer;">🟢 <span class="ab-btn-label">정답 경계</span></button>
+          <button class="ab-btn" id="btn-hide-wrong" onclick="hideWrongBoundary()" style="background:rgba(255,60,110,0.2);border:1px solid #ff3c6e;color:#ff3c6e;padding:6px 12px;border-radius:6px;font-size:.85rem;cursor:pointer;">🔴 <span class="ab-btn-label">틀린 경계</span></button>
+        </div>
       </div>
     </div>
   </div>
