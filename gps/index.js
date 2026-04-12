@@ -409,11 +409,11 @@ function _wmResetModeShapes(mode) {
   if (mode === 'fan')    _endPoint = null;
   if (mode === 'circle') _circleLayer = null;
 
-  // draw 재클릭 시 교차 결과 초기화 + 동/구 폴리곤 경계 숨김
+  // draw/circle 재클릭 시 교차 결과 초기화 + 동/구 폴리곤 경계 숨김
   // ⚠️ setStyle(opacity:0) 사용 금지 — _wmApplyDongFilter 복원 시 opacity가 남아
   //    이후 교차 지역 경계가 보이지 않는 버그 발생
   // → _wmSetLayerVisible(false) = display:none 방식으로 통일
-  if (mode === 'draw') {
+  if (mode === 'draw' || mode === 'circle') {
     _resultSet = new Set();
     if (_dongVisible) {
       _dongLayers.forEach(function(layer) {
@@ -421,7 +421,7 @@ function _wmResetModeShapes(mode) {
       });
     }
     _wmUpdateUI();
-    _wmHideResult(); // 결과창 즉시 고정 (드래그 전까지 유지)
+    if (mode === 'draw') _wmHideResult(); // 그리기만 결과창 고정
   }
 
   // 슬라이더 유지 (setActiveModeBtn('draw'/'circle') → 슬라이더 열린 상태 유지)
