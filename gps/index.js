@@ -115,7 +115,7 @@ function initWorkMode(leafletMap) {
     function(v) {                                       // 그리기 굵기 — 마지막 그리기만 실시간 반영
       _drawBuffer = v;
       _wmUpdateLastDraw();
-    }
+    },                                                  // ← 쉼표 필수 (배열 인수 구분자)
     function(v) {                                       // 원형 반경 — 마지막 원형만 실시간 반영
       _circleRadius = v;
       _wmUpdateLastCircle();
