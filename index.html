@@ -1624,6 +1624,48 @@ body.work-mode #header-right { display: none !important; }
   </div>
 </div>
 
+<!-- ════════════════════════════════════════════════════════
+     모드 선택 화면 — 로그인 후 최초 진입점
+     MapDong Mall 또는 퀴즈/업무모드 선택
+     ════════════════════════════════════════════════════════ -->
+<div id="screen-mode-select" class="fs-screen hidden">
+  <div class="st" style="margin-bottom:4px;">MapDong</div>
+  <div class="ss" style="margin-bottom:32px;">어디로 이동할까요?</div>
+
+  <!-- Mall 버튼 -->
+  <div onclick="goMall()"
+    style="width:100%;max-width:440px;background:linear-gradient(135deg,rgba(255,215,0,.12),rgba(255,165,0,.07));border:2px solid var(--gold);border-radius:20px;padding:28px 32px;cursor:pointer;transition:all .25s;display:flex;align-items:center;gap:20px;margin-bottom:16px;"
+    onmouseenter="this.style.transform='translateY(-4px)';this.style.boxShadow='0 12px 36px rgba(255,215,0,.2)'"
+    onmouseleave="this.style.transform='';this.style.boxShadow=''">
+    <div style="font-size:2.8rem;flex-shrink:0;">🛍️</div>
+    <div>
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:var(--gold);text-shadow:0 0 16px rgba(255,215,0,.4);">MapDong Mall</div>
+      <div style="font-size:.78rem;color:#c8a000;margin-top:4px;line-height:1.5;">프리미엄 회원 전용 쇼핑몰<br>컴퓨터·패션·도서 특별가</div>
+    </div>
+    <div style="margin-left:auto;color:var(--gold);font-size:1.3rem;">›</div>
+  </div>
+
+  <!-- 퀴즈/업무모드 버튼 -->
+  <div onclick="showOnly('start')"
+    style="width:100%;max-width:440px;background:linear-gradient(135deg,rgba(0,212,255,.1),rgba(0,153,187,.06));border:2px solid var(--accent);border-radius:20px;padding:28px 32px;cursor:pointer;transition:all .25s;display:flex;align-items:center;gap:20px;"
+    onmouseenter="this.style.transform='translateY(-4px)';this.style.boxShadow='0 12px 36px rgba(0,212,255,.2)'"
+    onmouseleave="this.style.transform='';this.style.boxShadow=''">
+    <div style="font-size:2.8rem;flex-shrink:0;">🗺️</div>
+    <div>
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:1.4rem;color:var(--accent);">퀴즈 · 업무모드</div>
+      <div style="font-size:.78rem;color:var(--text-dim);margin-top:4px;line-height:1.5;">행정구역 위치 퀴즈 학습<br>업무모드·랭킹모드 이용</div>
+    </div>
+    <div style="margin-left:auto;color:var(--accent);font-size:1.3rem;">›</div>
+  </div>
+
+  <!-- 유저 정보 -->
+  <div style="margin-top:24px;font-size:.75rem;color:var(--text-dim);text-align:center;">
+    <span id="mode-select-nickname" style="color:var(--accent);font-weight:700;"></span>님 환영합니다
+    &nbsp;|&nbsp;
+    <span onclick="signOut()" style="cursor:pointer;text-decoration:underline;">로그아웃</span>
+  </div>
+</div>
+
 <!-- 시작 화면 -->
 <div id="start" class="fs-screen hidden">
   <!-- 디버그 버튼 (숨김) -->
@@ -4598,7 +4640,7 @@ function toast(msg, type=''){
 }
 
 /* ── 화면 전환 ── */
-const SCREENS = ['screen-login','screen-verify','screen-paywall','start','screen-cs'];
+const SCREENS = ['screen-login','screen-verify','screen-paywall','screen-mode-select','start','screen-cs'];
 function showOnly(id){
   // screen-paywall 열릴 때 슬라이더 초기화
   if(id === 'screen-paywall'){
@@ -4606,6 +4648,7 @@ function showOnly(id){
   }
   // 오른쪽 사이드바: start + paywall + game(퀴즈중) 화면에서 표시
   const showRight = (id === 'start' || id === 'screen-paywall');
+  // screen-mode-select: 사이드바 숨김 (퀴즈/Mall 선택 전 단계)
   const rightSide   = document.getElementById('right-side');
   const rightToggle = document.getElementById('right-side-toggle');
   if(rightSide)   rightSide.style.display   = showRight ? '' : 'none';
@@ -5479,7 +5522,10 @@ function routeUser(){
     return;
   }
 
-  showOnly('start');
+  // 모드 선택 화면 닉네임 표시
+  const msnEl = document.getElementById('mode-select-nickname');
+  if(msnEl) msnEl.textContent = userProfile?.nickname || currentUser?.email?.split('@')[0] || '';
+  showOnly('screen-mode-select');
 
 }
 
@@ -6144,7 +6190,8 @@ function goEvent(){
 }
 function goMall(){
   if(!canAccessCommunity()){ toast('맵동가족 또는 프리미엄 회원만 이용 가능합니다','error'); return; }
-  toast('MapDongMall 준비 중입니다 ✨', 'info');
+  // MapDong Mall 별도 파일로 이동
+  window.location.href = 'MapDongMall/mall.html';
 }
 function showMallPopup(e){
   const popup = document.getElementById('mall-popup');
