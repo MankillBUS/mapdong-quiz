@@ -38,7 +38,7 @@ const Mall = (() => {
 
   async function _loadSession() {
     const { data: { session } } = await sb.auth.getSession();
-    if (!session) { window.location.href = 'index.html'; return; }
+    if (!session) { window.location.href = '../index.html'; return; }
     _user = session.user;
     const { data } = await sb.from('user_profiles').select('*').eq('user_id', _user.id).single();
     _profile = data;
@@ -48,7 +48,7 @@ const Mall = (() => {
       const end = _profile?.premium_until ? new Date(_profile.premium_until) : null;
       if (!end || now > end) {
         toast('프리미엄 회원 전용 서비스입니다.', 'error');
-        setTimeout(() => { window.location.href = 'index.html'; }, 2000);
+        setTimeout(() => { window.location.href = '../index.html'; }, 2000);
       }
     }
   }
@@ -835,7 +835,7 @@ const Mall = (() => {
   // ── 페이지 이동 ──────────────────────────────────────────────
   function goHome() { showPage('main'); loadProducts(_currentCat, _searchQuery); }
   function goAdmin() { showPage('admin'); AdminPanel.init(); }
-  function exit() { window.location.href = 'index.html'; }
+  function exit() { window.location.href = '../index.html'; }
 
   // ── 상태 표시 ────────────────────────────────────────────────
   function _statusLabel(s) {
