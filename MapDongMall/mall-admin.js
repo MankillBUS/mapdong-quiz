@@ -41,8 +41,16 @@ const AdminPanel = (() => {
 
   // ── 초기화 ──────────────────────────────────────────────────
   async function init() {
-    await _loadSettings();
+    console.log('[AdminPanel] init 시작');
+    try {
+      await _loadSettings();
+      console.log('[AdminPanel] settings 로드 완료:', Object.keys(_settings).length, '개');
+    } catch(e) {
+      console.error('[AdminPanel] settings 로드 실패:', e);
+    }
     const page = document.getElementById('page-admin');
+    if (!page) { console.error('[AdminPanel] page-admin 요소 없음!'); return; }
+    console.log('[AdminPanel] page-admin 요소 확인 완료');
     page.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
@@ -197,8 +205,9 @@ const AdminPanel = (() => {
   }
 
   async function _renderPage(page) {
+    console.log('[AdminPanel] _renderPage:', page);
     const el = document.getElementById('admin-content');
-    if (!el) return;
+    if (!el) { console.error('[AdminPanel] admin-content 요소 없음!'); return; }
     el.innerHTML = '<div class="loading" style="padding:60px;text-align:center;color:var(--text-dim);">불러오는 중...</div>';
     try {
       switch(page) {
