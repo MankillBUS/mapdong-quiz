@@ -224,8 +224,11 @@ const AdminPanel = (() => {
         default: el.innerHTML = '<div style="padding:40px;color:var(--text-dim);">페이지를 찾을 수 없습니다.</div>';
       }
     } catch(e) {
-      el.innerHTML = `<div style="padding:40px;color:var(--accent2);">오류 발생: ${e.message}</div>`;
-      console.error(e);
+      console.error('[AdminPanel] _renderPage 오류:', e);
+      el.innerHTML = `<div style="padding:40px;color:var(--accent2);">
+        <b>오류 발생</b><br>${e.message}<br><br>
+        <pre style="font-size:.72rem;color:var(--text-dim);white-space:pre-wrap;">${e.stack||''}</pre>
+      </div>`;
     }
   }
 
@@ -233,21 +236,29 @@ const AdminPanel = (() => {
   // 대시보드
   // ════════════════════════════════════════════════════════════
   async function _pageDashboard(el) {
-    const [
-      { data: daily },
-      { count: totalOrders },
-      { count: pendingOrders },
-      { data: topProds },
-      { count: totalProds },
-      { count: lowStock },
-    ] = await Promise.all([
-      getSb().from('mall_sales_daily').select('*').limit(30),
-      getSb().from('mall_orders').select('*',{count:'exact',head:true}).not('status','eq','cancelled'),
-      getSb().from('mall_orders').select('*',{count:'exact',head:true}).eq('status','paid'),
-      getSb().from('mall_products').select('name,sold_count,stock,sale_price,category_slug').order('sold_count',{ascending:false}).limit(5),
-      getSb().from('mall_products').select('*',{count:'exact',head:true}).eq('is_active',true),
-      getSb().from('mall_products').select('*',{count:'exact',head:true}).lte('stock',5).gt('stock',0),
-    ]);
+    console.log('[AdminPanel] _pageDashboard 시작, getSb():', typeof getSb());
+    let daily, totalOrders, pendingOrders, topProds, totalProds, lowStock;
+    try {
+      const results = await Promise.all([
+        getSb().from('mall_sales_daily').select('*').limit(30),
+        getSb().from('mall_orders').select('*',{count:'exact',head:true}).not('status','eq','cancelled'),
+        getSb().from('mall_orders').select('*',{count:'exact',head:true}).eq('status','paid'),
+        getSb().from('mall_products').select('name,sold_count,stock,sale_price,category_slug').order('sold_count',{ascending:false}).limit(5),
+        getSb().from('mall_products').select('*',{count:'exact',head:true}).eq('is_active',true),
+        getSb().from('mall_products').select('*',{count:'exact',head:true}).lte('stock',5).gt('stock',0),
+      ]);
+      console.log('[AdminPanel] 쿼리 결과:', results.map(r => ({data: r.data?.length, count: r.count, error: r.error?.message})));
+      daily = results[0].data;
+      totalOrders = results[1].count;
+      pendingOrders = results[2].count;
+      topProds = results[3].data;
+      totalProds = results[4].count;
+      lowStock = results[5].count;
+    } catch(e) {
+      console.error('[AdminPanel] 대시보드 쿼리 오류:', e);
+      el.innerHTML = `<div style="padding:40px;color:var(--accent2);">쿼리 오류: ${e.message}</div>`;
+      return;
+    }
     const todayRev = daily?.[0]?.revenue || 0;
     const todayOrds = daily?.[0]?.order_count || 0;
     const weekRev = (daily||[]).slice(0,7).reduce((s,r)=>s+Number(r.revenue||0),0);
