@@ -10,7 +10,13 @@ const MALL_SB_URL = 'https://emgsueepzioudqnitkyn.supabase.co';
 const MALL_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemlvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkwNzQsImV4cCI6MjA4NjU2NTA3NH0.epR1k3MVh0MfZejFh9VflCNOS8Uz8EuCZlez5OBMz3s';
 const MALL_STORAGE_BUCKET = 'mall-images';
 
-const sb = window.supabase.createClient(MALL_SB_URL, MALL_SB_KEY);
+const sb = window.supabase.createClient(MALL_SB_URL, MALL_SB_KEY, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    storageKey: 'sb-emgsueepzioudqnitkyn-auth-token',  // index.html과 동일한 키
+  }
+});
 
 // ── 전역 상태 ─────────────────────────────────────────────────
 const Mall = (() => {
