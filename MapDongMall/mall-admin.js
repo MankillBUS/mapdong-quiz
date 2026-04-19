@@ -240,29 +240,38 @@ const AdminPanel = (() => {
     let daily, totalOrders, pendingOrders, topProds, totalProds, lowStock;
     try {
       const results = await Promise.all([
-        getSb().from('mall_sales_daily').select('*').limit(30),
+        getSb().from('mall_orders')
+          .select('created_at, final_price')
+          .not('status','eq','cancelled')
+          .gte('created_at', new Date(Date.now() - 30*24*60*60*1000).toISOString())
+          .order('created_at', {ascending:false}),
         getSb().from('mall_orders').select('*',{count:'exact',head:true}).not('status','eq','cancelled'),
         getSb().from('mall_orders').select('*',{count:'exact',head:true}).eq('status','paid'),
-        getSb().from('mall_products').select('name,sold_count,stock,sale_price,category_slug').order('sold_count',{ascending:false}).limit(5),
+        getSb().from('mall_products').select('id,name,sold_count,stock,sale_price,category_slug').order('sold_count',{ascending:false}).limit(5),
         getSb().from('mall_products').select('*',{count:'exact',head:true}).eq('is_active',true),
         getSb().from('mall_products').select('*',{count:'exact',head:true}).lte('stock',5).gt('stock',0),
       ]);
-      console.log('[AdminPanel] 쿼리 결과:', results.map(r => ({data: r.data?.length, count: r.count, error: r.error?.message})));
-      daily = results[0].data;
-      totalOrders = results[1].count;
-      pendingOrders = results[2].count;
-      topProds = results[3].data;
-      totalProds = results[4].count;
-      lowStock = results[5].count;
+      console.log('[AdminPanel] 쿼리 결과:', results.map(r => ({data: r.data, count: r.count, error: r.error?.message})));
+      // 안전한 데이터 추출 (배열이 아니면 빈 배열로)
+      daily       = Array.isArray(results[0].data) ? results[0].data : [];
+      totalOrders = results[1].count ?? 0;
+      pendingOrders = results[2].count ?? 0;
+      topProds    = Array.isArray(results[3].data) ? results[3].data : [];
+      totalProds  = results[4].count ?? 0;
+      lowStock    = results[5].count ?? 0;
     } catch(e) {
       console.error('[AdminPanel] 대시보드 쿼리 오류:', e);
       el.innerHTML = `<div style="padding:40px;color:var(--accent2);">쿼리 오류: ${e.message}</div>`;
       return;
     }
-    const todayRev = daily?.[0]?.revenue || 0;
-    const todayOrds = daily?.[0]?.order_count || 0;
-    const weekRev = (daily||[]).slice(0,7).reduce((s,r)=>s+Number(r.revenue||0),0);
-    const monthRev = (daily||[]).reduce((s,r)=>s+Number(r.revenue||0),0);
+    // orders 배열에서 직접 집계
+    const today = new Date().toDateString();
+    const todayOrders = (daily||[]).filter(o => new Date(o.created_at).toDateString() === today);
+    const todayRev = todayOrders.reduce((s,o)=>s+Number(o.final_price||0),0);
+    const todayOrds = todayOrders.length;
+    const weekAgo = Date.now() - 7*24*60*60*1000;
+    const weekRev = (daily||[]).filter(o=>new Date(o.created_at).getTime()>weekAgo).reduce((s,o)=>s+Number(o.final_price||0),0);
+    const monthRev = (daily||[]).reduce((s,o)=>s+Number(o.final_price||0),0);
 
     el.innerHTML = `
     <div class="ap-hd"><div><h2>📊 대시보드</h2><p>실시간 매출 현황과 주요 통계를 확인합니다.</p></div>
@@ -300,12 +309,18 @@ const AdminPanel = (() => {
         <div class="tbl-wrap">
           <table class="atbl">
             <thead><tr><th>날짜</th><th>주문</th><th>매출</th></tr></thead>
-            <tbody>${(daily||[]).slice(0,7).map(r=>`
-            <tr>
-              <td>${r.day?.substring(0,10)||'—'}</td>
-              <td>${r.order_count||0}건</td>
-              <td>₩${_fmt(r.revenue||0)}</td>
-            </tr>`).join('')}</tbody>
+            <tbody>${(()=>{
+              const dayMap = {};
+              (daily||[]).forEach(o=>{
+                const d = new Date(o.created_at).toLocaleDateString('ko-KR');
+                if(!dayMap[d]) dayMap[d]={cnt:0,rev:0};
+                dayMap[d].cnt++; dayMap[d].rev+=Number(o.final_price||0);
+              });
+              const days = Object.entries(dayMap).slice(0,7);
+              return days.length ? days.map(([d,v])=>`
+              <tr><td>${d}</td><td>${v.cnt}건</td><td>₩${_fmt(v.rev)}</td></tr>`).join('') :
+              '<tr><td colspan="3" style="text-align:center;color:var(--text-dim);padding:20px;">주문 없음</td></tr>';
+            })()}</tbody>
           </table>
         </div>
       </div>
