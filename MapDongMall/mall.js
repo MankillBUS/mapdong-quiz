@@ -847,7 +847,18 @@ const Mall = (() => {
 
   // ── 페이지 이동 ──────────────────────────────────────────────
   function goHome() { showPage('main'); loadProducts(_currentCat, _searchQuery); }
-  function goAdmin() { showPage('admin'); AdminPanel.init(); }
+  async function goAdmin() {
+    showPage('admin');
+    // 즉시 로딩 표시
+    const el = document.getElementById('page-admin');
+    if (el) el.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-dim);">관리자 패널 로딩 중...</div>';
+    try {
+      await AdminPanel.init();
+    } catch(e) {
+      console.error('[Mall] AdminPanel.init 오류:', e);
+      if (el) el.innerHTML = `<div style="padding:40px;color:var(--accent2);">관리자 패널 오류: ${e.message}<br><br><pre style="font-size:.75rem;color:var(--text-dim);">${e.stack||''}</pre></div>`;
+    }
+  }
   function exit() { window.location.href = '../index.html'; }
 
   // ── 상태 표시 ────────────────────────────────────────────────
