@@ -414,24 +414,24 @@ img{max-width:100%;}
 <header id="mall-header">
   <div id="mall-logo" onclick="Mall.goHome()">MapDong <span>Mall</span></div>
   <div id="mall-search-wrap">
-    <input id="mall-search" type="text" placeholder="상품 검색..." oninput="Mall.search(this.value)">
+    <input id="mall-search" type="text" placeholder="상품 검색..." data-i18n-ph="search_placeholder" oninput="Mall.search(this.value)">
     <span class="search-ico">🔍</span>
   </div>
   <div id="mall-header-right">
     <!-- 번역 버튼 -->
     <div id="translate-group">
-      <button class="tbtn active" onclick="Mall.translate('ko')">KO</button>
-      <button class="tbtn" onclick="Mall.translate('en')">EN</button>
-      <button class="tbtn" onclick="Mall.translate('ja')">JA</button>
-      <button class="tbtn" onclick="Mall.translate('th')">TH</button>
+      <button class="tbtn active" data-lang="ko" onclick="applyLang('ko')">KO</button>
+      <button class="tbtn" data-lang="en" onclick="applyLang('en')">EN</button>
+      <button class="tbtn" data-lang="ja" onclick="applyLang('ja')">JA</button>
+      <button class="tbtn" data-lang="th" onclick="applyLang('th')">TH</button>
     </div>
-    <button class="hbtn" onclick="Mall.goMyOrders()">📦 <span class="hide-sm">주문내역</span></button>
+    <button class="hbtn" onclick="Mall.goMyOrders()">📦 <span class="hide-sm" data-i18n="btn_myorder">주문내역</span></button>
     <button class="hbtn cart-btn" onclick="Mall.openCart()">
-      🛒 <span class="hide-sm">장바구니</span>
+      🛒 <span class="hide-sm" data-i18n="btn_cart">장바구니</span>
       <span class="cart-badge" id="cart-badge">0</span>
     </button>
-    <button id="btn-admin-panel" style="display:none" onclick="Mall.goAdmin()">⚙️ 관리자</button>
-    <button class="hbtn" onclick="Mall.exit()" title="처음으로 돌아가기">← 나가기</button>
+    <button id="btn-admin-panel" style="display:none" onclick="Mall.goAdmin()"><span data-i18n="btn_admin">⚙️ 관리자</span></button>
+    <button class="hbtn" onclick="Mall.exit()" title="처음으로 돌아가기"><span data-i18n="btn_exit">← 나가기</span></button>
   </div>
 </header>
 
@@ -440,11 +440,11 @@ img{max-width:100%;}
 
 <!-- 카테고리 탭 -->
 <nav id="mall-cats">
-  <button class="cat-tab active" data-slug="all" onclick="Mall.selectCat('all')">🏠 전체</button>
-  <button class="cat-tab" data-slug="computer" onclick="Mall.selectCat('computer')">💻 컴퓨터</button>
-  <button class="cat-tab" data-slug="general" onclick="Mall.selectCat('general')">📦 일반제품</button>
-  <button class="cat-tab" data-slug="fashion" onclick="Mall.selectCat('fashion')">👗 패션</button>
-  <button class="cat-tab" data-slug="book" onclick="Mall.selectCat('book')">📚 도서</button>
+  <button class="cat-tab active" data-slug="all" onclick="Mall.selectCat('all')" data-i18n="cat_all">🏠 전체</button>
+  <button class="cat-tab" data-slug="computer" onclick="Mall.selectCat('computer')" data-i18n="cat_computer">💻 컴퓨터</button>
+  <button class="cat-tab" data-slug="general" onclick="Mall.selectCat('general')" data-i18n="cat_general">📦 일반제품</button>
+  <button class="cat-tab" data-slug="fashion" onclick="Mall.selectCat('fashion')" data-i18n="cat_fashion">👗 패션</button>
+  <button class="cat-tab" data-slug="book" onclick="Mall.selectCat('book')" data-i18n="cat_book">📚 도서</button>
 </nav>
 
 <!-- 메인 (상품 목록) -->
@@ -469,13 +469,13 @@ img{max-width:100%;}
 <!-- 장바구니 패널 -->
 <div id="cart-panel">
   <div class="cart-hd">
-    <h3>🛒 장바구니</h3>
+    <h3 data-i18n="cart_title">🛒 장바구니</h3>
     <button class="cart-close" onclick="Mall.closeCart()">✕</button>
   </div>
   <div id="cart-list"></div>
   <div class="cart-ft">
-    <div class="cart-total"><span>합계</span><span id="cart-total-price">₩0</span></div>
-    <button class="btn-checkout" onclick="Mall.goCheckout()">주문하기</button>
+    <div class="cart-total"><span data-i18n="cart_total">합계</span><span id="cart-total-price">₩0</span></div>
+    <button class="btn-checkout" onclick="Mall.goCheckout()" data-i18n="btn_checkout">주문하기</button>
   </div>
 </div>
 
@@ -483,29 +483,19 @@ img{max-width:100%;}
 <div id="toss-modal">
   <div id="toss-modal-inner">
     <button id="toss-modal-close" onclick="Mall.closeTossModal()">✕</button>
-    <div id="toss-modal-title" style="font-size:1.1rem;font-weight:700;margin-bottom:16px;">결제</div>
+    <div id="toss-modal-title" style="font-size:1.1rem;font-weight:700;margin-bottom:16px;" data-i18n="btn_pay">결제</div>
     <div id="toss-payment-widget"></div>
     <div id="toss-agreement-widget" style="margin-top:12px;"></div>
-    <button id="toss-pay-btn" style="width:100%;background:linear-gradient(135deg,var(--accent),#0099bb);border:none;color:#000;border-radius:10px;padding:13px;font-size:.95rem;font-weight:700;margin-top:14px;" onclick="Mall.requestPayment()">결제하기</button>
+    <button id="toss-pay-btn" style="width:100%;background:linear-gradient(135deg,var(--accent),#0099bb);border:none;color:#000;border-radius:10px;padding:13px;font-size:.95rem;font-weight:700;margin-top:14px;" onclick="Mall.requestPayment()" data-i18n="btn_pay">결제하기</button>
   </div>
 </div>
 
 <!-- 토스트 -->
 <div id="mall-toast"></div>
 
-<!-- Google Translate 스크립트 -->
-<div id="google_translate_element" style="display:none;"></div>
-<script>
-function googleTranslateElementInit(){
-  new google.translate.TranslateElement({
-    pageLanguage:'ko',
-    includedLanguages:'en,ja,th',
-    autoDisplay:false
-  },'google_translate_element');
-}
-</script>
-<script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+<!-- 구글 번역 제거 → mall_i18n.js 사용 -->
 
+<script src="mall_i18n.js"></script>
 <script src="mall.js"></script>
 <script src="mall-admin.js"></script>
 </body>
