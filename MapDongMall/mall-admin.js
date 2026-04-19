@@ -18,7 +18,7 @@ const AdminPanel = (() => {
   const _date = d => d ? new Date(d).toLocaleDateString('ko-KR') : '—';
   const _datetime = d => d ? new Date(d).toLocaleString('ko-KR') : '—';
   const _statusLabel = s => ({
-    paid:'결제완료', preparing:'배송준비중', shipping:'배송중',
+    paid:t('lbl_paid'), preparing:'배송준비중', shipping:'배송중',
     delivered:'배송완료', confirmed:'구매확정',
     return_requested:'반품요청', return_reviewing:'반품심사중',
     return_shipping:'반품배송중', return_completed:'반품완료',
@@ -66,18 +66,18 @@ const AdminPanel = (() => {
     </div>
     <div class="admin-grid">
       <nav class="admin-nav" id="admin-nav">
-        <div class="anav-section">📊 현황</div>
+        <div class="anav-section" data-i18n="asec_status">📊 현황</div>
         <div class="anav-item" data-p="dashboard" onclick="AdminPanel.nav('dashboard',this)">
           <span>🏠</span><div><div data-i18n="nav_dashboard">🏠 대시보드</div></div>
         </div>
-        <div class="anav-section" style="margin-top:10px;">🛍️ 상품 관리</div>
+        <div class="anav-section" style="margin-top:10px;" data-i18n="asec_product">🛍️ 상품 관리</div>
         <div class="anav-item" data-p="products" onclick="AdminPanel.nav('products',this)">
           <span>📦</span><div><div data-i18n="nav_products">📦 상품 목록</div></div>
         </div>
         <div class="anav-item" data-p="product-add" onclick="AdminPanel.nav('product-add',this)">
           <span>➕</span><div><div data-i18n="nav_product_add">➕ 상품 등록</div></div>
         </div>
-        <div class="anav-section" style="margin-top:10px;">📋 주문·배송</div>
+        <div class="anav-section" style="margin-top:10px;" data-i18n="asec_order">📋 주문·배송</div>
         <div class="anav-item" data-p="orders" onclick="AdminPanel.nav('orders',this)">
           <span>📋</span><div><div data-i18n="nav_orders">📋 전체 주문</div></div>
           <span class="anav-badge" id="badge-orders" style="display:none">0</span>
@@ -86,7 +86,7 @@ const AdminPanel = (() => {
           <span>🔄</span><div><div data-i18n="nav_returns">🔄 반품 관리</div></div>
           <span class="anav-badge" id="badge-returns" style="display:none">0</span>
         </div>
-        <div class="anav-section" style="margin-top:10px;">💬 고객 서비스</div>
+        <div class="anav-section" style="margin-top:10px;" data-i18n="asec_cs">💬 고객 서비스</div>
         <div class="anav-item" data-p="inquiries" onclick="AdminPanel.nav('inquiries',this)">
           <span>❓</span><div><div data-i18n="nav_inquiries">❓ 1:1 문의</div></div>
           <span class="anav-badge" id="badge-inquiries" style="display:none">0</span>
@@ -97,7 +97,7 @@ const AdminPanel = (() => {
         <div class="anav-item" data-p="blacklist" onclick="AdminPanel.nav('blacklist',this)">
           <span>🚫</span><div><div data-i18n="nav_blacklist">🚫 블랙리스트</div></div>
         </div>
-        <div class="anav-section" style="margin-top:10px;">⚙️ 설정</div>
+        <div class="anav-section" style="margin-top:10px;" data-i18n="asec_settings">⚙️ 설정</div>
         <div class="anav-item" data-p="settings-ship" onclick="AdminPanel.nav('settings-ship',this)">
           <span>🚚</span><div><div data-i18n="nav_settings_ship">🚚 배송·원산지</div></div>
         </div>
@@ -210,7 +210,7 @@ const AdminPanel = (() => {
     const monthRev = (daily||[]).reduce((s,o)=>s+Number(o.final_price||0),0);
 
     el.innerHTML = `
-    <div class="ap-hd"><div><h2 data-i18n="nav_dashboard">📊 대시보드</h2><p>실시간 매출 현황과 주요 통계를 확인합니다.</p></div>
+    <div class="ap-hd"><div><h2 data-i18n="nav_dashboard">📊 대시보드</h2><p data-i18n="admin_dashboard_title">실시간 매출 현황과 주요 통계를 확인합니다.</p></div>
       <button class="sbtn-primary" onclick="AdminPanel._renderPage('dashboard')" style="font-size:.78rem;padding:7px 14px;" data-i18n="admin_refresh">🔄 새로고침</button>
     </div>
 
@@ -229,7 +229,7 @@ const AdminPanel = (() => {
         <h3 style="font-size:.9rem;font-weight:700;margin-bottom:10px;">🏆 판매 Top 5</h3>
         <div class="tbl-wrap">
           <table class="atbl">
-            <thead><tr><th>상품명</th><th>판매</th><th>재고</th><th>단가</th></tr></thead>
+            <thead><tr><th data-i18n="th_name">상품명</th><th data-i18n="th_sold">판매</th><th data-i18n="th_stock">재고</th><th>단가</th></tr></thead>
             <tbody>${(topProds||[]).map(p=>`
             <tr>
               <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</td>
@@ -244,7 +244,7 @@ const AdminPanel = (() => {
         <h3 style="font-size:.9rem;font-weight:700;margin-bottom:10px;">📅 최근 7일 매출</h3>
         <div class="tbl-wrap">
           <table class="atbl">
-            <thead><tr><th>날짜</th><th>주문</th><th>매출</th></tr></thead>
+            <thead><tr><th data-i18n="th_date">날짜</th><th>주문</th><th>매출</th></tr></thead>
             <tbody>${(()=>{
               const dayMap = {};
               (daily||[]).forEach(o=>{
@@ -274,24 +274,24 @@ const AdminPanel = (() => {
 
     el.innerHTML = `
     <div class="ap-hd">
-      <div><h2 data-i18n="nav_products">📦 상품 목록</h2><p>등록된 상품을 조회하고 수정합니다.</p></div>
+      <div><h2 data-i18n="nav_products">📦 상품 목록</h2><p data-i18n="prod_list_desc">등록된 상품을 조회하고 수정합니다.</p></div>
       <button class="sbtn-green" data-i18n="admin_add_product" onclick="AdminPanel.nav('product-add',null)">➕ 상품 등록</button>
     </div>
     <div class="search-row">
-      <input id="prod-search" placeholder="상품명 검색..." style="flex:1;max-width:280px;" onkeydown="if(event.key==='Enter')AdminPanel._searchProducts()">
+      <input id="prod-search" placeholder="상품명 검색..." data-i18n-ph="prod_search_ph" style="flex:1;max-width:280px;" onkeydown="if(event.key==='Enter')AdminPanel._searchProducts()">
       <select id="prod-cat-filter" onchange="AdminPanel._searchProducts()">
-        <option value="">전체 카테고리</option>
+        <option value="" data-i18n="all_category">전체 카테고리</option>
         <option value="computer">💻 컴퓨터</option>
         <option value="general">📦 일반제품</option>
         <option value="fashion">👗 패션</option>
         <option value="book">📚 도서</option>
       </select>
-      <button class="sbtn-primary" onclick="AdminPanel._searchProducts()">검색</button>
+      <button class="sbtn-primary" onclick="AdminPanel._searchProducts()" data-i18n="btn_search">검색</button>
     </div>
     <div class="tbl-wrap">
       <table class="atbl">
-        <thead><tr><th>이미지</th><th>상품명</th><th>카테고리</th><th>원가</th><th>할인</th><th>판매가</th><th>재고</th><th>판매</th><th>상태</th><th style="min-width:100px;">관리</th></tr></thead>
-        <tbody>${(data||[]).length === 0 ? `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-dim);">등록된 상품이 없습니다.</td></tr>` :
+        <thead><tr><th data-i18n="th_image">이미지</th><th data-i18n="th_name">상품명</th><th data-i18n="th_category">카테고리</th><th data-i18n="th_price">원가</th><th data-i18n="th_discount">할인</th><th data-i18n="th_sale">판매가</th><th data-i18n="th_stock">재고</th><th data-i18n="th_sold">판매</th><th data-i18n="th_status">상태</th><th style="min-width:100px;" data-i18n="th_manage">관리</th></tr></thead>
+        <tbody>${(data||[]).length === 0 ? `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-dim);">${t('no_products_admin')}</td></tr>` :
           (data||[]).map(p=>`
           <tr>
             <td>${p.thumbnail_url?`<img src="${p.thumbnail_url}" style="width:48px;height:48px;object-fit:cover;border-radius:7px;border:1px solid var(--border);">`:'<div style="width:48px;height:48px;background:var(--surface2);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📦</div>'}</td>
@@ -313,7 +313,7 @@ const AdminPanel = (() => {
         </tbody>
       </table>
     </div>
-    <div style="margin-top:10px;font-size:.78rem;color:var(--text-dim);">총 ${(data||[]).length}개 상품</div>`;
+    <div style="margin-top:10px;font-size:.78rem;color:var(--text-dim);">${t('total_products').replace('{n}',(data||[]).length)}</div>`;
   }
 
   function _searchProducts() {
@@ -334,12 +334,12 @@ const AdminPanel = (() => {
       <div><h2>${isEdit?'✏️ 상품 수정':'➕ 상품 등록'}</h2>
         <p>이미지는 업로드 시 자동으로 가로 780px 기준으로 리사이징됩니다.</p>
       </div>
-      <button class="sbtn-red" onclick="AdminPanel.nav('products',null)">← 목록으로</button>
+      <button class="sbtn-red" onclick="AdminPanel.nav('products',null)" data-i18n="btn_back_list">← 목록으로</button>
     </div>
 
     <!-- 기본 정보 -->
     <div class="form-sec">
-      <h3>📋 기본 정보</h3>
+      <h3 data-i18n="form_basic">📋 기본 정보</h3>
       <div class="frow">
         <div class="fg">
           <label>카테고리 *</label>
@@ -368,7 +368,7 @@ const AdminPanel = (() => {
 
     <!-- 가격·재고 -->
     <div class="form-sec">
-      <h3>💰 가격 및 재고</h3>
+      <h3 data-i18n="form_price">💰 가격 및 재고</h3>
       <div class="frow">
         <div class="fg">
           <label>원가 (원) *</label>
@@ -421,7 +421,7 @@ const AdminPanel = (() => {
 
     <!-- 이미지 -->
     <div class="form-sec">
-      <h3>🖼️ 이미지</h3>
+      <h3 data-i18n="form_image">🖼️ 이미지</h3>
       <div class="fg">
         <label>대표 이미지 (썸네일) *</label>
         <div class="hint">상품 목록에서 보이는 메인 이미지 — 자동으로 가로 780px 리사이징</div>
@@ -446,7 +446,7 @@ const AdminPanel = (() => {
 
     <!-- 상세 설명 에디터 -->
     <div class="form-sec">
-      <h3>📝 상세 설명</h3>
+      <h3 data-i18n="form_desc">📝 상세 설명</h3>
       <div class="hint" style="margin-bottom:8px;">글꼴 크기·색상·정렬·이미지 삽입 가능. 상품 상세 페이지에 그대로 표시됩니다.</div>
       <div class="editor-toolbar">
         <button type="button" onclick="AdminPanel._edCmd('bold')"><b>B</b></button>
@@ -473,7 +473,7 @@ const AdminPanel = (() => {
 
     <!-- 한국 법적 표기 미리보기 -->
     <div class="form-sec" style="border-color:rgba(0,212,255,.2);">
-      <h3>📋 상품 상세 하단 자동 표기 (미리보기)</h3>
+      <h3 data-i18n="lbl_origin_preview">📋 상품 상세 하단 자동 표기 (미리보기)</h3>
       <div class="hint" style="margin-bottom:10px;">배송·원산지 설정에서 변경 시 등록된 모든 상품에 즉시 반영됩니다.</div>
       <table style="width:100%;font-size:.82rem;border-collapse:collapse;">
         <tr><td style="color:var(--text-dim);padding:4px 0;width:80px;">원산지</td><td style="color:var(--text);">${_settings.origin||'대한민국'}</td></tr>
@@ -483,7 +483,7 @@ const AdminPanel = (() => {
         <tr><td style="color:var(--text-dim);padding:4px 0;">반품배송비</td><td style="color:var(--text);">일반 ₩${_fmt(_settings.return_fee||5000)} / 화물 ₩${_fmt(_settings.return_fee_cargo||10000)}</td></tr>
         <tr><td style="color:var(--text-dim);padding:4px 0;">반품기간</td><td style="color:var(--text);">배송완료 후 ${_settings.return_period||3}일 이내</td></tr>
       </table>
-      <button class="sbtn-primary sbtn-sm" onclick="AdminPanel.nav('settings-ship',null)" style="margin-top:10px;">⚙️ 원산지·배송 설정 변경</button>
+      <button class="sbtn-primary sbtn-sm" onclick="AdminPanel.nav('settings-ship',null)" style="margin-top:10px;" data-i18n="btn_go_ship_settings">⚙️ 원산지·배송 설정 변경</button>
     </div>
 
     <!-- 저장 버튼 -->
@@ -541,7 +541,7 @@ const AdminPanel = (() => {
     } else if (slug === 'book') {
       wrap.innerHTML = `
       <div class="form-sec">
-        <h3>📚 도서 정보</h3>
+        <h3 data-i18n="form_book">📚 도서 정보</h3>
         <div class="frow">
           <div class="fg"><label>ISBN</label><input class="finput" id="pf-isbn" value="${editData?.book_isbn||''}" placeholder="978-89-..."></div>
           <div class="fg"><label>저자</label><input class="finput" id="pf-author" value="${editData?.book_author||''}" placeholder="저자명"></div>
@@ -801,22 +801,22 @@ const AdminPanel = (() => {
     const { data: orders, count } = await q;
 
     el.innerHTML = `
-    <div class="ap-hd"><div><h2 data-i18n="nav_orders">📋 전체 주문</h2><p>주문 상태 변경, 운송장 입력을 합니다.</p></div></div>
+    <div class="ap-hd"><div><h2 data-i18n="nav_orders">📋 전체 주문</h2><p data-i18n="ord_desc">주문 상태 변경, 운송장 입력을 합니다.</p></div></div>
     <div class="search-row">
-      <input id="ord-search" placeholder="주문번호, 이름, 주소 검색..." style="flex:1;max-width:280px;" onkeydown="if(event.key==='Enter')AdminPanel._searchOrders()">
+      <input id="ord-search" placeholder="주문번호, 이름, 주소 검색..." data-i18n-ph="ord_search_ph" style="flex:1;max-width:280px;" onkeydown="if(event.key==='Enter')AdminPanel._searchOrders()">
       <select id="ord-status">
-        <option value="">전체 상태</option>
+        <option value="" data-i18n="all_status">전체 상태</option>
         ${['paid','preparing','shipping','delivered','confirmed','cancelled'].map(s=>`<option value="${s}">${_statusLabel(s)}</option>`).join('')}
       </select>
       <select id="ord-limit" onchange="AdminPanel._pageOrders(document.getElementById('admin-content'))">
         ${[10,20,30,50,100].map(n=>`<option value="${n}" ${n===limit?'selected':''}>${n}개씩</option>`).join('')}
       </select>
-      <button class="sbtn-primary" onclick="AdminPanel._searchOrders()">검색</button>
+      <button class="sbtn-primary" onclick="AdminPanel._searchOrders()" data-i18n="btn_search">검색</button>
     </div>
     <div class="tbl-wrap">
       <table class="atbl">
-        <thead><tr><th>주문번호</th><th>상품</th><th>받는분</th><th>주소</th><th>금액</th><th>상태</th><th>운송장</th><th>날짜</th><th>관리</th></tr></thead>
-        <tbody>${(orders||[]).length===0?`<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-dim);">주문이 없습니다.</td></tr>`:
+        <thead><tr><th data-i18n="th_ordno">주문번호</th><th data-i18n="th_items">상품</th><th data-i18n="th_receiver">받는분</th><th data-i18n="th_address">주소</th><th data-i18n="th_amount">금액</th><th data-i18n="th_status">상태</th><th data-i18n="th_tracking">운송장</th><th data-i18n="th_date">날짜</th><th data-i18n="th_manage">관리</th></tr></thead>
+        <tbody>${(orders||[]).length===0?`<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-dim);">${t('no_orders')}</td></tr>`:
           (orders||[]).map(o=>{
             const items = o.mall_order_items||[];
             const itemNames = items.map(i=>i.product_name).join(', ');
@@ -845,7 +845,7 @@ const AdminPanel = (() => {
       </table>
     </div>
     <div class="pg-wrap">
-      <div style="font-size:.78rem;color:var(--text-dim);">총 ${count||0}건</div>
+      <div style="font-size:.78rem;color:var(--text-dim);">${t('total_orders_n').replace('{n}',count||0)}</div>
       <div class="pg-btns">${_buildPagination(offset, limit, count||0)}</div>
     </div>`;
   }
@@ -874,7 +874,7 @@ const AdminPanel = (() => {
   }
 
   async function _inputTracking(orderId) {
-    const no = prompt('운송장 번호를 입력하세요:');
+    const no = prompt(t('tracking_input_ph'));
     if (!no) return;
     await getSb().from('mall_orders').update({ tracking_no: no, status: 'shipping' }).eq('id', orderId);
     toast('✅ 운송장이 등록됐습니다.', 'success');
@@ -899,7 +899,7 @@ const AdminPanel = (() => {
         <tr><td style="color:var(--text-dim);padding:5px 0;">받는분</td><td>${o.receiver_name} / ${o.receiver_phone}</td></tr>
         <tr><td style="color:var(--text-dim);padding:5px 0;">주소</td><td>${o.address} ${o.address_detail||''}</td></tr>
         <tr><td style="color:var(--text-dim);padding:5px 0;">배송메모</td><td>${o.memo||'—'}</td></tr>
-        <tr><td style="color:var(--text-dim);padding:5px 0;">운송장</td><td>${o.tracking_no||'미입력'} ${o.courier_name?`(${o.courier_name})`:''}</td></tr>
+        <tr><td style="color:var(--text-dim);padding:5px 0;">운송장</td><td>${o.tracking_no||t('lbl_not_entered')} ${o.courier_name?`(${o.courier_name})`:''}</td></tr>
         <tr><td style="color:var(--text-dim);padding:5px 0;">원산지</td><td>${o.origin_snapshot||'—'}</td></tr>
         <tr><td style="color:var(--text-dim);padding:5px 0;">주문일</td><td>${_datetime(o.created_at)}</td></tr>
       </table>
@@ -926,11 +926,11 @@ const AdminPanel = (() => {
   async function _pageReturns(el) {
     const { data } = await getSb().from('mall_orders').select('*').in('status',['return_requested','return_reviewing','return_shipping','return_completed']).order('updated_at',{ascending:false});
     el.innerHTML = `
-    <div class="ap-hd"><div><h2 data-i18n="nav_returns">🔄 반품 관리</h2><p>반품 요청 처리, 반품배송비 청구, 반품 완료를 관리합니다.</p></div></div>
-    ${(data||[]).length===0?'<div style="text-align:center;padding:60px;color:var(--text-dim);">반품 요청이 없습니다.</div>':
+    <div class="ap-hd"><div><h2 data-i18n="nav_returns">🔄 반품 관리</h2><p data-i18n="ret_desc">반품 요청 처리, 반품배송비 청구, 반품 완료를 관리합니다.</p></div></div>
+    ${(data||[]).length===0?'<div style="text-align:center;padding:60px;color:var(--text-dim);">${t('no_returns')}</div>':
     `<div class="tbl-wrap">
       <table class="atbl">
-        <thead><tr><th>주문번호</th><th>고객</th><th>반품사유</th><th>고객 운송장</th><th>상태</th><th>반품배송비</th><th>처리</th></tr></thead>
+        <thead><tr><th data-i18n="th_ordno">주문번호</th><th>고객</th><th data-i18n="th_reason">반품사유</th><th data-i18n="th_return_tracking">고객 운송장</th><th data-i18n="th_status">상태</th><th data-i18n="th_return_fee">반품배송비</th><th data-i18n="th_process">처리</th></tr></thead>
         <tbody>${(data||[]).map(o=>`
         <tr>
           <td style="font-size:.75rem;font-family:monospace;">${o.order_no}</td>
@@ -940,7 +940,7 @@ const AdminPanel = (() => {
           <td><span class="status-badge" style="background:${_statusColor(o.status)}22;color:${_statusColor(o.status)};">${_statusLabel(o.status)}</span></td>
           <td>
             <div style="font-size:.8rem;margin-bottom:4px;">
-              ${o.return_fee>0?`₩${_fmt(o.return_fee)} ${o.return_fee_paid?'<span style="color:var(--accent3);">결제완료</span>':'<span style="color:var(--accent2);">미결제</span>'}`:'미설정'}
+              ${o.return_fee>0?`₩${_fmt(o.return_fee)} ${o.return_fee_paid?'<span style="color:var(--accent3);">결제완료</span>':'<span style="color:var(--accent2);">미결제</span>'}`:t('lbl_unset')}
             </div>
             ${!o.return_fee_paid?`
             <div style="display:flex;gap:4px;flex-wrap:wrap;">
@@ -989,21 +989,21 @@ const AdminPanel = (() => {
   async function _pageInquiries(el) {
     const { data } = await getSb().from('mall_inquiries').select('*').eq('is_visible',true).order('created_at',{ascending:false});
     el.innerHTML = `
-    <div class="ap-hd"><div><h2 data-i18n="nav_inquiries">❓ 1:1 문의</h2><p>고객 문의에 답변합니다. 미답변 항목이 배지로 표시됩니다.</p></div></div>
-    ${(data||[]).length===0?'<div style="text-align:center;padding:60px;color:var(--text-dim);">문의가 없습니다.</div>':
+    <div class="ap-hd"><div><h2 data-i18n="nav_inquiries">❓ 1:1 문의</h2><p data-i18n="inq_desc">고객 문의에 답변합니다. 미답변 항목이 배지로 표시됩니다.</p></div></div>
+    ${(data||[]).length===0?'<div style="text-align:center;padding:60px;color:var(--text-dim);">${t('no_inquiries')}</div>':
     (data||[]).map(q=>`
     <div class="form-sec" style="margin-bottom:12px;${!q.answer?'border-color:var(--accent2);':''}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
         <span style="font-size:.82rem;font-weight:700;">${q.nickname||'익명'}</span>
         <span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:.72rem;">${q.type||'일반'}</span>
-        ${!q.answer?'<span style="color:var(--accent2);font-size:.75rem;font-weight:700;">● 미답변</span>':'<span style="color:var(--accent3);font-size:.75rem;">● 답변완료</span>'}
+        ${!q.answer?'<span style="color:var(--accent2);font-size:.75rem;font-weight:700;">● 미답변</span>':'<span style="color:var(--accent3);font-size:.75rem;"><span data-i18n="lbl_answered">● 답변완료</span></span>'}
         <span style="font-size:.72rem;color:var(--text-dim);margin-left:auto;">${_datetime(q.created_at)}</span>
       </div>
       <div style="font-weight:600;font-size:.88rem;margin-bottom:4px;">${q.title}</div>
       <div style="font-size:.84rem;color:var(--text-dim);line-height:1.6;margin-bottom:10px;">${q.content}</div>
       ${q.answer?`<div style="background:rgba(0,212,255,.06);border-left:3px solid var(--accent);padding:8px 12px;border-radius:0 6px 6px 0;font-size:.83rem;">💬 ${q.answer}</div>`:`
       <div style="display:flex;gap:8px;">
-        <input class="finput" id="ans-${q.id}" placeholder="답변 내용을 입력하세요..." style="flex:1;">
+        <input class="finput" id="ans-${q.id}" placeholder="답변 내용을 입력하세요..." data-i18n-ph="ans_ph" style="flex:1;">
         <button class="sbtn-primary" onclick="AdminPanel._answerInquiry('${q.id}')" data-i18n="admin_reply">답변 등록</button>
         <button class="sbtn-red" onclick="AdminPanel._hideInquiry('${q.id}')" data-i18n="admin_hide">숨김</button>
       </div>`}
@@ -1030,11 +1030,11 @@ const AdminPanel = (() => {
   async function _pageReviews(el) {
     const { data } = await getSb().from('mall_reviews').select('*, mall_products(name)').order('created_at',{ascending:false});
     el.innerHTML = `
-    <div class="ap-hd"><div><h2 data-i18n="nav_reviews">⭐ 후기 관리</h2><p>후기를 노출/숨김 처리합니다.</p></div></div>
+    <div class="ap-hd"><div><h2 data-i18n="nav_reviews">⭐ 후기 관리</h2><p data-i18n="rev_desc">후기를 노출/숨김 처리합니다.</p></div></div>
     <div class="tbl-wrap">
       <table class="atbl">
-        <thead><tr><th>상품</th><th>작성자</th><th>별점</th><th>내용</th><th>상태</th><th>날짜</th><th>관리</th></tr></thead>
-        <tbody>${(data||[]).length===0?`<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-dim);">후기가 없습니다.</td></tr>`:
+        <thead><tr><th data-i18n="th_items">상품</th><th>작성자</th><th>별점</th><th>내용</th><th data-i18n="th_status">상태</th><th data-i18n="th_date">날짜</th><th data-i18n="th_manage">관리</th></tr></thead>
+        <tbody>${(data||[]).length===0?`<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-dim);">${t('no_reviews')}</td></tr>`:
           (data||[]).map(r=>`
           <tr>
             <td style="font-size:.8rem;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.mall_products?.name||'—'}</td>
@@ -1060,25 +1060,25 @@ const AdminPanel = (() => {
   async function _pageBlacklist(el) {
     const { data } = await getSb().from('mall_blacklist').select('*, user_profiles(nickname,phone)').order('created_at',{ascending:false});
     el.innerHTML = `
-    <div class="ap-hd"><div><h2 data-i18n="nav_blacklist">🚫 블랙리스트</h2><p>악성 구매자를 관리합니다. 블랙리스트 등록 시 쇼핑몰 접근이 제한됩니다.</p></div></div>
+    <div class="ap-hd"><div><h2 data-i18n="nav_blacklist">🚫 블랙리스트</h2><p data-i18n="bl_desc">악성 구매자를 관리합니다. 블랙리스트 등록 시 쇼핑몰 접근이 제한됩니다.</p></div></div>
     <div class="form-sec">
-      <h3>➕ 블랙리스트 추가</h3>
+      <h3 data-i18n="bl_add_title">➕ 블랙리스트 추가</h3>
       <div class="frow">
         <div class="fg">
-          <label>유저 ID</label>
-          <input class="finput" id="bl-uid" placeholder="Supabase auth.users ID (UUID)">
+          <label data-i18n="lbl_uid">유저 ID</label>
+          <input class="finput" id="bl-uid" placeholder="UUID" data-i18n-ph="uid_ph">
         </div>
         <div class="fg">
-          <label>차단 사유</label>
-          <input class="finput" id="bl-reason" placeholder="예: 허위 반품 신청">
+          <label data-i18n="lbl_reason">차단 사유</label>
+          <input class="finput" id="bl-reason" placeholder="예: 허위 반품 신청" data-i18n-ph="reason_ph">
         </div>
       </div>
       <button class="sbtn-red" onclick="AdminPanel._addBlacklist()">🚫 블랙리스트 추가</button>
     </div>
     <div class="tbl-wrap">
       <table class="atbl">
-        <thead><tr><th>닉네임</th><th>전화</th><th>사유</th><th>등록일</th><th>관리</th></tr></thead>
-        <tbody>${(data||[]).length===0?`<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-dim);">블랙리스트가 없습니다.</td></tr>`:
+        <thead><tr><th data-i18n="th_nickname">닉네임</th><th data-i18n="th_phone">전화</th><th data-i18n="th_reason">사유</th><th data-i18n="th_reg_date">등록일</th><th data-i18n="th_manage">관리</th></tr></thead>
+        <tbody>${(data||[]).length===0?`<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-dim);">${t('no_blacklist')}</td></tr>`:
           (data||[]).map(b=>`
           <tr>
             <td>${b.user_profiles?.nickname||b.user_id?.substring(0,8)+'...'}</td>
@@ -1111,10 +1111,10 @@ const AdminPanel = (() => {
   function _pageSettingsShip(el) {
     const s = _settings;
     el.innerHTML = `
-    <div class="ap-hd"><div><h2 data-i18n="nav_settings_ship">🚚 배송·원산지 설정</h2><p>여기서 설정한 내용은 <strong>모든 상품 상세 페이지 최하단에 자동 표시</strong>됩니다. 변경 즉시 전체 상품에 반영됩니다.</p></div></div>
+    <div class="ap-hd"><div><h2 data-i18n="nav_settings_ship">🚚 배송·원산지 설정</h2><p data-i18n="ret_desc">여기서 설정한 내용은 모든 상품 상세 페이지 최하단에 자동 표시됩니다.</p></div></div>
 
     <div class="form-sec" style="border-color:rgba(0,212,255,.2);">
-      <h3>📋 법적 표기 (한국 전자상거래법 필수)</h3>
+      <h3 data-i18n="lbl_legal">📋 법적 표기 (한국 전자상거래법 필수)</h3>
       <div class="frow">
         <div class="fg">
           <label>원산지 *</label>
@@ -1144,7 +1144,7 @@ const AdminPanel = (() => {
     </div>
 
     <div class="form-sec">
-      <h3>🚛 배송비 설정</h3>
+      <h3 data-i18n="lbl_ship_sec">🚛 배송비 설정</h3>
       <div class="frow">
         <div class="fg">
           <label>기본 배송비 (원)</label>
@@ -1160,7 +1160,7 @@ const AdminPanel = (() => {
     </div>
 
     <div class="form-sec">
-      <h3>🔄 반품 설정</h3>
+      <h3 data-i18n="lbl_ret_sec">🔄 반품 설정</h3>
       <div class="frow">
         <div class="fg">
           <label>기본 반품배송비 (원)</label>
@@ -1181,7 +1181,7 @@ const AdminPanel = (() => {
     </div>
 
     <div class="form-sec" style="border-color:rgba(255,215,0,.3);">
-      <h3>👁️ 현재 설정 미리보기 (상품 상세 하단)</h3>
+      <h3 data-i18n="lbl_preview">👁️ 현재 설정 미리보기 (상품 상세 하단)</h3>
       <table style="width:100%;font-size:.85rem;border-collapse:collapse;">
         ${[['원산지',s.origin||'대한민국'],['택배사',s.courier||'CJ대한통운'],['배송비',`₩${_fmt(s.ship_fee||3000)} (${_fmt(s.free_ship_min||50000)}원 이상 무료)`],['A/S',s.as_phone||'—'],['반품교환',s.as_address||'—'],['반품배송비',`일반 ₩${_fmt(s.return_fee||5000)} / 화물 ₩${_fmt(s.return_fee_cargo||10000)}`],['반품기간',`배송완료 후 ${s.return_period||3}일 이내`]].map(([k,v])=>`
         <tr style="border-bottom:1px solid rgba(30,58,95,.3);">
@@ -1214,9 +1214,9 @@ const AdminPanel = (() => {
     el.innerHTML = `
     <div class="ap-hd"><div><h2 data-i18n="nav_settings_shop">🏪 쇼핑몰 설정</h2><p>쇼핑몰 전반적인 기본 설정을 관리합니다.</p></div></div>
     <div class="form-sec">
-      <h3>📢 상단 공지 배너</h3>
+      <h3 data-i18n="lbl_notice_sec">📢 상단 공지 배너</h3>
       <div class="fg">
-        <label>공지 메시지</label>
+        <label data-i18n="lbl_notice">공지 메시지</label>
         <input class="finput" id="set-notice" value="${_settings.shop_notice||''}" placeholder="예: 🎉 설 연휴 배송 안내 — 1/28~2/2 배송 지연될 수 있습니다.">
         <div class="hint">입력 시 쇼핑몰 상단에 공지 배너가 표시됩니다. 비워두면 배너가 숨겨집니다.</div>
       </div>
