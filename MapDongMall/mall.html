@@ -489,22 +489,7 @@ img{max-width:100%;}
       🛒 <span class="hide-sm" data-i18n="btn_cart">장바구니</span>
       <span class="cart-badge" id="cart-badge">0</span>
     </button>
-    <button id="btn-admin-panel" style="display:none" onclick="
-(async()=>{
-  const el = document.getElementById('page-admin');
-  console.log('page-admin display before:', el.style.display, getComputedStyle(el).display);
-  await Mall.goAdmin();
-  setTimeout(()=>{
-    console.log('page-admin display after:', el.style.display, getComputedStyle(el).display);
-    console.log('page-admin innerHTML length:', el.innerHTML.length);
-    console.log('page-admin offsetHeight:', el.offsetHeight);
-    console.log('page-admin offsetParent:', el.offsetParent);
-    const adminContent = document.getElementById('admin-content');
-    console.log('admin-content exists:', !!adminContent);
-    console.log('admin-content innerHTML length:', adminContent?.innerHTML?.length);
-  }, 1000);
-})()
-"><span data-i18n="btn_admin">⚙️ 관리자</span></button>
+    <button id="btn-admin-panel" style="display:none" onclick="Mall.goAdmin()"><span data-i18n="btn_admin">⚙️ 관리자</span></button>
     <button class="hbtn" onclick="Mall.exit()" title="처음으로 돌아가기"><span data-i18n="btn_exit">← 나가기</span></button>
   </div>
 </header>
