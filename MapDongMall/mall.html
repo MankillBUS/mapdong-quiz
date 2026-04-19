@@ -430,7 +430,13 @@ img{max-width:100%;}
       🛒 <span class="hide-sm" data-i18n="btn_cart">장바구니</span>
       <span class="cart-badge" id="cart-badge">0</span>
     </button>
-    <button id="btn-admin-panel" style="display:none" onclick="Mall.goAdmin()"><span data-i18n="btn_admin">⚙️ 관리자</span></button>
+    <button id="btn-admin-panel" style="display:none" onclick="
+  console.log('[Admin Click] Mall존재:', typeof Mall);
+  console.log('[Admin Click] Mall.sb:', typeof Mall?.sb);
+  console.log('[Admin Click] AdminPanel존재:', typeof AdminPanel);
+  console.log('[Admin Click] AdminPanel.init:', typeof AdminPanel?.init);
+  try { Mall.goAdmin(); } catch(e) { console.error('[Admin Click] 오류:', e); }
+"><span data-i18n="btn_admin">⚙️ 관리자</span></button>
     <button class="hbtn" onclick="Mall.exit()" title="처음으로 돌아가기"><span data-i18n="btn_exit">← 나가기</span></button>
   </div>
 </header>
