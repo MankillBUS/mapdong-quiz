@@ -5,10 +5,9 @@
 'use strict';
 
 const AdminPanel = (() => {
-  // ── Supabase 직접 참조 (Mall.sb 대신 안전하게) ──────────────
-  const ADMIN_SB_URL = 'https://emgsueepzioudqnitkyn.supabase.co';
-  const ADMIN_SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ3N1ZWVwemlvdWRxbml0a3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODkwNzQsImV4cCI6MjA4NjU2NTA3NH0.epR1k3MVh0MfZejFh9VflCNOS8Uz8EuCZlez5OBMz3s';
-  const sb = window.supabase.createClient(ADMIN_SB_URL, ADMIN_SB_KEY);
+  // ── Mall.js의 Supabase 클라이언트 재사용 (중복 생성 방지) ──
+  // mall.js보다 나중에 로드되므로 함수 호출 시점에 참조
+  const getSb = () => Mall.sb;
   const BUCKET = 'mall-images';
 
   let _settings = {};
@@ -36,7 +35,7 @@ const AdminPanel = (() => {
 
   // ── 설정 로드 ────────────────────────────────────────────────
   async function _loadSettings() {
-    const { data } = await sb.from('mall_settings').select('*');
+    const { data } = await getSb().from('mall_settings').select('*');
     if (data) data.forEach(r => { _settings[r.key] = r.value; });
   }
 
@@ -175,9 +174,9 @@ const AdminPanel = (() => {
   // ── 뱃지 로드 ────────────────────────────────────────────────
   async function _loadBadges() {
     const [r1, r2, r3] = await Promise.all([
-      sb.from('mall_orders').select('*',{count:'exact',head:true}).eq('status','paid'),
-      sb.from('mall_orders').select('*',{count:'exact',head:true}).in('status',['return_requested','return_reviewing']),
-      sb.from('mall_inquiries').select('*',{count:'exact',head:true}).is('answer',null).eq('is_visible',true),
+      getSb().from('mall_orders').select('*',{count:'exact',head:true}).eq('status','paid'),
+      getSb().from('mall_orders').select('*',{count:'exact',head:true}).in('status',['return_requested','return_reviewing']),
+      getSb().from('mall_inquiries').select('*',{count:'exact',head:true}).is('answer',null).eq('is_visible',true),
     ]);
     const set = (id, n) => { const el=document.getElementById(id); if(el){el.textContent=n; el.style.display=n>0?'':'none';} };
     set('badge-orders', r1.count||0);
@@ -233,12 +232,12 @@ const AdminPanel = (() => {
       { count: totalProds },
       { count: lowStock },
     ] = await Promise.all([
-      sb.from('mall_sales_daily').select('*').limit(30),
-      sb.from('mall_orders').select('*',{count:'exact',head:true}).not('status','eq','cancelled'),
-      sb.from('mall_orders').select('*',{count:'exact',head:true}).eq('status','paid'),
-      sb.from('mall_products').select('name,sold_count,stock,sale_price,category_slug').order('sold_count',{ascending:false}).limit(5),
-      sb.from('mall_products').select('*',{count:'exact',head:true}).eq('is_active',true),
-      sb.from('mall_products').select('*',{count:'exact',head:true}).lte('stock',5).gt('stock',0),
+      getSb().from('mall_sales_daily').select('*').limit(30),
+      getSb().from('mall_orders').select('*',{count:'exact',head:true}).not('status','eq','cancelled'),
+      getSb().from('mall_orders').select('*',{count:'exact',head:true}).eq('status','paid'),
+      getSb().from('mall_products').select('name,sold_count,stock,sale_price,category_slug').order('sold_count',{ascending:false}).limit(5),
+      getSb().from('mall_products').select('*',{count:'exact',head:true}).eq('is_active',true),
+      getSb().from('mall_products').select('*',{count:'exact',head:true}).lte('stock',5).gt('stock',0),
     ]);
     const todayRev = daily?.[0]?.revenue || 0;
     const todayOrds = daily?.[0]?.order_count || 0;
@@ -297,7 +296,7 @@ const AdminPanel = (() => {
   // 상품 목록
   // ════════════════════════════════════════════════════════════
   async function _pageProducts(el, catFilter='', search='') {
-    let q = sb.from('mall_products').select('*').order('created_at',{ascending:false});
+    let q = getSb().from('mall_products').select('*').order('created_at',{ascending:false});
     if (catFilter) q = q.eq('category_slug', catFilter);
     if (search) q = q.ilike('name', `%${search}%`);
     const { data } = await q;
@@ -644,9 +643,9 @@ const AdminPanel = (() => {
     try {
       const res = await fetch(dataUrl);
       const blob = await res.blob();
-      const { data, error } = await sb.storage.from(BUCKET).upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+      const { data, error } = await getSb().storage.from(BUCKET).upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
       if (error) { console.error('Storage upload error:', error); return null; }
-      const { data: urlData } = sb.storage.from(BUCKET).getPublicUrl(path);
+      const { data: urlData } = getSb().storage.from(BUCKET).getPublicUrl(path);
       return urlData?.publicUrl || null;
     } catch(e) { console.error(e); return null; }
   }
@@ -734,10 +733,10 @@ const AdminPanel = (() => {
 
     let productId = editId || null;
     if (editId) {
-      const { error } = await sb.from('mall_products').update(productData).eq('id', editId);
+      const { error } = await getSb().from('mall_products').update(productData).eq('id', editId);
       if (error) { toast('수정 실패: ' + error.message, 'error'); return; }
     } else {
-      const { data, error } = await sb.from('mall_products').insert(productData).select().single();
+      const { data, error } = await getSb().from('mall_products').insert(productData).select().single();
       if (error) { toast('등록 실패: ' + error.message, 'error'); return; }
       productId = data?.id;
     }
@@ -747,19 +746,19 @@ const AdminPanel = (() => {
     // 추가 이미지 업로드
     const imgPreviews = document.querySelectorAll('#pf-imgs-preview .thumb-item');
     if (imgPreviews.length > 0) {
-      await sb.from('mall_product_images').delete().eq('product_id', productId);
+      await getSb().from('mall_product_images').delete().eq('product_id', productId);
       for (let i = 0; i < imgPreviews.length; i++) {
         let url = imgPreviews[i].dataset.url;
         if (url.startsWith('data:')) {
           url = await _uploadToStorage(url, `product/${productId}_${i}_${Date.now()}.jpg`) || url;
         }
-        if (url) await sb.from('mall_product_images').insert({ product_id: productId, url, sort_order: i });
+        if (url) await getSb().from('mall_product_images').insert({ product_id: productId, url, sort_order: i });
       }
     }
 
     // PC 부품
     if (cat === 'computer') {
-      await sb.from('mall_pc_parts').delete().eq('product_id', productId);
+      await getSb().from('mall_pc_parts').delete().eq('product_id', productId);
       const rows = document.querySelectorAll('#pc-parts-editor > div');
       for (const row of rows) {
         const partType = row.querySelector('[name=part-type]')?.value;
@@ -767,14 +766,14 @@ const AdminPanel = (() => {
         const delta = parseInt(row.querySelector('[name=part-delta]')?.value||0);
         const isDef = row.querySelector('[name=part-default]')?.checked;
         if (partType && partName) {
-          await sb.from('mall_pc_parts').insert({ product_id: productId, part_type: partType, name: partName, price_delta: delta, is_default: isDef });
+          await getSb().from('mall_pc_parts').insert({ product_id: productId, part_type: partType, name: partName, price_delta: delta, is_default: isDef });
         }
       }
     }
 
     // 패션 옵션
     if (cat === 'fashion') {
-      await sb.from('mall_fashion_options').delete().eq('product_id', productId);
+      await getSb().from('mall_fashion_options').delete().eq('product_id', productId);
       const rows = document.querySelectorAll('#fashion-opts-editor > div');
       for (const row of rows) {
         const size  = row.querySelector('[name=fopt-size]')?.value?.trim();
@@ -782,7 +781,7 @@ const AdminPanel = (() => {
         const hex   = row.querySelector('[name=fopt-hex]')?.value;
         const stk   = parseInt(row.querySelector('[name=fopt-stock]')?.value||0);
         const delta = parseInt(row.querySelector('[name=fopt-delta]')?.value||0);
-        if (size || color) await sb.from('mall_fashion_options').insert({ product_id: productId, size, color, color_hex: hex, stock: stk, price_delta: delta });
+        if (size || color) await getSb().from('mall_fashion_options').insert({ product_id: productId, size, color, color_hex: hex, stock: stk, price_delta: delta });
       }
     }
 
@@ -793,10 +792,10 @@ const AdminPanel = (() => {
   async function _editProduct(id) {
     toast('상품 정보 불러오는 중...', 'info');
     const [{ data: p }, { data: imgs }, { data: parts }, { data: fashOpts }] = await Promise.all([
-      sb.from('mall_products').select('*').eq('id', id).single(),
-      sb.from('mall_product_images').select('*').eq('product_id', id).order('sort_order'),
-      sb.from('mall_pc_parts').select('*').eq('product_id', id).order('sort_order'),
-      sb.from('mall_fashion_options').select('*').eq('product_id', id),
+      getSb().from('mall_products').select('*').eq('id', id).single(),
+      getSb().from('mall_product_images').select('*').eq('product_id', id).order('sort_order'),
+      getSb().from('mall_pc_parts').select('*').eq('product_id', id).order('sort_order'),
+      getSb().from('mall_fashion_options').select('*').eq('product_id', id),
     ]);
     const el = document.getElementById('admin-content');
     _pageProductForm(el, { ...p, parts: parts||[], fashOpts: fashOpts||[] });
@@ -816,7 +815,7 @@ const AdminPanel = (() => {
 
   async function _deleteProduct(id, name) {
     if (!confirm(`"${name}" 상품을 삭제하시겠습니까?\n관련 이미지·옵션도 모두 삭제됩니다.`)) return;
-    const { error } = await sb.from('mall_products').delete().eq('id', id);
+    const { error } = await getSb().from('mall_products').delete().eq('id', id);
     if (error) { toast('삭제 실패: ' + error.message, 'error'); return; }
     toast('✅ 삭제됐습니다.', 'success');
     nav('products', null);
@@ -826,7 +825,7 @@ const AdminPanel = (() => {
   // 주문 관리
   // ════════════════════════════════════════════════════════════
   async function _pageOrders(el, offset=0, limit=20, search='', statusFilter='') {
-    let q = sb.from('mall_orders').select('*, mall_order_items(*)', {count:'exact'}).order('created_at',{ascending:false}).range(offset, offset+limit-1);
+    let q = getSb().from('mall_orders').select('*, mall_order_items(*)', {count:'exact'}).order('created_at',{ascending:false}).range(offset, offset+limit-1);
     if (statusFilter) q = q.eq('status', statusFilter);
     const { data: orders, count } = await q;
 
@@ -898,7 +897,7 @@ const AdminPanel = (() => {
   }
 
   async function _updateStatus(orderId, status) {
-    await sb.from('mall_orders').update({ status }).eq('id', orderId);
+    await getSb().from('mall_orders').update({ status }).eq('id', orderId);
     toast('✅ 상태가 변경됐습니다.', 'success');
     _loadBadges();
   }
@@ -906,13 +905,13 @@ const AdminPanel = (() => {
   async function _inputTracking(orderId) {
     const no = prompt('운송장 번호를 입력하세요:');
     if (!no) return;
-    await sb.from('mall_orders').update({ tracking_no: no, status: 'shipping' }).eq('id', orderId);
+    await getSb().from('mall_orders').update({ tracking_no: no, status: 'shipping' }).eq('id', orderId);
     toast('✅ 운송장이 등록됐습니다.', 'success');
     _renderPage('orders');
   }
 
   async function _viewOrder(orderId) {
-    const { data: o } = await sb.from('mall_orders').select('*, mall_order_items(*)').eq('id', orderId).single();
+    const { data: o } = await getSb().from('mall_orders').select('*, mall_order_items(*)').eq('id', orderId).single();
     if (!o) return;
     const modal = document.createElement('div');
     modal.className = 'order-detail-modal';
@@ -954,7 +953,7 @@ const AdminPanel = (() => {
   // 반품 관리
   // ════════════════════════════════════════════════════════════
   async function _pageReturns(el) {
-    const { data } = await sb.from('mall_orders').select('*').in('status',['return_requested','return_reviewing','return_shipping','return_completed']).order('updated_at',{ascending:false});
+    const { data } = await getSb().from('mall_orders').select('*').in('status',['return_requested','return_reviewing','return_shipping','return_completed']).order('updated_at',{ascending:false});
     el.innerHTML = `
     <div class="ap-hd"><div><h2>🔄 반품 관리</h2><p>반품 요청 처리, 반품배송비 청구, 반품 완료를 관리합니다.</p></div></div>
     ${(data||[]).length===0?'<div style="text-align:center;padding:60px;color:var(--text-dim);">반품 요청이 없습니다.</div>':
@@ -992,22 +991,22 @@ const AdminPanel = (() => {
   async function _chargeReturn(id) {
     const fee = parseInt(document.getElementById(`rf-${id}`)?.value||0);
     if (!fee) { toast('금액을 입력해주세요.', 'error'); return; }
-    await sb.from('mall_orders').update({ return_fee: fee }).eq('id', id);
+    await getSb().from('mall_orders').update({ return_fee: fee }).eq('id', id);
     toast(`✅ ₩${_fmt(fee)} 반품배송비가 고객에게 청구됐습니다.`, 'success');
     _renderPage('returns');
   }
   async function _freeReturn(id) {
-    await sb.from('mall_orders').update({ return_fee: 0, return_fee_paid: true }).eq('id', id);
+    await getSb().from('mall_orders').update({ return_fee: 0, return_fee_paid: true }).eq('id', id);
     toast('✅ 무료 반품으로 처리됐습니다.', 'success');
     _renderPage('returns');
   }
   async function _completeReturn(id) {
-    const { data: o } = await sb.from('mall_orders').select('*, mall_order_items(*)').eq('id', id).single();
+    const { data: o } = await getSb().from('mall_orders').select('*, mall_order_items(*)').eq('id', id).single();
     for (const item of (o?.mall_order_items||[])) {
-      const { data: p } = await sb.from('mall_products').select('stock,sold_count').eq('id', item.product_id).single();
-      if (p) await sb.from('mall_products').update({ stock: (p.stock||0) + item.quantity, sold_count: Math.max(0,(p.sold_count||0)-item.quantity) }).eq('id', item.product_id);
+      const { data: p } = await getSb().from('mall_products').select('stock,sold_count').eq('id', item.product_id).single();
+      if (p) await getSb().from('mall_products').update({ stock: (p.stock||0) + item.quantity, sold_count: Math.max(0,(p.sold_count||0)-item.quantity) }).eq('id', item.product_id);
     }
-    await sb.from('mall_orders').update({ status: 'return_completed' }).eq('id', id);
+    await getSb().from('mall_orders').update({ status: 'return_completed' }).eq('id', id);
     toast('✅ 반품 완료 처리됐습니다. 재고가 복구됐습니다.', 'success');
     _renderPage('returns');
     _loadBadges();
@@ -1017,7 +1016,7 @@ const AdminPanel = (() => {
   // 1:1 문의
   // ════════════════════════════════════════════════════════════
   async function _pageInquiries(el) {
-    const { data } = await sb.from('mall_inquiries').select('*').eq('is_visible',true).order('created_at',{ascending:false});
+    const { data } = await getSb().from('mall_inquiries').select('*').eq('is_visible',true).order('created_at',{ascending:false});
     el.innerHTML = `
     <div class="ap-hd"><div><h2>❓ 1:1 문의</h2><p>고객 문의에 답변합니다. 미답변 항목이 배지로 표시됩니다.</p></div></div>
     ${(data||[]).length===0?'<div style="text-align:center;padding:60px;color:var(--text-dim);">문의가 없습니다.</div>':
@@ -1043,13 +1042,13 @@ const AdminPanel = (() => {
   async function _answerInquiry(id) {
     const ans = document.getElementById(`ans-${id}`)?.value.trim();
     if (!ans) { toast('답변 내용을 입력해주세요.', 'error'); return; }
-    await sb.from('mall_inquiries').update({ answer: ans, answered_at: new Date().toISOString() }).eq('id', id);
+    await getSb().from('mall_inquiries').update({ answer: ans, answered_at: new Date().toISOString() }).eq('id', id);
     toast('✅ 답변이 등록됐습니다.', 'success');
     _renderPage('inquiries');
     _loadBadges();
   }
   async function _hideInquiry(id) {
-    await sb.from('mall_inquiries').update({ is_visible: false }).eq('id', id);
+    await getSb().from('mall_inquiries').update({ is_visible: false }).eq('id', id);
     toast('문의가 숨겨졌습니다.', 'success');
     _renderPage('inquiries');
   }
@@ -1058,7 +1057,7 @@ const AdminPanel = (() => {
   // 후기 관리
   // ════════════════════════════════════════════════════════════
   async function _pageReviews(el) {
-    const { data } = await sb.from('mall_reviews').select('*, mall_products(name)').order('created_at',{ascending:false});
+    const { data } = await getSb().from('mall_reviews').select('*, mall_products(name)').order('created_at',{ascending:false});
     el.innerHTML = `
     <div class="ap-hd"><div><h2>⭐ 후기 관리</h2><p>후기를 노출/숨김 처리합니다.</p></div></div>
     <div class="tbl-wrap">
@@ -1080,7 +1079,7 @@ const AdminPanel = (() => {
     </div>`;
   }
   async function _toggleReview(id, visible) {
-    await sb.from('mall_reviews').update({ is_visible: visible }).eq('id', id);
+    await getSb().from('mall_reviews').update({ is_visible: visible }).eq('id', id);
     _renderPage('reviews');
   }
 
@@ -1088,7 +1087,7 @@ const AdminPanel = (() => {
   // 블랙리스트
   // ════════════════════════════════════════════════════════════
   async function _pageBlacklist(el) {
-    const { data } = await sb.from('mall_blacklist').select('*, user_profiles(nickname,phone)').order('created_at',{ascending:false});
+    const { data } = await getSb().from('mall_blacklist').select('*, user_profiles(nickname,phone)').order('created_at',{ascending:false});
     el.innerHTML = `
     <div class="ap-hd"><div><h2>🚫 블랙리스트</h2><p>악성 구매자를 관리합니다. 블랙리스트 등록 시 쇼핑몰 접근이 제한됩니다.</p></div></div>
     <div class="form-sec">
@@ -1125,12 +1124,12 @@ const AdminPanel = (() => {
     const uid = document.getElementById('bl-uid')?.value.trim();
     const reason = document.getElementById('bl-reason')?.value.trim();
     if (!uid) { toast('유저 ID를 입력해주세요.', 'error'); return; }
-    await sb.from('mall_blacklist').insert({ user_id: uid, reason });
+    await getSb().from('mall_blacklist').insert({ user_id: uid, reason });
     toast('✅ 블랙리스트에 추가됐습니다.', 'success');
     _renderPage('blacklist');
   }
   async function _removeBlacklist(id) {
-    await sb.from('mall_blacklist').delete().eq('id', id);
+    await getSb().from('mall_blacklist').delete().eq('id', id);
     toast('✅ 블랙리스트에서 해제됐습니다.', 'success');
     _renderPage('blacklist');
   }
@@ -1229,7 +1228,7 @@ const AdminPanel = (() => {
     for (const [key, inputId] of pairs) {
       const val = document.getElementById(inputId)?.value;
       if (val !== undefined) {
-        await sb.from('mall_settings').update({ value: val, updated_at: new Date().toISOString() }).eq('key', key);
+        await getSb().from('mall_settings').update({ value: val, updated_at: new Date().toISOString() }).eq('key', key);
         _settings[key] = val;
       }
     }
@@ -1256,7 +1255,7 @@ const AdminPanel = (() => {
 
   async function _saveShopSettings() {
     const val = document.getElementById('set-notice')?.value || '';
-    await sb.from('mall_settings').update({ value: val }).eq('key', 'shop_notice');
+    await getSb().from('mall_settings').update({ value: val }).eq('key', 'shop_notice');
     _settings.shop_notice = val;
     toast('✅ 설정이 저장됐습니다.', 'success');
   }
@@ -1280,4 +1279,4 @@ const AdminPanel = (() => {
   };
 })();
 
-document.addEventListener('DOMContentLoaded', () => Mall.init());
+// Mall.init()은 mall.js의 DOMContentLoaded에서 실행됨
