@@ -141,9 +141,8 @@ const AdminPanel = (() => {
   }
 
   async function _renderPage(page) {
-    console.log('[AdminPanel] _renderPage:', page);
     const el = document.getElementById('admin-content');
-    if (!el) { console.error('[AdminPanel] admin-content 요소 없음!'); return; }
+    if (!el) return;
     el.innerHTML = '<div class="loading" style="padding:60px;text-align:center;color:var(--text-dim);">불러오는 중...</div>';
     try {
       switch(page) {
@@ -165,6 +164,12 @@ const AdminPanel = (() => {
         <b>오류 발생</b><br>${e.message}<br><br>
         <pre style="font-size:.72rem;color:var(--text-dim);white-space:pre-wrap;">${e.stack||''}</pre>
       </div>`;
+    }
+    // ── 렌더링 완료 후 현재 언어로 번역 적용 (루프 방지: _skipRender=true) ──
+    if (typeof applyLang === 'function') {
+      const lang = (typeof _getCurrentLang === 'function' ? _getCurrentLang() : null)
+                || localStorage.getItem('mall_lang') || 'ko';
+      applyLang(lang, true);  // true = _renderPage에서 호출, 재렌더링 루프 방지
     }
   }
 
