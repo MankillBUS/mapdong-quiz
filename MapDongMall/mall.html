@@ -430,13 +430,7 @@ img{max-width:100%;}
       🛒 <span class="hide-sm" data-i18n="btn_cart">장바구니</span>
       <span class="cart-badge" id="cart-badge">0</span>
     </button>
-    <button id="btn-admin-panel" style="display:none" onclick="
-  console.log('[Admin Click] Mall존재:', typeof Mall);
-  console.log('[Admin Click] Mall.sb:', typeof Mall?.sb);
-  console.log('[Admin Click] AdminPanel존재:', typeof AdminPanel);
-  console.log('[Admin Click] AdminPanel.init:', typeof AdminPanel?.init);
-  try { Mall.goAdmin(); } catch(e) { console.error('[Admin Click] 오류:', e); }
-"><span data-i18n="btn_admin">⚙️ 관리자</span></button>
+    <button id="btn-admin-panel" style="display:none" onclick="Mall.goAdmin()"><span data-i18n="btn_admin">⚙️ 관리자</span></button>
     <button class="hbtn" onclick="Mall.exit()" title="처음으로 돌아가기"><span data-i18n="btn_exit">← 나가기</span></button>
   </div>
 </header>
@@ -504,5 +498,22 @@ img{max-width:100%;}
 <script src="mall_i18n.js"></script>
 <script src="mall.js"></script>
 <script src="mall-admin.js"></script>
+<script>
+// ── 전체 초기화 ──────────────────────────────────────────
+// 1. mall_i18n.js 로드 완료
+// 2. mall.js (Mall 객체) 로드 완료  
+// 3. mall-admin.js (AdminPanel 객체) 로드 완료
+// 4. 여기서 Mall.init() 실행
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('[Mall] DOMContentLoaded 실행');
+  console.log('[Mall] Mall 객체 존재:', typeof Mall !== 'undefined');
+  console.log('[Mall] AdminPanel 객체 존재:', typeof AdminPanel !== 'undefined');
+  if (typeof Mall !== 'undefined' && typeof Mall.init === 'function') {
+    Mall.init();
+  } else {
+    console.error('[Mall] Mall.init을 찾을 수 없습니다!');
+  }
+});
+</script>
 </body>
 </html>
