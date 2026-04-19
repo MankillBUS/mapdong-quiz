@@ -927,7 +927,7 @@ const AdminPanel = (() => {
     const { data } = await getSb().from('mall_orders').select('*').in('status',['return_requested','return_reviewing','return_shipping','return_completed']).order('updated_at',{ascending:false});
     el.innerHTML = `
     <div class="ap-hd"><div><h2 data-i18n="nav_returns">🔄 반품 관리</h2><p data-i18n="ret_desc">반품 요청 처리, 반품배송비 청구, 반품 완료를 관리합니다.</p></div></div>
-    ${(data||[]).length===0?'<div style="text-align:center;padding:60px;color:var(--text-dim);">${t('no_returns')}</div>':
+    ${(data||[]).length===0?`<div style="text-align:center;padding:60px;color:var(--text-dim);">${t('no_returns')}</div>`:
     `<div class="tbl-wrap">
       <table class="atbl">
         <thead><tr><th data-i18n="th_ordno">주문번호</th><th>고객</th><th data-i18n="th_reason">반품사유</th><th data-i18n="th_return_tracking">고객 운송장</th><th data-i18n="th_status">상태</th><th data-i18n="th_return_fee">반품배송비</th><th data-i18n="th_process">처리</th></tr></thead>
@@ -990,7 +990,7 @@ const AdminPanel = (() => {
     const { data } = await getSb().from('mall_inquiries').select('*').eq('is_visible',true).order('created_at',{ascending:false});
     el.innerHTML = `
     <div class="ap-hd"><div><h2 data-i18n="nav_inquiries">❓ 1:1 문의</h2><p data-i18n="inq_desc">고객 문의에 답변합니다. 미답변 항목이 배지로 표시됩니다.</p></div></div>
-    ${(data||[]).length===0?'<div style="text-align:center;padding:60px;color:var(--text-dim);">${t('no_inquiries')}</div>':
+    ${(data||[]).length===0?`<div style="text-align:center;padding:60px;color:var(--text-dim);">${t('no_inquiries')}</div>`:
     (data||[]).map(q=>`
     <div class="form-sec" style="margin-bottom:12px;${!q.answer?'border-color:var(--accent2);':''}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
