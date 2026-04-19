@@ -391,9 +391,9 @@ const Mall = (() => {
     _cart = data || [];
   }
   async function addToCart(productId) {
-    if (!_user) { toast('로그인이 필요합니다.', 'error'); return; }
+    if (!_user) { toast(t('toast_login_required'), 'error'); return; }
     const p = window._mallDetailProduct;
-    if (!p || p.stock <= 0) { toast('품절된 상품입니다.', 'error'); return; }
+    if (!p || p.stock <= 0) { toast(t('toast_out_of_stock'), 'error'); return; }
 
     const optSnap = _getOptionSnapshot();
     const existing = _cart.find(c => c.product_id === productId && JSON.stringify(c.option_snapshot) === JSON.stringify(optSnap));
@@ -411,7 +411,7 @@ const Mall = (() => {
       if (data) _cart.push(data);
     }
     _updateCartBadge();
-    toast('장바구니에 추가했습니다 🛒', 'success');
+    toast(t('toast_added_cart'), 'success');
   }
 
   function _getOptionSnapshot() {
@@ -507,7 +507,7 @@ const Mall = (() => {
   // ── 주문서 ──────────────────────────────────────────────────
   async function goCheckout() {
     closeCart();
-    if (!_cart.length) { toast('장바구니가 비어있습니다.', 'error'); return; }
+    if (!_cart.length) { toast(t('toast_cart_empty'), 'error'); return; }
     showPage('checkout');
     const page = document.getElementById('page-checkout');
 
@@ -586,9 +586,9 @@ const Mall = (() => {
   }
 
   async function buyNow(productId) {
-    if (!_user) { toast('로그인이 필요합니다.', 'error'); return; }
+    if (!_user) { toast(t('toast_login_required'), 'error'); return; }
     const p = window._mallDetailProduct;
-    if (!p || p.stock <= 0) { toast('품절된 상품입니다.', 'error'); return; }
+    if (!p || p.stock <= 0) { toast(t('toast_out_of_stock'), 'error'); return; }
     _cart = [];
     await sb.from('mall_cart').delete().eq('user_id', _user.id);
     await addToCart(productId);
@@ -600,7 +600,7 @@ const Mall = (() => {
     const name = document.getElementById('co-name')?.value.trim();
     const phone = document.getElementById('co-phone')?.value.trim();
     const addr = document.getElementById('co-addr')?.value.trim();
-    if (!name || !phone || !addr) { toast('배송지 정보를 모두 입력해주세요.', 'error'); return; }
+    if (!name || !phone || !addr) { toast(t('toast_fill_addr'), 'error'); return; }
 
     const orderId = `MALL-${Date.now()}-${Math.random().toString(36).slice(2,7).toUpperCase()}`;
     _tossOrderId = orderId;
@@ -679,7 +679,7 @@ const Mall = (() => {
       origin_snapshot: _settings.origin,
     }).select().single();
 
-    if (!order) { toast('주문 생성에 실패했습니다.', 'error'); return; }
+    if (!order) { toast(t('toast_order_fail'), 'error'); return; }
 
     // 주문 상품 삽입 + 재고 차감
     for (const item of _cart) {
@@ -756,20 +756,20 @@ const Mall = (() => {
     const reason = prompt('반품 사유를 입력해주세요:');
     if (!reason) return;
     await sb.from('mall_orders').update({ status: 'return_requested', return_reason: reason }).eq('id', orderId);
-    toast('반품 요청이 접수됐습니다.', 'success');
+    toast(t('toast_return_req'), 'success');
     goMyOrders();
   }
   async function inputReturnTracking(orderId) {
     const no = prompt('반품 택배 운송장 번호를 입력해주세요:');
     if (!no) return;
     await sb.from('mall_orders').update({ status: 'return_reviewing', return_tracking_no: no }).eq('id', orderId);
-    toast('반품 심사 중입니다.', 'success');
+    toast(t('toast_return_review'), 'success');
     goMyOrders();
   }
   async function confirmPurchase(orderId) {
     if (!confirm('구매를 확정하시겠습니까?')) return;
     await sb.from('mall_orders').update({ status: 'confirmed' }).eq('id', orderId);
-    toast('구매 확정 완료!', 'success');
+    toast(t('toast_confirm_done'), 'success');
     goMyOrders();
   }
   async function payReturnFee(orderId, fee) {
@@ -795,26 +795,13 @@ const Mall = (() => {
     const content = prompt('문의 내용:');
     if (!title || !content) return;
     await sb.from('mall_inquiries').insert({ product_id: productId, user_id: _user?.id, nickname: _profile?.nickname, title, content });
-    toast('문의가 등록됐습니다.', 'success');
+    toast(t('toast_inquiry_done'), 'success');
     _loadInquiries(productId);
   }
 
-  // ── 번역 ────────────────────────────────────────────────────
+  // ── 번역 — mall_i18n.js의 applyLang() 위임 ─────────────────
   function translate(lang) {
-    document.querySelectorAll('.tbtn').forEach(b => b.classList.remove('active'));
-    event.target.classList.add('active');
-    if (lang === 'ko') {
-      // 원본 복원
-      const frame = document.querySelector('.goog-te-banner-frame');
-      if (frame) frame.style.display = 'none';
-      const combo = document.querySelector('.goog-te-combo');
-      if (combo) { combo.value = ''; combo.dispatchEvent(new Event('change')); }
-      document.body.style.top = '';
-      return;
-    }
-    const combo = document.querySelector('.goog-te-combo');
-    if (combo) { combo.value = lang; combo.dispatchEvent(new Event('change')); }
-    else { toast('번역 준비 중입니다. 잠시 후 다시 시도하세요.', 'info'); }
+    if (typeof applyLang === 'function') applyLang(lang);
   }
 
   // ── 검색 ────────────────────────────────────────────────────
@@ -840,13 +827,13 @@ const Mall = (() => {
   // ── 상태 표시 ────────────────────────────────────────────────
   function _statusLabel(s) {
     const map = {
-      paid:'결제완료', preparing:'배송준비중', shipping:'배송중',
-      delivered:'배송완료', confirmed:'구매확정',
-      return_requested:'반품요청', return_reviewing:'반품심사중',
-      return_shipping:'반품배송중', return_completed:'반품완료',
-      cancelled:'취소'
+      paid:'status_paid', preparing:'status_preparing', shipping:'status_shipping',
+      delivered:'status_delivered', confirmed:'status_confirmed',
+      return_requested:'status_return_req', return_reviewing:'status_return_review',
+      return_shipping:'status_return_ship', return_completed:'status_return_done',
+      cancelled:'status_cancelled'
     };
-    return map[s] || s;
+    return map[s] ? t(map[s]) : s;
   }
 
   // ── 유틸 ─────────────────────────────────────────────────────
@@ -870,7 +857,7 @@ const Mall = (() => {
       handlePaymentSuccess(params.get('paymentKey'), params.get('orderId'), params.get('amount'));
       history.replaceState({}, '', 'mall.html');
     } else if (params.get('payment') === 'fail') {
-      toast('결제가 취소됐습니다.', 'error');
+      toast(t('toast_pay_cancel'), 'error');
       history.replaceState({}, '', 'mall.html');
     }
   }
