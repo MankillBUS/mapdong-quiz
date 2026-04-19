@@ -37,19 +37,34 @@ const Mall = (() => {
   }
 
   async function _loadSession() {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) { window.location.href = '../index.html'; return; }
-    _user = session.user;
-    const { data } = await sb.from('user_profiles').select('*').eq('user_id', _user.id).single();
-    _profile = data;
-    // 프리미엄 체크
-    if (_profile?.role !== 'admin') {
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) { window.location.href = '../index.html'; return; }
+      _user = session.user;
+
+      // user_profiles 로드 (에러 상세 로깅)
+      const { data, error } = await sb.from('user_profiles').select('*').eq('user_id', _user.id).single();
+      if (error) {
+        console.error('[Mall] user_profiles 로드 실패:', error);
+      }
+      _profile = data;
+      console.log('[Mall] profile 로드:', _profile?.nickname, '| role:', _profile?.role);
+
+      // 관리자는 프리미엄 체크 생략
+      if (_profile?.role === 'admin') {
+        console.log('[Mall] 관리자 계정 확인');
+        return;
+      }
+
+      // 프리미엄 체크
       const now = new Date();
       const end = _profile?.premium_until ? new Date(_profile.premium_until) : null;
       if (!end || now > end) {
         toast('프리미엄 회원 전용 서비스입니다.', 'error');
         setTimeout(() => { window.location.href = '../index.html'; }, 2000);
       }
+    } catch(e) {
+      console.error('[Mall] _loadSession 오류:', e);
     }
   }
 
@@ -65,8 +80,13 @@ const Mall = (() => {
   }
 
   function _checkAdmin() {
+    console.log('[Mall] _checkAdmin 실행 | role:', _profile?.role);
+    const btn = document.getElementById('btn-admin-panel');
     if (_profile?.role === 'admin') {
-      document.getElementById('btn-admin-panel').style.display = '';
+      if (btn) btn.style.display = '';
+      console.log('[Mall] 관리자 버튼 표시');
+    } else {
+      if (btn) btn.style.display = 'none';
     }
   }
 
