@@ -486,7 +486,7 @@ function t(key) {
 }
 
 // ── applyLang(lang) — DOM 전체 텍스트 즉시 교체 ────────────────
-function applyLang(lang) {
+function applyLang(lang, _skipRender) {
   _currentLang = lang;
 
   // data-i18n="key" → textContent 교체
@@ -510,16 +510,22 @@ function applyLang(lang) {
     b.classList.toggle('active', b.dataset.lang === lang);
   });
 
-  // 관리자 패널이 열려있으면 현재 페이지 재렌더링
-  const adminEl = document.getElementById('page-admin');
-  if (adminEl && adminEl.style.display === 'block' &&
-      typeof AdminPanel !== 'undefined' && AdminPanel._renderPage) {
-    AdminPanel._renderPage(AdminPanel._currentPage || 'dashboard');
+  // 관리자 패널이 열려있고 사용자가 언어를 직접 변경한 경우에만 재렌더링
+  // (_skipRender=true면 _renderPage에서 호출된 것이므로 루프 방지)
+  if (!_skipRender) {
+    const adminEl = document.getElementById('page-admin');
+    if (adminEl && adminEl.style.display === 'block' &&
+        typeof AdminPanel !== 'undefined' && AdminPanel._renderPage) {
+      AdminPanel._renderPage(AdminPanel._currentPage || 'dashboard');
+    }
   }
 
   // 재방문 시 언어 유지
   try { localStorage.setItem('mall_lang', lang); } catch(e) {}
 }
+
+// 현재 언어 반환 함수 (mall-admin.js에서 사용)
+function _getCurrentLang() { return _currentLang; }
 
 // ── 초기 언어 복원 ──────────────────────────────────────────────
 (function initLang() {
