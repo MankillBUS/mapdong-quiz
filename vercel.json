@@ -22,6 +22,10 @@
     { "src": "/naverd74e0774a3bb384baca98d24f92dfb30.html", "dest": "/naverd74e0774a3bb384baca98d24f92dfb30.html" },
     { "src": "/workmode",                                   "dest": "/gps/index.js"                               },
     { "src": "/gps/(.*)",                                   "dest": "/gps/$1"                                     },
+    { "src": "/MapDongMall/mall.html",                      "dest": "/MapDongMall/mall.html"                      },
+    { "src": "/MapDongMall/mall.js",                        "dest": "/MapDongMall/mall.js"                        },
+    { "src": "/MapDongMall/mall-admin.js",                  "dest": "/MapDongMall/mall-admin.js"                  },
+    { "src": "/MapDongMall/(.*)",                           "dest": "/MapDongMall/$1"                             },
     { "src": "/(.*)",                                       "dest": "/index.html"                                 }
   ]
 }
