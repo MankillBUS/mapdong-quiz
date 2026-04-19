@@ -56,6 +56,7 @@ const MALL_I18N = {
     nav_orders:'📋 전체 주문',nav_returns:'🔄 반품 관리',nav_inquiries:'❓ 1:1 문의',
     nav_reviews:'⭐ 후기 관리',nav_blacklist:'🚫 블랙리스트',
     nav_settings_ship:'🚚 배송·원산지',nav_settings_shop:'🏪 쇼핑몰 설정',
+    admin_edit_product:'✏️ 상품 수정',admin_refresh:'🔄 새로고침',admin_save:'💾 저장',admin_cancel:'취소',admin_delete:'삭제',admin_edit:'수정',admin_hide:'숨김',admin_show:'노출',admin_reply:'답변 등록',admin_add_bl:'🚫 블랙리스트 추가',admin_release:'해제',admin_free_return:'무료 처리',admin_charge:'청구',admin_complete_return:'반품 완료',admin_status_change:'상태 변경',admin_tracking_input:'운송장 입력',admin_order_detail:'상세',admin_today_sales:'오늘 매출',admin_week_sales:'최근 7일',admin_month_sales:'이번 달',admin_total_orders:'전체 주문',admin_pending:'처리 대기',admin_low_stock:'재고 부족',admin_top5:'🏆 판매 Top 5',admin_recent7:'📅 최근 7일 매출',
   },
   en: {
     search_placeholder:'Search products...',btn_myorder:'Orders',btn_cart:'Cart',
@@ -109,6 +110,7 @@ const MALL_I18N = {
     nav_orders:'📋 All Orders',nav_returns:'🔄 Returns',nav_inquiries:'❓ Inquiries',
     nav_reviews:'⭐ Reviews',nav_blacklist:'🚫 Blacklist',
     nav_settings_ship:'🚚 Shipping & Origin',nav_settings_shop:'🏪 Shop Settings',
+    admin_edit_product:'✏️ Edit Product',admin_refresh:'🔄 Refresh',admin_save:'💾 Save',admin_cancel:'Cancel',admin_delete:'Delete',admin_edit:'Edit',admin_hide:'Hide',admin_show:'Show',admin_reply:'Post Reply',admin_add_bl:'🚫 Add Blacklist',admin_release:'Remove',admin_free_return:'Free Return',admin_charge:'Charge',admin_complete_return:'Complete Return',admin_status_change:'Change Status',admin_tracking_input:'Enter Tracking',admin_order_detail:'Detail',admin_today_sales:"Today's Sales",admin_week_sales:'Last 7 Days',admin_month_sales:'This Month',admin_total_orders:'Total Orders',admin_pending:'Pending',admin_low_stock:'Low Stock',admin_top5:'🏆 Top 5 Products',admin_recent7:'📅 Last 7 Days',
   },
   ja: {
     search_placeholder:'商品を検索...',btn_myorder:'注文履歴',btn_cart:'カート',
@@ -162,6 +164,7 @@ const MALL_I18N = {
     nav_orders:'📋 全注文',nav_returns:'🔄 返品管理',nav_inquiries:'❓ お問い合わせ',
     nav_reviews:'⭐ レビュー管理',nav_blacklist:'🚫 ブラックリスト',
     nav_settings_ship:'🚚 配送・原産地',nav_settings_shop:'🏪 ショップ設定',
+    admin_edit_product:'✏️ 商品編集',admin_refresh:'🔄 更新',admin_save:'💾 保存',admin_cancel:'キャンセル',admin_delete:'削除',admin_edit:'編集',admin_hide:'非表示',admin_show:'表示',admin_reply:'返答登録',admin_add_bl:'🚫 ブラックリスト追加',admin_release:'解除',admin_free_return:'無料処理',admin_charge:'請求',admin_complete_return:'返品完了',admin_status_change:'状態変更',admin_tracking_input:'追跡番号入力',admin_order_detail:'詳細',admin_today_sales:'本日売上',admin_week_sales:'過去7日間',admin_month_sales:'今月',admin_total_orders:'全注文',admin_pending:'処理待ち',admin_low_stock:'在庫不足',admin_top5:'🏆 販売Top 5',admin_recent7:'📅 最近7日間',
   },
   th: {
     search_placeholder:'ค้นหาสินค้า...',btn_myorder:'ประวัติคำสั่งซื้อ',btn_cart:'ตะกร้า',
@@ -215,6 +218,7 @@ const MALL_I18N = {
     nav_orders:'📋 คำสั่งซื้อทั้งหมด',nav_returns:'🔄 จัดการคืนสินค้า',nav_inquiries:'❓ คำถาม',
     nav_reviews:'⭐ รีวิว',nav_blacklist:'🚫 บัญชีดำ',
     nav_settings_ship:'🚚 การจัดส่ง & ต้นกำเนิด',nav_settings_shop:'🏪 ตั้งค่าร้านค้า',
+    admin_edit_product:'✏️ แก้ไขสินค้า',admin_refresh:'🔄 รีเฟรช',admin_save:'💾 บันทึก',admin_cancel:'ยกเลิก',admin_delete:'ลบ',admin_edit:'แก้ไข',admin_hide:'ซ่อน',admin_show:'แสดง',admin_reply:'ส่งคำตอบ',admin_add_bl:'🚫 เพิ่มบัญชีดำ',admin_release:'ลบออก',admin_free_return:'คืนฟรี',admin_charge:'เรียกเก็บ',admin_complete_return:'คืนสินค้าเสร็จ',admin_status_change:'เปลี่ยนสถานะ',admin_tracking_input:'กรอกเลขพัสดุ',admin_order_detail:'รายละเอียด',admin_today_sales:'ยอดขายวันนี้',admin_week_sales:'7 วันล่าสุด',admin_month_sales:'เดือนนี้',admin_total_orders:'คำสั่งซื้อทั้งหมด',admin_pending:'รอดำเนินการ',admin_low_stock:'สต็อกต่ำ',admin_top5:'🏆 Top 5',admin_recent7:'📅 ยอดขาย 7 วัน',
   }
 };
 
@@ -248,10 +252,17 @@ function applyLang(lang) {
     el.placeholder = t(el.getAttribute('data-i18n-ph'));
   });
 
-  // 번역 버튼 active 토글
+  // 번역 버튼 active 토글 (헤더 + 관리자 패널 모두)
   document.querySelectorAll('.tbtn').forEach(b => {
     b.classList.toggle('active', b.dataset.lang === lang);
   });
+
+  // 관리자 패널이 열려있으면 현재 페이지 재렌더링
+  const adminEl = document.getElementById('page-admin');
+  if (adminEl && adminEl.style.display === 'block' &&
+      typeof AdminPanel !== 'undefined' && AdminPanel._renderPage) {
+    AdminPanel._renderPage(AdminPanel._currentPage || 'dashboard');
+  }
 
   // 재방문 시 언어 유지
   try { localStorage.setItem('mall_lang', lang); } catch(e) {}
