@@ -848,15 +848,33 @@ const Mall = (() => {
   // ── 페이지 이동 ──────────────────────────────────────────────
   function goHome() { showPage('main'); loadProducts(_currentCat, _searchQuery); }
   async function goAdmin() {
-    showPage('admin');
-    // 즉시 로딩 표시
+    // 1. 먼저 모든 페이지 숨기기
+    ['mall-main','page-detail','page-checkout','page-myorder'].forEach(id => {
+      const e = document.getElementById(id);
+      if (e) e.style.display = 'none';
+    });
+    document.getElementById('mall-cats').style.display = 'none';
+
+    // 2. page-admin 명시적으로 표시
     const el = document.getElementById('page-admin');
-    if (el) el.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-dim);">관리자 패널 로딩 중...</div>';
+    if (el) {
+      el.style.display = 'block';
+      el.style.visibility = 'visible';
+      el.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-dim);">⚙️ 관리자 패널 로딩 중...</div>';
+    }
+
+    // 3. AdminPanel 초기화
     try {
       await AdminPanel.init();
     } catch(e) {
       console.error('[Mall] AdminPanel.init 오류:', e);
-      if (el) el.innerHTML = `<div style="padding:40px;color:var(--accent2);">관리자 패널 오류: ${e.message}<br><br><pre style="font-size:.75rem;color:var(--text-dim);">${e.stack||''}</pre></div>`;
+      if (el) el.innerHTML = `<div style="padding:40px;color:var(--accent2);font-size:.9rem;">관리자 패널 오류: ${e.message}<br><br><pre style="font-size:.72rem;color:var(--text-dim);white-space:pre-wrap;">${e.stack||''}</pre></div>`;
+    }
+
+    // 4. init 완료 후 다시 한번 강제 표시 (혹시 숨겨진 경우 대비)
+    if (el) {
+      el.style.display = 'block';
+      el.style.visibility = 'visible';
     }
   }
   function exit() { window.location.href = '../index.html'; }
