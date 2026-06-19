@@ -31,6 +31,11 @@ let _fanR2       = 0.8;
 let _dongLayers     = [];
 let _dongVisible    = false;
 
+// 동/구 '디스크립터' 레지스트리 (lazy build의 원천)
+//   각 항목: { name, kind:'dong'|'gu', label, lat, lng, dong?|guGeo?, poly?, marker?, _built? }
+//   실제 Leaflet 레이어(poly/marker)는 화면에 필요할 때만 _wmRenderDongs()가 생성
+let _dongRegistry   = [];
+
 // dong이름 → utype 매핑 (정규식 정리용)
 // { "서초1동": "동", "화전읍": "읍", ... }
 let _dongNameMap    = {};
@@ -217,6 +222,10 @@ function initWorkMode(leafletMap) {
   };
   _map.on('click', _wmClickFn);
 
+  // 시야 기준 컬링: 교차필터 OFF일 때 "보이는 시야 + 30%"만 렌더
+  _wmViewportCullFn = function() { _wmScheduleViewportCull(); };
+  _map.on('moveend zoomend', _wmViewportCullFn);
+
   // ── 그리기 모드: 지도 컨테이너에 마우스/터치 이벤트 바인딩 ──────
   _wmBindDrawEvents();
 
@@ -252,6 +261,13 @@ function exitWorkMode() {
     _wmClickFn = null;
   }
 
+  // 시야 컬링 리스너/타이머 정리
+  if (_map && _wmViewportCullFn) {
+    try { _map.off('moveend zoomend', _wmViewportCullFn); } catch(e) {}
+    _wmViewportCullFn = null;
+  }
+  if (_wmViewportCullTimer) { clearTimeout(_wmViewportCullTimer); _wmViewportCullTimer = null; }
+
   // 탭 전환 핸들러 제거
   if (_wmVisibilityFn) {
     document.removeEventListener('visibilitychange', _wmVisibilityFn);
@@ -266,6 +282,7 @@ function exitWorkMode() {
   _autoCopy     = false;
   _prevResult   = '';
   _dongLayers    = [];
+  _dongRegistry  = [];
   _dongVisible   = false;
   _dongNameMap   = {};
   _dongFilterMode = false;
@@ -393,9 +410,7 @@ function _wmSwitchMode(mode) {
   if (mode === 'draw' || mode === 'circle') {
     _resultSet = new Set();
     if (_dongVisible) {
-      _dongLayers.forEach(function(layer) {
-        _wmSetLayerVisible(layer, false);
-      });
+      _wmRenderDongs();
     }
     _wmUpdateUI();
   }
@@ -431,9 +446,7 @@ function _wmResetModeShapes(mode) {
   if (mode === 'draw' || mode === 'circle') {
     _resultSet = new Set();
     if (_dongVisible) {
-      _dongLayers.forEach(function(layer) {
-        _wmSetLayerVisible(layer, false);
-      });
+      _wmRenderDongs();
     }
     _wmUpdateUI();
     if (mode === 'draw') _wmHideResult(); // 그리기만 결과창 고정
@@ -500,15 +513,16 @@ function _wmOnGpsUpdate(pos) {
       _wmRebuildAll();
       _wmRunIntersect();
     }
-    // 동/구 표시 복원
-    if (r.dongVisible && !_dongVisible) {
-      _wmToggleShowDong();
-    }
-    // 교차만 복원
+    // 교차만 상태 먼저 확정 (동/구 표시 빌드 시 교차/시야 분기를 정확히 타도록)
     if (r.dongFilter) {
       _dongFilterMode = true;
       setDongFilterBtn(true);
-      if (_dongVisible) _wmApplyDongFilter();
+    }
+    // 동/구 표시 복원 (_wmToggleShowDong 내부에서 교차/시야 분기 적용)
+    if (r.dongVisible && !_dongVisible) {
+      _wmToggleShowDong();
+    } else if (_dongVisible) {
+      _wmRenderDongs();   // 이미 표시 중이면 현재 상태(교차/시야)대로 재정리
     }
     _wmUpdateUI();
     return;
@@ -545,14 +559,14 @@ function _wmInitDefaultFan(pos) {
   // 부채꼴 생성
   _wmRebuildAll();
 
-  // 동/구 표시 ON
+  // 교차만 ON (동/구 표시 빌드 전에 먼저 켜서 전체 렌더/불필요한 시야컬링 방지)
+  _dongFilterMode = true;
+  setDongFilterBtn(true);
+
+  // 동/구 표시 ON → _wmToggleShowDong 내부 훅이 교차필터를 자동 적용
   if (!_dongVisible) {
     _wmToggleShowDong();
-  }
-  // 교차만 ON
-  if (!_dongFilterMode) {
-    _dongFilterMode = true;
-    setDongFilterBtn(true);
+  } else {
     _wmApplyDongFilter();
   }
 
@@ -902,97 +916,64 @@ function _wmToggleShowDong() {
   var dongs = _getActiveDongs();
   if (!dongs.length) { alert('선택된 지역이 없습니다.'); return; }
 
-  // [문제1,2] 퀴즈모드 toggleShowAll과 동일한 렌더링 로직
-  if (typeof isGuQuizMode !== 'undefined' && isGuQuizMode) {
-    // ── 구 모드: 구 폴리곤 + 구 이름 ──────────────────────────
-    var done = new Set();
-    dongs.forEach(function(dong) {
-      var isNoGu = !dong.gu || dong.gu === dong.rn;
+  // ── [최적화] 레이어를 미리 만들지 않고 '디스크립터'만 수집 ──────────
+  //   실제 L.geoJSON/L.marker 생성은 _wmRenderDongs()가
+  //   화면에 필요한 것(시야 + 30% 또는 교차된 것)만 그때그때 한다.
+  //   → 수천 개 지역을 한꺼번에 그릴 때의 초기 멈춤(freeze) 제거
+  //   (gu 모드의 구 폴리곤은 중복 제거, 마커 스타일은 기존과 동일)
+  _dongRegistry = [];
+  var seen = new Set();
+  var isGu = (typeof isGuQuizMode !== 'undefined' && isGuQuizMode);
 
-      if (isNoGu) {
-        // 구 없는 도시 → 동 폴리곤
-        var node = getDongGeo(dong.rn, dong.gu, dong.d);
-        if (!node) return;
-        var geo = (typeof _geo === 'function') ? _geo(node) : null;
-        if (!geo && node.geometry) geo = node.geometry;
-        if (geo) {
-          var lyr = _wmDrawPolygon(geo, '#a29bfe', 0.18);
-          if (lyr) {
-            lyr._wmDongName = dong.rn + '|' + (dong.gu && dong.gu !== dong.rn ? dong.gu : '') + '|' + dong.d;
-            _dongLayers.push(lyr);
-          }
-        }
-        var mk = L.marker([dong.lat, dong.lng], { icon: L.divIcon({
-          className: '',
-          iconAnchor: [0, 0],
-          html: '<div style="display:inline-block;background:rgba(162,155,254,.92);color:#000;padding:3px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;">' + dong.d + '</div>'
-        })}).addTo(_map);
-        mk._wmDongName = dong.rn + '|' + (dong.gu && dong.gu !== dong.rn ? dong.gu : '') + '|' + dong.d;
-        _dongLayers.push(mk);
+  dongs.forEach(function(dong) {
+    var isNoGu = !dong.gu || dong.gu === dong.rn;
 
-      } else {
-        // 구 있는 도시 → 구 폴리곤 (중복 제거)
-        var gk = dong.rn + '|' + dong.gu;
-        if (done.has(gk)) return;
-        done.add(gk);
-        var guGeo = (typeof getGuGeo === 'function') ? getGuGeo(dong.rn, dong.gu) : null;
-        if (!guGeo) return;
-        var lyr2 = _wmDrawPolygon(guGeo, '#a29bfe', 0.18);
-        if (lyr2) {
-          lyr2._wmDongName = dong.rn + '|' + dong.gu + '|';
-          _dongLayers.push(lyr2);
-        }
-        var ctr = (typeof getCenter === 'function') ? getCenter(guGeo) : null;
-        if (ctr) {
-          var mk2 = L.marker([ctr[0], ctr[1]], { icon: L.divIcon({
-            className: '',
-            iconAnchor: [0, 0],
-            html: '<div style="display:inline-block;background:rgba(162,155,254,.92);color:#000;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">' + dong.gu + '</div>'
-          })}).addTo(_map);
-          mk2._wmDongName = dong.rn + '|' + dong.gu + '|';
-          _dongLayers.push(mk2);
-        }
-      }
-    });
-
-  } else {
-    // ── 동 모드: 동 폴리곤 + 동 이름 ──────────────────────────
-    dongs.forEach(function(dong) {
-      var node = getDongGeo(dong.rn, dong.gu, dong.d);
-      if (!node) return;
-      var geo = (typeof _geo === 'function') ? _geo(node) : null;
-      if (!geo && node.geometry) geo = node.geometry;
-      if (geo) {
-        var lyr = _wmDrawPolygon(geo, '#a29bfe', 0.18);
-        if (lyr) {
-          lyr._wmDongName = dong.rn + '|' + (dong.gu && dong.gu !== dong.rn ? dong.gu : '') + '|' + dong.d;
-          _dongLayers.push(lyr);
-        }
-      }
-      var mk = L.marker([dong.lat, dong.lng], { icon: L.divIcon({
-        className: '',
-        iconAnchor: [0, 0],
-        html: '<div style="display:inline-block;background:rgba(162,155,254,.92);color:#000;padding:3px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;">' + dong.d + '</div>'
-      })}).addTo(_map);
-      mk._wmDongName = dong.rn + '|' + (dong.gu && dong.gu !== dong.rn ? dong.gu : '') + '|' + dong.d;
-      _dongLayers.push(mk);
-    });
-  }
+    if (isGu && !isNoGu) {
+      // 구 있는 도시(구 모드) → 구 폴리곤 (중복 제거)
+      var gk = dong.rn + '|' + dong.gu;
+      if (seen.has(gk)) return;
+      seen.add(gk);
+      var guGeo = (typeof getGuGeo === 'function') ? getGuGeo(dong.rn, dong.gu) : null;
+      if (!guGeo) return;
+      var ctr = (typeof getCenter === 'function') ? getCenter(guGeo) : null;
+      _dongRegistry.push({
+        name:  dong.rn + '|' + dong.gu + '|',
+        kind:  'gu',
+        label: dong.gu,
+        lat:   ctr ? ctr[0] : dong.lat,
+        lng:   ctr ? ctr[1] : dong.lng,
+        guGeo: guGeo
+      });
+    } else {
+      // 동 모드, 또는 구 없는 도시 → 동/읍/면/리 폴리곤
+      _dongRegistry.push({
+        name:  dong.rn + '|' + (dong.gu && dong.gu !== dong.rn ? dong.gu : '') + '|' + dong.d,
+        kind:  'dong',
+        label: dong.d,
+        lat:   dong.lat,
+        lng:   dong.lng,
+        dong:  dong
+      });
+    }
+  });
 
   _dongVisible = true;
   setShowDongBtn(true);
 
-  // 재표시 시 교차필터 모드였으면 자동 적용
-  if (_dongFilterMode) {
-    _wmApplyDongFilter();
-  }
+  // 화면에 필요한 동/구만 생성·표시 (교차필터 ON/OFF + 시야 분기는 내부에서)
+  _wmRenderDongs();
 }
 
 function _wmClearDongLayers() {
-  _dongLayers.forEach(function(l) {
-    try { _map.removeLayer(l); } catch(e) {}
+  _dongRegistry.forEach(function(entry) {
+    if (entry.poly)   { try { _map.removeLayer(entry.poly); }   catch(e) {} }
+    if (entry.marker) { try { _map.removeLayer(entry.marker); } catch(e) {} }
+    entry.poly   = null;
+    entry.marker = null;
+    entry._built = false;
   });
-  _dongLayers = [];
+  _dongRegistry = [];
+  _dongLayers   = [];   // 호환용(미사용)
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1319,12 +1300,11 @@ function _wmClearShapesOnly() {
   // 교차 결과 초기화
   _resultSet = new Set();
 
-  // 교차 필터 해제 → 모든 동/구 레이어 숨기기
-  // ⚠️ setStyle(opacity:0) 금지 — display:none 방식(_wmSetLayerVisible)으로 통일
+  // 도형 초기화 후 동/구 표시 재정리 (단일 진입점)
+  //   - 교차필터 ON : _resultSet 비었으므로 전부 사라짐
+  //   - 교차필터 OFF: "시야 + 30%" 안의 동/구는 계속 표시(동/구 표시 ON 유지)
   if (_dongVisible) {
-    _dongLayers.forEach(function(layer) {
-      _wmSetLayerVisible(layer, false);
-    });
+    _wmRenderDongs();
   }
 
   // ── 모드 상태 완전 기본값 복귀 (선모드/부채꼴/그리기/원형 추가버튼 전부 숨김)
@@ -1362,11 +1342,9 @@ function _wmToggleDongFilter() {
   _dongFilterMode = !_dongFilterMode;
   setDongFilterBtn(_dongFilterMode);
 
-  if (_dongFilterMode) {
-    _wmApplyDongFilter();
-  } else {
-    _wmShowAllDongLayers();
-  }
+  // 교차필터 ON/OFF 모두 단일 진입점이 알맞게 렌더
+  //   ON  → _resultSet(교차된 것)만, OFF → "보이는 시야 + 30%"만
+  _wmRenderDongs();
 }
 
 /**
@@ -1384,16 +1362,8 @@ function _wmToggleDongFilter() {
  *   - 마커(L.Marker):    getElement().style.display
  */
 function _wmApplyDongFilter() {
-  if (!_dongVisible || !_dongLayers.length) return;
-
-  // 폴리곤과 마커 모두 _wmDongName(uniqueName)이 있으므로 직접 비교
-  // uniqueName = "도시명|구명|동명" → 도시별 정확한 교차 판정
-  _dongLayers.forEach(function(layer) {
-    var name = layer._wmDongName;
-    if (!name) return;  // 이름 없는 레이어는 건너뜀
-    var show = _resultSet.has(name);
-    _wmSetLayerVisible(layer, show);
-  });
+  // 교차된 동/구만 표시 (시야 무관). 실제 표시/생성은 단일 진입점이 처리
+  _wmRenderDongs();
 }
 
 /**
@@ -1450,9 +1420,115 @@ function _wmSetLayerVisible(layer, show, isMarker) {
  * 모든 동/구 레이어 다시 표시 (필터 해제)
  */
 function _wmShowAllDongLayers() {
-  _dongLayers.forEach(function(layer) {
-    _wmSetLayerVisible(layer, true);
-  });
+  // 더 이상 '전부' 표시하지 않고 현재 상태(시야/교차)에 맞춰 렌더
+  _wmRenderDongs();
+}
+
+// ════════════════════════════════════════════════════════════════
+// 동/구 렌더링 — lazy build + 시야(viewport) 컬링
+//   _dongRegistry 에는 '디스크립터'만 담겨 있고(좌표·이름·소스),
+//   실제 Leaflet 레이어는 화면에 필요한 것만 _wmRenderDongs()가 생성한다.
+//     · 교차필터 OFF: "보이는 시야 + 30%(= 가로·세로 130%)" 안의 것만
+//     · 교차필터 ON : _resultSet(교차된 것)만
+//   화면 밖/비교차 항목은 아예 생성하지 않거나 제거(파기)하여,
+//   수천 개 지역을 한꺼번에 그릴 때의 초기 멈춤(freeze)과
+//   줌/이동 시 재투영(reproject) 비용을 동시에 없앤다.
+// ════════════════════════════════════════════════════════════════
+
+// 시야 확장 비율(각 변 기준). 0.15 = 상하좌우 각 15% 확장 → 가로·세로 합계 130%.
+// "각 방향으로 30%"를 원하면 0.30 으로 바꾸면 됨(= 160%).
+const _WM_VIEWPORT_PAD = 0.15;
+
+// moveend/zoomend 디바운스 타이머 & 핸들러 참조(등록/해제용)
+let _wmViewportCullTimer = null;
+let _wmViewportCullFn    = null;
+
+/**
+ * 디스크립터 → 실제 Leaflet 레이어 생성. (지도 부착은 _wmAttachEntry 담당)
+ * geometry 소스: gu → entry.guGeo, dong → getDongGeo(...) 재조회(POLY_CACHE, 저비용)
+ */
+function _wmBuildDongEntry(entry) {
+  if (entry._built) return;
+  entry._built = true;   // 부분 실패해도 무한 재시도 방지
+
+  // ── 폴리곤 ──
+  var geo = null;
+  if (entry.kind === 'gu') {
+    geo = entry.guGeo;
+  } else {
+    var node = getDongGeo(entry.dong.rn, entry.dong.gu, entry.dong.d);
+    if (node) {
+      geo = (typeof _geo === 'function') ? _geo(node) : null;
+      if (!geo && node.geometry) geo = node.geometry;
+    }
+  }
+  if (geo) {
+    var lyr = _wmDrawPolygonDetached(geo, '#a29bfe', 0.18);
+    if (lyr) { lyr._wmDongName = entry.name; entry.poly = lyr; }
+  }
+
+  // ── 라벨 마커 (kind별 스타일은 기존과 동일) ──
+  var html = (entry.kind === 'gu')
+    ? '<div style="display:inline-block;background:rgba(162,155,254,.92);color:#000;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">' + entry.label + '</div>'
+    : '<div style="display:inline-block;background:rgba(162,155,254,.92);color:#000;padding:3px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;">' + entry.label + '</div>';
+  var mk = L.marker([entry.lat, entry.lng], { icon: L.divIcon({ className: '', iconAnchor: [0, 0], html: html }) });
+  mk._wmDongName = entry.name;
+  entry.marker = mk;
+}
+
+/** 디스크립터의 레이어를 지도에 부착 (없으면 생성) */
+function _wmAttachEntry(entry) {
+  if (!entry._built) _wmBuildDongEntry(entry);
+  if (entry.poly   && _map && !_map.hasLayer(entry.poly))   entry.poly.addTo(_map);
+  if (entry.marker && _map && !_map.hasLayer(entry.marker)) entry.marker.addTo(_map);
+}
+
+/** 디스크립터의 레이어를 지도에서 제거 + 파기 (메모리 절약 / 재진입 시 재생성) */
+function _wmDetachEntry(entry) {
+  if (!entry._built) return;
+  if (entry.poly)   { try { _map.removeLayer(entry.poly); }   catch (e) {} }
+  if (entry.marker) { try { _map.removeLayer(entry.marker); } catch (e) {} }
+  entry.poly   = null;
+  entry.marker = null;
+  entry._built = false;
+}
+
+/**
+ * [단일 진입점] 현재 상태(교차필터 ON/OFF + 시야)에 맞춰 동/구 레이어 렌더.
+ *   교차필터 ON  → _resultSet 에 든 것만 (시야 무관)
+ *   교차필터 OFF → "보이는 시야 + 30%" 안의 것만
+ * 동/구 표시 OFF 면 아무 것도 하지 않는다.
+ */
+function _wmRenderDongs() {
+  if (!_map || !_dongVisible) return;
+  if (typeof _isMapAlive === 'function' && !_isMapAlive()) return;
+
+  if (_dongFilterMode) {
+    _dongRegistry.forEach(function(entry) {
+      if (_resultSet.has(entry.name)) _wmAttachEntry(entry);
+      else                            _wmDetachEntry(entry);
+    });
+  } else {
+    var padded = _map.getBounds().pad(_WM_VIEWPORT_PAD);   // 시야 + 30%
+    _dongRegistry.forEach(function(entry) {
+      if (padded.contains([entry.lat, entry.lng])) _wmAttachEntry(entry);
+      else                                         _wmDetachEntry(entry);
+    });
+  }
+}
+
+// 기존 호출명 호환 래퍼 (전부 단일 진입점으로 위임)
+function _wmApplyViewportCull()  { _wmRenderDongs(); }
+function _wmAttachAllDongLayers() { _wmRenderDongs(); }
+
+/** moveend/zoomend 디바운스 → 시야 컬링 (교차필터 OFF일 때만) */
+function _wmScheduleViewportCull() {
+  if (_dongFilterMode || !_dongVisible) return;
+  if (_wmViewportCullTimer) clearTimeout(_wmViewportCullTimer);
+  _wmViewportCullTimer = setTimeout(function() {
+    _wmViewportCullTimer = null;
+    _wmRenderDongs();
+  }, 120);
 }
 
 /**
@@ -1584,15 +1660,21 @@ function _wmNormalizeGeo(geo) {
   return { type: 'Feature', geometry: g, properties: {} };
 }
 
-function _wmDrawPolygon(geo, color, fillOpacity) {
+function _wmDrawPolygonDetached(geo, color, fillOpacity) {
   if (!geo || !_map) return null;
   var geoInput = _wmNormalizeGeo(geo);
   if (!geoInput) return null;
   try {
     return L.geoJSON(geoInput, {
       style: { color: color, weight: 2, fillColor: color, fillOpacity: fillOpacity }
-    }).addTo(_map);
+    });
   } catch(e) { return null; }
+}
+
+function _wmDrawPolygon(geo, color, fillOpacity) {
+  var lyr = _wmDrawPolygonDetached(geo, color, fillOpacity);
+  if (lyr && _map) { try { lyr.addTo(_map); } catch(e) {} }
+  return lyr;
 }
 
 function _isValidPolygon(polygon) {
