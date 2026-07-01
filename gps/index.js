@@ -39,6 +39,7 @@ let _dongRegistry   = [];
 // dong이름 → utype 매핑 (정규식 정리용)
 // { "서초1동": "동", "화전읍": "읍", ... }
 let _dongNameMap    = {};
+let _dongParentMap  = {};   // uniqueName → { rn, gu, do_ } (부모 시/도/구 라벨용)
 
 // 내 위치 마커 레이어 (GPS 실시간 표시용)
 let _gpsMarkerDot   = null;   // 내 위치 원형 마커
@@ -285,6 +286,7 @@ function exitWorkMode() {
   _dongRegistry  = [];
   _dongVisible   = false;
   _dongNameMap   = {};
+  _dongParentMap = {};
   _dongFilterMode = false;
   _gpsMarkerDot  = null;
   _gpsMarkerRing = null;
@@ -1033,8 +1035,9 @@ function _getActiveDongPolygons() {
 
     var keys = _getActiveKeys();
     var result = [];
-    // _dongNameMap도 동시에 갱신 (정규식 정리용)
+    // _dongNameMap / _dongParentMap 동시 갱신 (정규식 정리 + 부모 라벨용)
     _dongNameMap = {};
+    _dongParentMap = {};
 
     keys.forEach(function(key) {
       var city = DB[key];
@@ -1050,6 +1053,8 @@ function _getActiveDongPolygons() {
           result.push({ name: uniqueName, displayName: dong.d, geo: feature });
           // utype 매핑: uniqueName 기준으로 저장
           _dongNameMap[uniqueName] = dong.utype || '동';
+          // 부모(시/도/구) 라벨용: rn(시/광역시), gu(구), do_(도) 저장
+          _dongParentMap[uniqueName] = { rn: dong.rn, gu: dong.gu, do_: dong.do_ };
           // displayName 기준도 저장 (정규식용 보조)
           if (!_dongNameMap[dong.d]) _dongNameMap[dong.d] = dong.utype || '동';
         }
@@ -1162,6 +1167,58 @@ function _extractDisplayNames(resultSet) {
   return out;
 }
 
+// ── [신규] 부모(시/도/구) 라벨 유틸 ─────────────────────────────
+// 한국 도/광역시/특별시의 흔하고 자주 쓰는 줄임말 (충청남도→충남 식 관용 축약)
+const _PROVINCE_SHORT = {
+  '서울특별시':'서울', '부산광역시':'부산', '대구광역시':'대구', '인천광역시':'인천',
+  '광주광역시':'광주', '대전광역시':'대전', '울산광역시':'울산', '세종특별자치시':'세종',
+  '경기도':'경기', '강원도':'강원', '강원특별자치도':'강원',
+  '충청북도':'충북', '충청남도':'충남',
+  '전라북도':'전북', '전북특별자치도':'전북', '전라남도':'전남',
+  '경상북도':'경북', '경상남도':'경남',
+  '제주도':'제주', '제주특별자치도':'제주'
+};
+
+/** 도/광역시/특별시 → 줄임말. 매핑에 없으면 접미어만 제거 */
+function _shortenProvince(name) {
+  if (!name) return '';
+  if (_PROVINCE_SHORT[name]) return _PROVINCE_SHORT[name];
+  return name.replace(/(특별자치도|특별자치시|특별시|광역시|자치도|자치시|도|시|군|구)$/, '') || name;
+}
+
+/**
+ * uniqueName의 부모(시/도/구) 라벨 배열 (상위→하위 순)
+ *   - 최상위 도/광역시/특별시 → 줄임말 (인천광역시→인천, 충청남도→충남)
+ *   - 도 아래 '시'          → 시/군 접미어 제거 (공주시→공주)
+ *   - '구'                  → 그대로 (서구, 강남구)
+ * 부모 정보는 _dongParentMap(교차 시 채워짐) 우선, 없으면 uniqueName 파싱(도 정보 없음)
+ */
+function _extractParentLabels(uniqueName) {
+  var info = _dongParentMap[uniqueName];
+  var rn, gu, doName;
+  if (info) {
+    rn = info.rn || ''; gu = info.gu || ''; doName = info.do_ || '';
+  } else {
+    var p = (uniqueName || '').split('|');
+    rn = p[0] || ''; gu = p[1] || ''; doName = '';
+  }
+
+  var labels = [];
+  // 1) 최상위: 도가 있으면 도, 없으면 rn(광역시/특별시) → 줄임말
+  var top = doName || rn;
+  var topShort = _shortenProvince(top);
+  if (topShort) labels.push(topShort);
+  // 2) 시: rn이 최상위와 다르면(=도 아래 시) 시/군 제거해 추가
+  if (rn && rn !== top) {
+    var cityShort = rn.replace(/(시|군)$/, '');
+    if (cityShort) labels.push(cityShort);
+  }
+  // 3) 구: 있으면 그대로
+  if (gu) labels.push(gu);
+
+  return labels;
+}
+
 function _normalizeForClipboard(resultSet) {
   var seen = new Set();
   var out  = [];
@@ -1221,7 +1278,15 @@ function _normalizeForClipboard(resultSet) {
     }
   });
 
-  return out.join(',');
+  // ── [신규] 부모(시/도/구) 라벨을 동 뒤에 추가 (전체 중복 제거) ──
+  var parentOut = [];
+  resultSet.forEach(function(uniqueName) {
+    _extractParentLabels(uniqueName).forEach(function(label) {
+      if (label && !seen.has(label)) { seen.add(label); parentOut.push(label); }
+    });
+  });
+
+  return out.concat(parentOut).join(',');
 }
 
 // ════════════════════════════════════════════════════════════════
