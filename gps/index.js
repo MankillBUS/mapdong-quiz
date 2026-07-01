@@ -1194,27 +1194,29 @@ function _shortenProvince(name) {
  * 부모 정보는 _dongParentMap(교차 시 채워짐) 우선, 없으면 uniqueName 파싱(도 정보 없음)
  */
 function _extractParentLabels(uniqueName) {
+  // ── 현재는 '구'만 수집 (시·도 단위는 불필요하여 제외) ──
   var info = _dongParentMap[uniqueName];
-  var rn, gu, doName;
-  if (info) {
-    rn = info.rn || ''; gu = info.gu || ''; doName = info.do_ || '';
-  } else {
-    var p = (uniqueName || '').split('|');
-    rn = p[0] || ''; gu = p[1] || ''; doName = '';
-  }
+  var gu = info ? (info.gu || '') : ((uniqueName || '').split('|')[1] || '');
 
   var labels = [];
-  // 1) 최상위: 도가 있으면 도, 없으면 rn(광역시/특별시) → 줄임말
-  var top = doName || rn;
-  var topShort = _shortenProvince(top);
-  if (topShort) labels.push(topShort);
-  // 2) 시: rn이 최상위와 다르면(=도 아래 시) 시/군 제거해 추가
-  if (rn && rn !== top) {
-    var cityShort = rn.replace(/(시|군)$/, '');
-    if (cityShort) labels.push(cityShort);
+
+  // [보류] 시·도 수집 — 다시 넣으려면 아래 주석 해제 (_shortenProvince/_PROVINCE_SHORT 사용)
+  //   var rn = info ? (info.rn || '') : ((uniqueName || '').split('|')[0] || '');
+  //   var doName = info ? (info.do_ || '') : '';
+  //   var top = doName || rn;                        // 도 있으면 도, 없으면 rn(광역시/특별시)
+  //   var topShort = _shortenProvince(top);           // 인천광역시→인천, 충청남도→충남
+  //   if (topShort) labels.push(topShort);
+  //   if (rn && rn !== top) {                         // 도 아래 '시' → 시/군 접미어 제거
+  //     var cityShort = rn.replace(/(시|군)$/, '');
+  //     if (cityShort) labels.push(cityShort);
+  //   }
+
+  // 구: '구' 접미어 제거 (강남구→강남, 구로구→구로, 영등포구→영등포)
+  //    단, 떼면 1글자가 되는 서구/중구/동구/남구/북구 등은 원본 유지
+  if (gu) {
+    var guShort = gu.replace(/구$/, '');
+    labels.push(guShort.length >= 2 ? guShort : gu);
   }
-  // 3) 구: 있으면 그대로
-  if (gu) labels.push(gu);
 
   return labels;
 }
