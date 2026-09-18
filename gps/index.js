@@ -1132,7 +1132,8 @@ function _buildNormalizedDisplaySet(clipText) {
  *   3. 동가 패턴 제거: "영등포동가" → "영등포"  ← ~동1가, ~동2가 통합
  *   4. 본동 패턴 제거: "방배본동" → "방배동"    ← ~본동, ~동 통합
  *   5. utype 접미어 제거: "서초동" → "서초"
- *   6. 1글자 남으면 접미어 복원: "제동" → "제동"
+ *      단, 떼면 1글자만 남는 2글자 이름은 접미어까지 유지: "사동" → "사동"
+ *   6. 빈 문자열이면 원본 유지 (방어)
  *   7. 중복 제거 후 쉼표 결합
  *
  * 예시:
@@ -1140,6 +1141,7 @@ function _buildNormalizedDisplaySet(clipText) {
  *   방배동, 방배본동 → 방배
  *   장기동, 장기본동 → 장기
  *   서초1동, 서초2동 → 서초
+ *   사동 (2글자 단독) → 사동  (유지)
  *   본동 (2글자 단독) → 본동  (유지)
  *   화전읍, 화전1리 → 화전
  *
@@ -1187,33 +1189,50 @@ function _shortenProvince(name) {
 }
 
 /**
- * uniqueName의 부모(시/도/구) 라벨 배열 (상위→하위 순)
- *   - 최상위 도/광역시/특별시 → 줄임말 (인천광역시→인천, 충청남도→충남)
- *   - 도 아래 '시'          → 시/군 접미어 제거 (공주시→공주)
- *   - '구'                  → 그대로 (서구, 강남구)
+ * 기초자치단체(시/군) → '시'·'군' 접미어 제거
+ *   안산시 → 안산 / 안양시 → 안양 / 평택시 → 평택 / 홍성군 → 홍성
+ * 제외 대상(빈 문자열 반환):
+ *   - 특별시/광역시/특별자치시/도 등 광역 단위 (서울특별시, 인천광역시, 세종특별자치시...)
+ *     → 이 단위는 라벨로 넣지 않음. 넣고 싶으면 아래 return '' 을 지우고
+ *       _shortenProvince(name) 을 반환하도록 바꾸면 됨
+ * 떼고 나서 1글자 이하가 되면 원본 유지 (예외 방어)
+ */
+function _shortenCity(name) {
+  if (!name) return '';
+  if (/(특별시|광역시|특별자치시|특별자치도|자치시|자치도|도)$/.test(name)) return '';
+  var short = name.replace(/(시|군)$/, '');
+  return short.length >= 2 ? short : name;
+}
+
+/**
+ * uniqueName의 부모(시/군/구) 라벨 배열 (상위→하위 순)
+ *   - '시'/'군'             → 접미어 제거 (안산시→안산, 평택시→평택, 홍성군→홍성)
+ *   - 광역시/특별시/특별자치시 → 제외 (서울특별시, 인천광역시...)
+ *   - '구'                  → 접미어 제거, 1글자 되면 원본 (강남구→강남, 서구→서구)
  * 부모 정보는 _dongParentMap(교차 시 채워짐) 우선, 없으면 uniqueName 파싱(도 정보 없음)
  */
 function _extractParentLabels(uniqueName) {
-  // ── 현재는 '구'만 수집 (시·도 단위는 불필요하여 제외) ──
+  // ── '시/군' + '구' 수집 (도 단위는 제외) ──
   var info = _dongParentMap[uniqueName];
+  var rn = info ? (info.rn || '') : ((uniqueName || '').split('|')[0] || '');
   var gu = info ? (info.gu || '') : ((uniqueName || '').split('|')[1] || '');
 
   var labels = [];
 
-  // [보류] 시·도 수집 — 다시 넣으려면 아래 주석 해제 (_shortenProvince/_PROVINCE_SHORT 사용)
-  //   var rn = info ? (info.rn || '') : ((uniqueName || '').split('|')[0] || '');
+  // 시/군: '시'·'군' 접미어 제거 (안산시→안산, 안양시→안양, 평택시→평택)
+  //    광역시/특별시/특별자치시는 _shortenCity가 ''를 반환하므로 자동 제외
+  var cityShort = _shortenCity(rn);
+  if (cityShort) labels.push(cityShort);
+
+  // [보류] 도 단위 수집 — 다시 넣으려면 아래 주석 해제 (_shortenProvince/_PROVINCE_SHORT 사용)
   //   var doName = info ? (info.do_ || '') : '';
-  //   var top = doName || rn;                        // 도 있으면 도, 없으면 rn(광역시/특별시)
-  //   var topShort = _shortenProvince(top);           // 인천광역시→인천, 충청남도→충남
+  //   var topShort = _shortenProvince(doName || rn);  // 인천광역시→인천, 충청남도→충남
   //   if (topShort) labels.push(topShort);
-  //   if (rn && rn !== top) {                         // 도 아래 '시' → 시/군 접미어 제거
-  //     var cityShort = rn.replace(/(시|군)$/, '');
-  //     if (cityShort) labels.push(cityShort);
-  //   }
 
   // 구: '구' 접미어 제거 (강남구→강남, 구로구→구로, 영등포구→영등포)
   //    단, 떼면 1글자가 되는 서구/중구/동구/남구/북구 등은 원본 유지
-  if (gu) {
+  //    구가 없는 시(평택시 등)는 gu가 비어 있거나 rn과 같으므로 건너뜀
+  if (gu && gu !== rn) {
     var guShort = gu.replace(/구$/, '');
     labels.push(guShort.length >= 2 ? guShort : gu);
   }
@@ -1248,22 +1267,21 @@ function _normalizeForClipboard(resultSet) {
       base = base.replace(/본(?=동$)/, '');
     }
 
-    // 5. utype 접미어 제거
+    // 5. utype 접미어 제거 — 단, 떼고 나서 2글자 미만이 되면 떼지 않음
     //    - utype이 있으면 정확히 그 글자만 제거
     //    - utype 없으면 동/읍/면/리 중 맞는 것 제거
-    if (utype && ['동','읍','면','리'].includes(utype)) {
-      base = base.replace(new RegExp(utype + '$'), '');
-    } else {
-      base = base.replace(/(동|읍|면|리)$/, '');
-    }
+    //    - "사동" → "사"(1글자)라서 제거 취소 → "사동" 유지
+    //    - "본동" → "본"(1글자)라서 제거 취소 → "본동" 유지
+    //    - "신사동" → "신사"(2글자) → 제거 적용
+    var _sufRe = (utype && ['동','읍','면','리'].includes(utype))
+      ? new RegExp(utype + '$')
+      : /(동|읍|면|리)$/;
+    var _stripped = base.replace(_sufRe, '');
+    if (_stripped.length >= 2) base = _stripped;
 
-    // 6. 접미어 제거 후 1글자만 남으면 접미어를 다시 붙임
-    //    예: "제1동" → "제동" (숫자만 제거, 접미어 유지)
-    //    빈 문자열이면 원본 유지
+    // 6. 빈 문자열이면 원본 유지 (방어)
     if (!base || base.length === 0) {
       base = name;
-    } else if (base.length === 1 && utype && ['동','읍','면','리'].includes(utype)) {
-      base = base + utype;
     }
 
     // 7. 앞 2글자로 축약 (3글자 이상인 경우만)
