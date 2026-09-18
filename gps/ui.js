@@ -46,6 +46,8 @@ const BTN_DRAW_ID       = 'wm-btn-draw';       // 그리기 모드
 const BTN_CIRCLE_ID     = 'wm-btn-circle';     // 원형 모드
 const BTN_ADD_DRAW_ID   = 'wm-btn-add-draw';   // 그리기 추가
 const BTN_ADD_CIR_ID    = 'wm-btn-add-cir';    // 원형 추가
+const BTN_UNDO_ID       = 'wm-btn-undo';       // 되돌리기 (Ctrl+Z)
+const BTN_REDO_ID       = 'wm-btn-redo';       // 다시 실행 (Ctrl+Shift+Z)
 const SLIDER_DRAW_ID    = 'wm-slider-draw';    // 그리기 굵기
 const SLIDER_CIR_ID     = 'wm-slider-cir';     // 원형 반경
 const SLIDER_DRAW_COLOR = 'wm-draw-color';     // 그리기 색상
@@ -163,6 +165,15 @@ function renderWorkModePanel(
     '    <button id="' + BTN_ADD_CIR_ID + '" class="wm-btn wm-btn--add" title="원형 추가 (클릭 위치에 원 하나 더)" style="display:none">',
     '      <span class="wm-icon">➕⭕</span><span class="wm-lbl">원형 추가</span>',
     '    </button>',
+    '    <!-- 되돌리기 / 다시 실행: 추가버튼과 완료버튼 사이 (아이콘 전용) -->',
+    '    <div class="wm-hist-group">',
+    '      <button id="' + BTN_UNDO_ID + '" class="wm-btn wm-btn--hist" title="되돌리기 (Ctrl+Z)" aria-label="되돌리기" disabled>',
+    '        <span class="wm-icon">↶</span>',
+    '      </button>',
+    '      <button id="' + BTN_REDO_ID + '" class="wm-btn wm-btn--hist" title="다시 실행 (Ctrl+Shift+Z)" aria-label="다시 실행" disabled>',
+    '        <span class="wm-icon">↷</span>',
+    '      </button>',
+    '    </div>',
     '    <!-- 완료 버튼: 모드 활성 시만 표시 -->',
     '    <button id="wm-btn-done" class="wm-btn-done" style="display:none;" title="그리기 완료">',
     '      ✅ 완료',
@@ -490,6 +501,10 @@ function _showSliderRows(mode) {
 
   // ── 완료버튼: 모드가 있을 때 항상 표시
   if (doneBtn) doneBtn.style.display = mode ? 'flex' : 'none';
+
+  // ── 되돌리기/다시실행: 항상 표시 (display 제어 없음)
+  //    모드가 null(초기화 직후 등)이어도 직전 상태로 되돌릴 수 있어야 하므로 숨기지 않음.
+  //    활성/비활성은 index.js의 _wmSyncHistoryBtns() → setHistoryBtns()가 담당.
 }
 
 /** 완료 버튼 클릭 — 3행 닫기, 추가버튼 유지, 지도 클릭 비활성화 */
@@ -499,6 +514,43 @@ function _bindDoneBtn(onDoneFn) {
   btn.addEventListener('click', function() {
     if (typeof onDoneFn === 'function') onDoneFn();
   });
+}
+
+/**
+ * 되돌리기 / 다시 실행 버튼 바인딩
+ * ⚠️ renderWorkModePanel 파라미터를 늘리지 않기 위해 _bindDoneBtn과 동일하게 별도 함수로 분리
+ * @param {function} onUndoFn  되돌리기 콜백
+ * @param {function} onRedoFn  다시 실행 콜백
+ */
+function _bindHistoryBtns(onUndoFn, onRedoFn) {
+  var undoBtn = document.getElementById(BTN_UNDO_ID);
+  var redoBtn = document.getElementById(BTN_REDO_ID);
+  if (undoBtn && typeof onUndoFn === 'function') {
+    undoBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (this.disabled) return;
+      onUndoFn();
+    });
+  }
+  if (redoBtn && typeof onRedoFn === 'function') {
+    redoBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (this.disabled) return;
+      onRedoFn();
+    });
+  }
+}
+
+/**
+ * 되돌리기/다시실행 버튼 활성/비활성 갱신
+ * @param {boolean} canUndo  되돌릴 이력이 남아있는가
+ * @param {boolean} canRedo  다시 실행할 이력이 남아있는가
+ */
+function setHistoryBtns(canUndo, canRedo) {
+  var undoBtn = document.getElementById(BTN_UNDO_ID);
+  var redoBtn = document.getElementById(BTN_REDO_ID);
+  if (undoBtn) undoBtn.disabled = !canUndo;
+  if (redoBtn) redoBtn.disabled = !canRedo;
 }
 
 /** 활성 모드 버튼 강조 (done-* 포함) */
@@ -908,6 +960,38 @@ function _injectStyles() {
     }
     .wm-btn--add   { border-color: #00b894; color: #00b894; }
     .wm-btn--add:hover { background: rgba(0,184,148,.1); }
+
+    /* ── 되돌리기 / 다시 실행 (아이콘 전용) ──
+       추가버튼과 완료버튼 사이에 고정 배치.
+       position:absolute 미사용 → 다른 버튼과 좌표 겹침 없음 */
+    .wm-hist-group {
+      display: inline-flex;
+      gap: 4px;
+      flex-shrink: 0;
+      margin: 0 2px;
+    }
+    .wm-btn--hist {
+      justify-content: center;
+      padding: 3px 9px;
+      min-width: 32px;
+      border-color: #4a6fa5;
+      color: #9fc3e8;
+      line-height: 1;
+    }
+    .wm-btn--hist .wm-icon { font-size: .95rem; line-height: 1; }
+    .wm-btn--hist:hover:not(:disabled) {
+      background: rgba(74,111,165,.15);
+      border-color: var(--accent,#00d4ff);
+      color: var(--accent,#00d4ff);
+    }
+    .wm-btn--hist:active:not(:disabled) { transform: scale(.94); }
+    .wm-btn--hist:disabled {
+      opacity: .32;
+      cursor: default;
+      border-color: var(--border,#1e3a5f);
+      color: var(--text-dim,#7a9bb5);
+      background: var(--surface2,#1a2235);
+    }
     .wm-btn--show  { border-color: #a29bfe; color: #a29bfe; }
     .wm-btn--show:hover { background: rgba(162,155,254,.1); }
     .wm-btn--gps-track { }
