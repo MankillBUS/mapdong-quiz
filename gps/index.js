@@ -73,6 +73,17 @@ let _circleLayer    = null;       // 현재 원형 레이어
 let _circleDoneOnce = false;      // 원 1개 생성 후 추가버튼 눌러야 재활성화
 window._circleColor = '#ff6b6b'; // 원형 기본 색상 (빨강)
 
+// ── 되돌리기 / 다시 실행 (Undo / Redo) 상태 ──────────────────────
+//   ⚠️ Leaflet 레이어는 GPS 갱신마다 재생성되므로 히스토리에 저장하지 않는다.
+//      대신 "도형 서술자"(endPt / chainFrom / pts / radius / color)만 저장하고
+//      복원 시 _wmBuildShapeFromDesc()로 레이어를 다시 만든다.
+//   _wmHistory[0] 은 항상 "도형 없음" 상태 → 계속 되돌리면 지도가 비워진다.
+const WM_HISTORY_MAX = 60;      // 최대 보관 단계 수
+let _wmHistory   = [[]];        // 스냅샷 스택 (각 원소 = 그 시점의 도형 서술자 배열)
+let _wmHistIdx   = 0;           // 현재 위치 (0 = 도형 없음 상태)
+let _wmRestoring = false;       // 복원 중 플래그 (복원 중 히스토리 기록 방지)
+let _wmHistKeyFn = null;        // Ctrl+Z / Ctrl+Shift+Z 키 핸들러
+
 // ════════════════════════════════════════════════════════════════
 // 2. 업무모드 진입
 // ════════════════════════════════════════════════════════════════
@@ -134,6 +145,26 @@ function initWorkMode(leafletMap) {
       _wmDone();
     });
   }
+
+  // ── 되돌리기 / 다시 실행 바인딩 ────────────────────────────────
+  _wmHistoryReset();
+  if (typeof _bindHistoryBtns === 'function') {
+    _bindHistoryBtns(
+      function() { _wmUndo(); },
+      function() { _wmRedo(); }
+    );
+  }
+  // Ctrl+Z / Ctrl+Shift+Z (Mac: Cmd) — 입력창 포커스 중에는 동작 안 함
+  _wmHistKeyFn = function(e) {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    if (e.key !== 'z' && e.key !== 'Z' && e.key !== 'y' && e.key !== 'Y') return;
+    var t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    e.preventDefault();
+    if (e.key === 'y' || e.key === 'Y' || e.shiftKey) _wmRedo();
+    else _wmUndo();
+  };
+  document.addEventListener('keydown', _wmHistKeyFn);
 
   // 업무모드 진입 시 퀴즈 전용 UI 숨기기
   document.body.classList.add('work-mode');
@@ -275,6 +306,15 @@ function exitWorkMode() {
     _wmVisibilityFn = null;
   }
 
+  // 되돌리기 키 핸들러 제거 + 히스토리 초기화
+  if (_wmHistKeyFn) {
+    document.removeEventListener('keydown', _wmHistKeyFn);
+    _wmHistKeyFn = null;
+  }
+  _wmHistory   = [[]];
+  _wmHistIdx   = 0;
+  _wmRestoring = false;
+
   _shapes       = [];
   _currentMode  = null;
   _lastMode     = null;
@@ -401,6 +441,7 @@ function _wmSwitchMode(mode) {
   _drawDoneOnce   = false;
   _circleDoneOnce = false;
   _wmDestroyShapes();
+  _wmPushHistory();   // [되돌리기] 모드 전환으로 전체 도형 삭제된 상태 기록
   _currentMode = mode;
   _lastMode    = mode;
   setActiveModeBtn(mode);
@@ -429,6 +470,7 @@ function _wmResetModeShapes(mode) {
     if (s.layer) { try { _map.removeLayer(s.layer); } catch(x) {} }
   });
   _shapes = _shapes.filter(function(s){ return s.type !== mode; });
+  _wmPushHistory();   // [되돌리기] 같은 모드 재클릭으로 해당 도형 삭제된 상태 기록
 
   // draw 상태 초기화
   _wmClearDrawState();
@@ -623,6 +665,7 @@ function _wmAddLine(clickPos) {
   result.layer.options.pane = _SHAPE_PANE;
   result.layer.addTo(_map);
   _shapes.push({ type:'line', layer:result.layer, polygon:result.polygon, endPt:clickPos });
+  _wmPushHistory();   // [되돌리기] 선 1개 추가
 }
 
 function _wmAddFan(clickPos) {
@@ -637,6 +680,7 @@ function _wmAddFan(clickPos) {
   result.layer.options.pane = _SHAPE_PANE;
   result.layer.addTo(_map);
   _shapes.push({ type:'fan', layer:result.layer, polygon:result.polygon, endPt:_endPoint });
+  _wmPushHistory();   // [되돌리기] 부채꼴 1개 추가
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -692,6 +736,7 @@ function _wmAddLineChain() {
       result.layer.addTo(_map);
       _shapes.push({ type:'line', layer:result.layer, polygon:result.polygon,
                      endPt:e.latlng, chainFrom:chainStart });
+      _wmPushHistory();   // [되돌리기] 선 이어붙이기 확정
       _wmRunIntersect();
       _wmUpdateUI();
     }
@@ -753,6 +798,7 @@ function _wmAddFanChain() {
       result.layer.addTo(_map);
       _shapes.push({ type:'fan', layer:result.layer, polygon:result.polygon,
                      endPt:e.latlng, chainFrom:chainFrom });
+      _wmPushHistory();   // [되돌리기] 부채꼴 이어붙이기 확정
       _wmRunIntersect();
       _wmUpdateUI();
     } else {
@@ -787,6 +833,7 @@ function _wmReplaceLastLine(clickPos) {
   result.layer.addTo(_map);
   _shapes[idx] = { type:'line', layer:result.layer, polygon:result.polygon,
                    endPt:clickPos, chainFrom:last.chainFrom };
+  _wmPushHistory();   // [되돌리기] 마지막 선 끝점 변경
 }
 
 function _wmReplaceLastFan() {
@@ -821,6 +868,7 @@ function _wmReplaceLastFan() {
   result.layer.addTo(_map);
   _shapes[idx] = { type:'fan', layer:result.layer, polygon:result.polygon,
                    endPt:_endPoint, chainFrom:last.chainFrom };
+  _wmPushHistory();   // [되돌리기] 마지막 부채꼴 끝점 변경
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1378,6 +1426,7 @@ function _toggleGpsTracking() {
  */
 function _wmClearShapesOnly() {
   _wmDestroyShapes();
+  _wmPushHistory();   // [되돌리기] 초기화 버튼도 한 단계로 기록 → 되돌리면 복구됨
 
   // 그리기/원형 상태도 정리
   _wmClearDrawState();
@@ -1641,6 +1690,244 @@ function _wmClearAllLayers() {
   _shapes.forEach(function(s) {
     if (s.layer) { try { _map.removeLayer(s.layer); } catch(e) {} }
   });
+}
+
+// ════════════════════════════════════════════════════════════════
+// 13-B. 되돌리기 / 다시 실행 (Undo / Redo)
+// ════════════════════════════════════════════════════════════════
+//
+// [설계]
+//   · 히스토리에는 Leaflet 레이어를 넣지 않는다.
+//     레이어는 GPS 갱신(_wmRebuildAll) 때마다 통째로 새로 만들어지므로
+//     보관해봐야 이미 지도에서 사라진 죽은 객체가 되기 때문.
+//   · 대신 도형을 다시 만들 수 있는 최소 정보(서술자)만 깊은 복사로 저장한다.
+//       line   : endPt, chainFrom
+//       fan    : endPt, chainFrom
+//       circle : endPt(중심), radius, color
+//       draw   : pts[], bufferKm, color
+//   · _wmHistory[0] = [] (도형 없음) 이므로 계속 되돌리면 지도가 완전히 비워진다.
+//   · pending(클릭 대기용 임시 shape)은 스냅샷에서 제외한다.
+//
+// [기록 시점]  도형이 확정되는 모든 지점에서 _wmPushHistory() 호출
+//   선 추가/교체, 부채꼴 추가/교체, 이어붙이기 확정, 원 추가,
+//   그리기 드래그 완료, 초기화 버튼, 모드 전환에 의한 전체 삭제
+// [덮어쓰기]  슬라이더로 마지막 도형만 바뀌는 경우는 _wmReplaceHistoryTop()
+//             (input 이벤트마다 단계가 쌓이는 것을 방지)
+
+/** {lat,lng} 깊은 복사 — L.LatLng / 평문 객체 모두 평문으로 통일 */
+function _wmCloneLatLng(p) {
+  if (!p || !isFinite(p.lat) || !isFinite(p.lng)) return null;
+  return { lat: p.lat, lng: p.lng };
+}
+
+/** 현재 _shapes → 스냅샷(서술자 배열). 레이어/폴리곤은 저장하지 않음 */
+function _wmSnapshotShapes() {
+  var snap = [];
+  _shapes.forEach(function(s) {
+    if (!s || s.pending) return;   // 클릭 대기 중인 임시 항목 제외
+
+    if (s.type === 'draw') {
+      if (!s.pts || s.pts.length < 2) return;
+      var pts = [];
+      for (var i = 0; i < s.pts.length; i++) {
+        var p = _wmCloneLatLng(s.pts[i]);
+        if (p) pts.push(p);
+      }
+      if (pts.length < 2) return;
+      snap.push({ type: 'draw', pts: pts, bufferKm: s.bufferKm, color: s.color });
+      return;
+    }
+
+    var endPt = _wmCloneLatLng(s.endPt);
+    if (!endPt) return;
+    snap.push({
+      type:      s.type,
+      endPt:     endPt,
+      chainFrom: _wmCloneLatLng(s.chainFrom),
+      radius:    s.radius,
+      color:     s.color
+    });
+  });
+  return snap;
+}
+
+/** 서술자 1개 → 지도 레이어 생성 후 _shapes 항목 반환 (실패 시 null) */
+function _wmBuildShapeFromDesc(d) {
+  if (!d || !_isMapAlive()) return null;
+
+  // ── 그리기: Polyline 재생성 + 교차 연산용 구간 폴리곤 재계산
+  if (d.type === 'draw') {
+    if (!d.pts || d.pts.length < 2) return null;
+    var col = d.color || window._drawColor || '#ff6b6b';
+    var buf = d.bufferKm || _drawBuffer;
+    var line = L.polyline(d.pts, {
+      color:   col,
+      weight:  Math.max(3, buf * 25),
+      opacity: 0.85,
+      pane:    _SHAPE_PANE
+    });
+    line.addTo(_map);
+    var dp = _buildDrawSegmentPolygon(d.pts, buf);
+    return {
+      type:     'draw',
+      layer:    line,
+      polygon:  dp ? dp.polygon  : null,
+      segments: dp ? dp.segments : [],
+      pts:      d.pts,
+      bufferKm: buf,
+      color:    col
+    };
+  }
+
+  // ── 선 / 부채꼴 / 원형
+  var startPt = d.chainFrom || _gpsPos;   // chainFrom 있으면 체인 시작점 고정
+  var result  = null;
+
+  if (d.type === 'line') {
+    if (!_isValidLatLng(startPt) || !_isValidLatLng(d.endPt)) return null;
+    result = buildLinePolygon(startPt, d.endPt, _lineBuffer);
+  } else if (d.type === 'fan') {
+    if (!_isValidLatLng(startPt) || !_isValidLatLng(d.endPt)) return null;
+    result = buildFanPolygon(startPt, d.endPt, _fanR1, _fanR2,
+      calcExternalTangents, calcArcPoints, calcAngle);
+  } else if (d.type === 'circle') {
+    if (!_isValidLatLng(d.endPt)) return null;
+    result = buildCirclePolygon(d.endPt, d.radius || _circleRadius);
+  } else {
+    return null;
+  }
+
+  if (!result || !_isValidPolygon(result.polygon)) return null;
+
+  result.layer.options.pane = _SHAPE_PANE;
+  result.layer.addTo(_map);
+  if (d.color && result.layer.setStyle) {
+    try {
+      result.layer.setStyle({ color: d.color, fillColor: d.color, fillOpacity: 0.18, weight: 2 });
+    } catch(e) {}
+  }
+
+  return {
+    type:      d.type,
+    layer:     result.layer,
+    polygon:   result.polygon,
+    endPt:     d.endPt,
+    chainFrom: d.chainFrom,
+    radius:    d.radius,
+    color:     d.color
+  };
+}
+
+/** 스냅샷을 지도에 그대로 복원 (기존 도형 전부 제거 후 재생성) */
+function _wmApplySnapshot(snap) {
+  if (!_isMapAlive()) return;
+
+  // 1. 현재 도형 레이어 전부 제거
+  _wmClearAllLayers();
+  _shapes = [];
+
+  // 2. 서술자 → 레이어 재생성
+  (snap || []).forEach(function(d) {
+    var built = _wmBuildShapeFromDesc(d);
+    if (built) _shapes.push(built);
+  });
+
+  // 3. 부채꼴 끝점(_endPoint) 동기화 — 마지막 부채꼴 기준, 없으면 null
+  var lastFan = null;
+  for (var i = _shapes.length - 1; i >= 0; i--) {
+    if (_shapes[i].type === 'fan') { lastFan = _shapes[i]; break; }
+  }
+  _endPoint = lastFan ? lastFan.endPt : null;
+
+  // 4. 되돌린 직후에는 같은 모드로 계속 그릴 수 있도록 1회 제한 해제
+  _drawDoneOnce   = false;
+  _circleDoneOnce = false;
+
+  // 5. 교차 재계산 + 동/구 표시 재정리 + 결과창/클립보드 갱신
+  _resultSet = new Set();
+  _wmRunIntersect();
+  if (_dongVisible) _wmRenderDongs();
+  _wmUpdateUI();
+}
+
+/** 되돌리기/다시실행 버튼 활성 상태 동기화 */
+function _wmSyncHistoryBtns() {
+  if (typeof setHistoryBtns !== 'function') return;
+  setHistoryBtns(_wmHistIdx > 0, _wmHistIdx < _wmHistory.length - 1);
+}
+
+/** 히스토리 초기화 — 업무모드 진입/종료 시 호출 */
+function _wmHistoryReset() {
+  _wmHistory = [[]];   // 0번 = 도형 없음
+  _wmHistIdx = 0;
+  _wmRestoring = false;
+  _wmSyncHistoryBtns();
+}
+
+/** 현재 상태를 히스토리에 한 단계 추가 (redo 분기는 잘라냄) */
+function _wmPushHistory() {
+  if (_wmRestoring) return;
+
+  // 되돌린 상태에서 새 작업을 하면 그 이후 redo 분기는 버린다
+  if (_wmHistIdx < _wmHistory.length - 1) {
+    _wmHistory = _wmHistory.slice(0, _wmHistIdx + 1);
+  }
+
+  var snap = _wmSnapshotShapes();
+
+  // 직전 상태와 동일하면 단계 낭비 방지
+  var prev = _wmHistory[_wmHistory.length - 1];
+  if (prev && JSON.stringify(prev) === JSON.stringify(snap)) {
+    _wmHistIdx = _wmHistory.length - 1;
+    _wmSyncHistoryBtns();
+    return;
+  }
+
+  _wmHistory.push(snap);
+
+  // 상한 초과 시 가장 오래된 단계 제거 (단, 0번 '빈 상태'는 유지)
+  while (_wmHistory.length > WM_HISTORY_MAX) {
+    _wmHistory.splice(1, 1);
+  }
+
+  _wmHistIdx = _wmHistory.length - 1;
+  _wmSyncHistoryBtns();
+}
+
+/**
+ * 현재 단계를 덮어쓴다 (새 단계를 만들지 않음)
+ * 슬라이더 input 이벤트처럼 "마지막 도형만 계속 바뀌는" 경우에 사용
+ */
+function _wmReplaceHistoryTop() {
+  if (_wmRestoring) return;
+  if (_wmHistIdx <= 0) { _wmPushHistory(); return; }  // 빈 상태는 덮어쓰지 않음
+  if (_wmHistIdx < _wmHistory.length - 1) {
+    _wmHistory = _wmHistory.slice(0, _wmHistIdx + 1);
+  }
+  _wmHistory[_wmHistIdx] = _wmSnapshotShapes();
+  _wmSyncHistoryBtns();
+}
+
+/** 되돌리기 — 계속 누르면 도형이 하나도 없는 상태까지 간다 */
+function _wmUndo() {
+  if (_wmHistIdx <= 0) { _wmSyncHistoryBtns(); return; }
+  _wmHistIdx--;
+  _wmRestoring = true;
+  try { _wmApplySnapshot(_wmHistory[_wmHistIdx]); }
+  catch(e) { console.warn('[WorkMode] 되돌리기 실패:', e); }
+  finally { _wmRestoring = false; }
+  _wmSyncHistoryBtns();
+}
+
+/** 다시 실행 — 되돌리기로 지운 단계를 복원 */
+function _wmRedo() {
+  if (_wmHistIdx >= _wmHistory.length - 1) { _wmSyncHistoryBtns(); return; }
+  _wmHistIdx++;
+  _wmRestoring = true;
+  try { _wmApplySnapshot(_wmHistory[_wmHistIdx]); }
+  catch(e) { console.warn('[WorkMode] 다시 실행 실패:', e); }
+  finally { _wmRestoring = false; }
+  _wmSyncHistoryBtns();
 }
 
 /**
@@ -2554,6 +2841,7 @@ function _wmDrawEnd(e) {
 
   _drawRawPts = [];
   _drawDoneOnce = true; // 1회 완료 → 추가버튼으로만 재활성화
+  _wmPushHistory();   // [되돌리기] 드래그 1회 완료
   _wmRunIntersect();
   _wmUpdateUI();
   // ⚠️ 드래그 완료 후에도 'draw' 활성 상태 유지
@@ -2778,6 +3066,7 @@ function _wmAddCircle(latlng) {
   });
 
   _circleDoneOnce = true; // 1회 완료 → 원형추가버튼 눌러야 재활성화
+  _wmPushHistory();   // [되돌리기] 원 1개 추가
   _wmRunIntersect();
   _wmUpdateUI();
   // ⚠️ 원 생성 후에도 'circle' 활성 상태 유지
@@ -2830,6 +3119,7 @@ function _wmUpdateLastCircle() {
     };
   }
 
+  _wmReplaceHistoryTop();   // [되돌리기] 슬라이더 조작은 단계 추가 대신 현재 단계 덮어쓰기
   _wmRunIntersect();
   _wmUpdateUI();
 }
@@ -2886,6 +3176,7 @@ function _wmUpdateLastDraw() {
     }
   }
 
+  _wmReplaceHistoryTop();   // [되돌리기] 슬라이더 조작은 단계 추가 대신 현재 단계 덮어쓰기
   _wmRunIntersect();
   _wmUpdateUI();
 }
