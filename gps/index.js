@@ -1252,8 +1252,33 @@ function _shortenCity(name) {
   return short.length >= 2 ? short : name;
 }
 
+// ── [중요] 부모 라벨 표시명 오버라이드 ─────────────────────────────
+//
+// ⚠️ polygon_cache.json의 이름을 직접 고치지 말 것!
+//    JSON의 구 이름은 '표시용 문자열'이 아니라 '조회 경로(키)'다.
+//      getDongGeo(cityName, gu, dong) → cn[gu][dong]
+//    동 노드의 _gu만 바꾸면 buildDBFromCache가 그 값을 채택하는데
+//    정작 컨테이너 키는 그대로라서 cn[바뀐이름] === undefined 가 되고,
+//    그 구의 모든 동이 교차 연산에서 통째로 빠진다. (콘솔에 GU_MISMATCH 경고)
+//
+// → 데이터는 원본 그대로 두고, 교차지역에 찍히는 이름만 여기서 바꾼다.
+//   값은 '최종 표시 문자열'이다. 접미어 제거/2글자 축약을 거치지 않고 그대로 출력된다.
+//     '서해구'로 쓰면 → 서해구
+//     '서해'로 쓰면   → 서해
+//
+// 키 형식: '시도명|구명'  (동명이구 구분용 — 서구는 부산/대구/광주/대전에도 있음)
+const _GU_LABEL_OVERRIDE = {
+  '인천광역시|서구': '서해구',
+};
+
+// 시/군 표시명 오버라이드 (키: 시/군 원본명, 값: 최종 표시 문자열)
+// 예) '여주시': '여주시'  → 접미어 제거 없이 '여주시' 그대로 출력
+const _CITY_LABEL_OVERRIDE = {
+};
+
 /**
  * uniqueName의 부모(시/군/구) 라벨 배열 (상위→하위 순)
+ *   - 오버라이드 테이블에 있으면 그 값을 그대로 사용 (가공 없음)
  *   - '시'/'군'             → 접미어 제거 (안산시→안산, 평택시→평택, 홍성군→홍성)
  *   - 광역시/특별시/특별자치시 → 제외 (서울특별시, 인천광역시...)
  *   - '구'                  → 접미어 제거, 1글자 되면 원본 (강남구→강남, 서구→서구)
@@ -1267,10 +1292,15 @@ function _extractParentLabels(uniqueName) {
 
   var labels = [];
 
-  // 시/군: '시'·'군' 접미어 제거 (안산시→안산, 안양시→안양, 평택시→평택)
+  // 시/군: 오버라이드 우선, 없으면 '시'·'군' 접미어 제거
+  //    (안산시→안산, 안양시→안양, 평택시→평택)
   //    광역시/특별시/특별자치시는 _shortenCity가 ''를 반환하므로 자동 제외
-  var cityShort = _shortenCity(rn);
-  if (cityShort) labels.push(cityShort);
+  if (rn && Object.prototype.hasOwnProperty.call(_CITY_LABEL_OVERRIDE, rn)) {
+    if (_CITY_LABEL_OVERRIDE[rn]) labels.push(_CITY_LABEL_OVERRIDE[rn]);
+  } else {
+    var cityShort = _shortenCity(rn);
+    if (cityShort) labels.push(cityShort);
+  }
 
   // [보류] 도 단위 수집 — 다시 넣으려면 아래 주석 해제 (_shortenProvince/_PROVINCE_SHORT 사용)
   //   var doName = info ? (info.do_ || '') : '';
@@ -1281,8 +1311,13 @@ function _extractParentLabels(uniqueName) {
   //    단, 떼면 1글자가 되는 서구/중구/동구/남구/북구 등은 원본 유지
   //    구가 없는 시(평택시 등)는 gu가 비어 있거나 rn과 같으므로 건너뜀
   if (gu && gu !== rn) {
-    var guShort = gu.replace(/구$/, '');
-    labels.push(guShort.length >= 2 ? guShort : gu);
+    var guKey = rn + '|' + gu;
+    if (Object.prototype.hasOwnProperty.call(_GU_LABEL_OVERRIDE, guKey)) {
+      if (_GU_LABEL_OVERRIDE[guKey]) labels.push(_GU_LABEL_OVERRIDE[guKey]);
+    } else {
+      var guShort = gu.replace(/구$/, '');
+      labels.push(guShort.length >= 2 ? guShort : gu);
+    }
   }
 
   return labels;
