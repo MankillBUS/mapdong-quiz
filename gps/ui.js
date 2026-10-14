@@ -48,6 +48,7 @@ const BTN_ADD_DRAW_ID   = 'wm-btn-add-draw';   // 그리기 추가
 const BTN_ADD_CIR_ID    = 'wm-btn-add-cir';    // 원형 추가
 const BTN_UNDO_ID       = 'wm-btn-undo';       // 되돌리기 (Ctrl+Z)
 const BTN_REDO_ID       = 'wm-btn-redo';       // 다시 실행 (Ctrl+Shift+Z)
+const BTN_ERASER_ID     = 'wm-btn-eraser';     // 지우개 (부분 교차지역 삭제)
 const SLIDER_DRAW_ID    = 'wm-slider-draw';    // 그리기 굵기
 const SLIDER_CIR_ID     = 'wm-slider-cir';     // 원형 반경
 const SLIDER_DRAW_COLOR = 'wm-draw-color';     // 그리기 색상
@@ -174,6 +175,10 @@ function renderWorkModePanel(
     '        <span class="wm-icon">↷</span>',
     '      </button>',
     '    </div>',
+    '    <!-- 지우개: 되돌리기/다시실행 과 완료 버튼 사이 -->',
+    '    <button id="' + BTN_ERASER_ID + '" class="wm-btn wm-btn--eraser" title="지우개 — 켠 뒤 지우고 싶은 교차지역 범위를 클릭하면 그 도형이 만든 교차지역 그룹이 삭제됩니다" disabled>',
+    '      <span class="wm-icon">🧽</span><span class="wm-lbl">지우개</span>',
+    '    </button>',
     '    <!-- 완료 버튼: 모드 활성 시만 표시 -->',
     '    <button id="wm-btn-done" class="wm-btn-done" style="display:none;" title="그리기 완료">',
     '      ✅ 완료',
@@ -505,6 +510,10 @@ function _showSliderRows(mode) {
   // ── 되돌리기/다시실행: 항상 표시 (display 제어 없음)
   //    모드가 null(초기화 직후 등)이어도 직전 상태로 되돌릴 수 있어야 하므로 숨기지 않음.
   //    활성/비활성은 index.js의 _wmSyncHistoryBtns() → setHistoryBtns()가 담당.
+
+  // ── 지우개: 항상 표시 (display 제어 없음)
+  //    완료 후(done-*)에도 부분 삭제가 가능해야 하므로 숨기지 않음.
+  //    활성/비활성은 index.js의 _wmSyncEraserBtn() → setEraserBtn()이 담당.
 }
 
 /** 완료 버튼 클릭 — 3행 닫기, 추가버튼 유지, 지도 클릭 비활성화 */
@@ -551,6 +560,37 @@ function setHistoryBtns(canUndo, canRedo) {
   var redoBtn = document.getElementById(BTN_REDO_ID);
   if (undoBtn) undoBtn.disabled = !canUndo;
   if (redoBtn) redoBtn.disabled = !canRedo;
+}
+
+/**
+ * 지우개 버튼 바인딩
+ * ⚠️ renderWorkModePanel 파라미터를 늘리지 않기 위해 _bindDoneBtn과 동일하게 별도 함수로 분리
+ * @param {function} onEraserFn  지우개 토글 콜백
+ */
+function _bindEraserBtn(onEraserFn) {
+  var btn = document.getElementById(BTN_ERASER_ID);
+  if (!btn || typeof onEraserFn !== 'function') return;
+  btn.addEventListener('click', function(e) {
+    e.preventDefault();
+    if (this.disabled) return;
+    onEraserFn();
+  });
+}
+
+/**
+ * 지우개 버튼 상태 갱신
+ * @param {boolean} isOn     지우개 모드 활성 여부 (주황 채움)
+ * @param {boolean} enabled  누를 수 있는가 (지울 도형이 하나라도 있는가)
+ */
+function setEraserBtn(isOn, enabled) {
+  var btn = document.getElementById(BTN_ERASER_ID);
+  if (!btn) return;
+  btn.disabled = !enabled;
+  btn.classList.toggle('wm-btn--eraser-on', !!isOn && !!enabled);
+  var lbl = btn.querySelector('.wm-lbl');
+  if (lbl) lbl.textContent = (isOn && enabled) ? '지우는 중' : '지우개';
+  // 지도 커서 전환 (ON일 때 crosshair)
+  document.body.classList.toggle('wm-eraser-cursor', !!isOn && !!enabled);
 }
 
 /** 활성 모드 버튼 강조 (done-* 포함) */
@@ -992,6 +1032,29 @@ function _injectStyles() {
       color: var(--text-dim,#7a9bb5);
       background: var(--surface2,#1a2235);
     }
+    /* ── 지우개 버튼 ── */
+    .wm-btn--eraser {
+      border-color: #ff9f43;
+      color: #ff9f43;
+      flex-shrink: 0;
+    }
+    .wm-btn--eraser:hover:not(:disabled) { background: rgba(255,159,67,.12); }
+    .wm-btn--eraser:disabled {
+      opacity: .32;
+      cursor: default;
+      border-color: var(--border,#1e3a5f);
+      color: var(--text-dim,#7a9bb5);
+      background: var(--surface2,#1a2235);
+    }
+    .wm-btn--eraser.wm-btn--eraser-on {
+      border-color: #ff9f43 !important;
+      color: #000 !important;
+      background: #ff9f43 !important;
+      box-shadow: 0 0 8px rgba(255,159,67,.5);
+    }
+    /* 지우개 ON 상태: 지도 커서를 조준점으로 */
+    .wm-eraser-cursor .leaflet-container { cursor: crosshair !important; }
+
     .wm-btn--show  { border-color: #a29bfe; color: #a29bfe; }
     .wm-btn--show:hover { background: rgba(162,155,254,.1); }
     .wm-btn--gps-track { }
@@ -1126,6 +1189,17 @@ function _injectStyles() {
       .wm-collapse-lbl { display: inline; font-size: .62rem; }
       .wm-badge { font-size: .5rem; padding: 1px 2px; }
       .wm-search-input::placeholder { font-size: .65rem; }
+
+      /* ⚠️ 모드행 버튼이 늘어나 완료 버튼이 밀려 잘리는 것 방지
+         - 줄바꿈 간격 확보 (wrap 시 두 줄이 붙지 않도록)
+         - 지우개는 아이콘만 (라벨 숨김)
+         - 완료 버튼 최소폭 축소 + 항상 줄 오른쪽 끝에 배치 */
+      .wm-btn-group.wm-mode-group { row-gap: 4px; }
+      .wm-btn--eraser .wm-lbl { display: none; }
+      .wm-btn--eraser { padding: 4px 8px; }
+      .wm-btn-done { min-width: 0; padding: 4px 12px; margin-left: auto; }
+      .wm-hist-group { margin: 0 1px; }
+      .wm-btn--hist { padding: 3px 7px; min-width: 28px; }
     }
 
     /* ── 색상 스와치 ── */
