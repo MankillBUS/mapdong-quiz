@@ -84,6 +84,13 @@ let _wmHistIdx   = 0;           // 현재 위치 (0 = 도형 없음 상태)
 let _wmRestoring = false;       // 복원 중 플래그 (복원 중 히스토리 기록 방지)
 let _wmHistKeyFn = null;        // Ctrl+Z / Ctrl+Shift+Z 키 핸들러
 
+// ── 지우개 (부분 교차지역 삭제) 상태 ────────────────────────────
+//   ON 상태에서 지도를 클릭하면, 그 지점을 품고 있는 도형 1개를 통째로 삭제한다.
+//   → 그 도형이 만들어낸 교차지역 그룹만 사라지고, 다른 도형의 교차지역은 남는다.
+//   (겹치는 지역은 다른 도형이 아직 덮고 있으면 그대로 유지됨 — 재계산 방식이라 자동 처리)
+let _eraserMode     = false;
+let _wmEraserClickFn = null;   // 지우개 전용 지도 클릭 핸들러
+
 // ════════════════════════════════════════════════════════════════
 // 2. 업무모드 진입
 // ════════════════════════════════════════════════════════════════
@@ -165,6 +172,12 @@ function initWorkMode(leafletMap) {
     else _wmUndo();
   };
   document.addEventListener('keydown', _wmHistKeyFn);
+
+  // ── 지우개 바인딩 ──────────────────────────────────────────────
+  if (typeof _bindEraserBtn === 'function') {
+    _bindEraserBtn(function() { _wmToggleEraser(); });
+  }
+  _wmSyncEraserBtn();
 
   // 업무모드 진입 시 퀴즈 전용 UI 숨기기
   document.body.classList.add('work-mode');
@@ -248,11 +261,21 @@ function initWorkMode(leafletMap) {
 
   // 업무모드 전용 클릭핸들러 (퀴즈 onMapClick 덮어쓰기 방지)
   _wmClickFn = function(e) {
+    // 지우개 ON 중에는 새 도형을 만들지 않음 (지우개 전용 핸들러가 처리)
+    if (_eraserMode) return;
     // draw 모드는 드래그 이벤트로 처리 → 클릭 무시
     if (_currentMode === 'draw') return;
     if (_currentMode) { _wmMapClick(e.latlng); }
   };
   _map.on('click', _wmClickFn);
+
+  // 지우개 전용 클릭 핸들러 — 모드와 무관하게 항상 등록 (내부에서 _eraserMode 검사)
+  // ⚠️ _wmClickFn은 이어붙이기에서 교체되므로, 지우개는 반드시 별도 리스너로 분리할 것
+  _wmEraserClickFn = function(e) {
+    if (!_eraserMode) return;
+    _wmEraseAt(e.latlng);
+  };
+  _map.on('click', _wmEraserClickFn);
 
   // 시야 기준 컬링: 교차필터 OFF일 때 "보이는 시야 + 30%"만 렌더
   _wmViewportCullFn = function() { _wmScheduleViewportCull(); };
@@ -305,6 +328,14 @@ function exitWorkMode() {
     document.removeEventListener('visibilitychange', _wmVisibilityFn);
     _wmVisibilityFn = null;
   }
+
+  // 지우개 리스너 제거 + 상태 초기화
+  if (_map && _wmEraserClickFn) {
+    try { _map.off('click', _wmEraserClickFn); } catch(e) {}
+    _wmEraserClickFn = null;
+  }
+  _eraserMode = false;
+  document.body.classList.remove('wm-eraser-cursor');
 
   // 되돌리기 키 핸들러 제거 + 히스토리 초기화
   if (_wmHistKeyFn) {
@@ -417,6 +448,9 @@ window.clearWorkModeSavedState = function() {
 };
 
 function _wmSwitchMode(mode) {
+  // 모드 버튼을 누르면 지우개는 항상 해제 (지우개 ON 상태로 그려지는 혼선 방지)
+  _wmEraserOff();
+
   // ── draw/circle: 활성 중 재클릭 → 기존 도형 초기화 + 처음부터 재시작
   // 슬라이더(색상/굵기/반경)는 닫히지 않음
   if (_currentMode === mode && (mode === 'draw' || mode === 'circle')) {
@@ -693,6 +727,7 @@ function _wmAddFan(clickPos) {
  * → 새 도착지점은 다음 지도 클릭으로 결정
  */
 function _wmAddLineChain() {
+  _wmEraserOff();   // 추가 버튼 사용 시 지우개 해제
   // 완료 상태(null)에서도 이전 선 작업이 있으면 추가 가능
   if (_currentMode !== 'line' && _lastMode !== 'line') return;
   if (_currentMode === null) {
@@ -750,6 +785,7 @@ function _wmAddLineChain() {
  * GPS 위치에서 새 끝점으로 부채꼴 생성 (다음 클릭으로 끝점 확정)
  */
 function _wmAddFanChain() {
+  _wmEraserOff();   // 추가 버튼 사용 시 지우개 해제
   // 완료 상태(null)에서도 이전 부채꼴 작업이 있으면 추가 가능
   if (_currentMode !== 'fan' && _lastMode !== 'fan') return;
   if (_currentMode === null) {
@@ -1887,6 +1923,9 @@ function _wmApplySnapshot(snap) {
 
 /** 되돌리기/다시실행 버튼 활성 상태 동기화 */
 function _wmSyncHistoryBtns() {
+  // 지우개 버튼도 같은 시점에 동기화
+  //  (도형 추가·삭제·되돌리기·초기화 모두 이 함수를 거치므로 단일 진입점으로 충분)
+  if (typeof _wmSyncEraserBtn === 'function') _wmSyncEraserBtn();
   if (typeof setHistoryBtns !== 'function') return;
   setHistoryBtns(_wmHistIdx > 0, _wmHistIdx < _wmHistory.length - 1);
 }
@@ -1941,6 +1980,167 @@ function _wmReplaceHistoryTop() {
   }
   _wmHistory[_wmHistIdx] = _wmSnapshotShapes();
   _wmSyncHistoryBtns();
+}
+
+// ════════════════════════════════════════════════════════════════
+// 13-C. 지우개 — 부분 교차지역 삭제
+// ════════════════════════════════════════════════════════════════
+//
+// [동작]
+//   1) 지우개 버튼 1번 클릭 → 지우개 ON (주황색, 지도 커서 crosshair)
+//   2) 지우고 싶은 교차지역 범위 안을 클릭
+//      → 그 지점을 품고 있는 도형(원형/부채꼴/선/그리기) 1개를 통째로 삭제
+//      → 그 도형이 만든 교차지역 그룹만 사라짐
+//   3) 지우개는 ON 상태로 유지 → 연속으로 여러 그룹을 지울 수 있음
+//      (모드 버튼·추가 버튼을 누르거나 지우개를 다시 누르면 OFF)
+//
+// [겹치는 지역 처리]
+//   삭제 후 _wmRunIntersect()로 남은 도형 기준 전체 재계산을 하므로,
+//   두 원이 겹친 지역은 다른 원이 아직 덮고 있으면 그대로 남는다.
+//   예) 원A(계산·계양…부천·원미) + 원B(강서·양천…영등포) 중 원A를 지우면
+//       원A 전용 지역만 사라지고 원B 지역은 유지, 겹친 지역도 유지.
+//
+// [삭제 대상 선택 규칙]
+//   나중에 그린 도형이 위에 있다고 보고 _shapes를 역순으로 훑어 첫 적중을 지운다.
+
+/** 지우개 버튼 상태 동기화 (도형이 없으면 비활성) */
+function _wmSyncEraserBtn() {
+  if (typeof setEraserBtn !== 'function') return;
+  var hasShape = _shapes.some(function(s) { return s && !s.pending; });
+  setEraserBtn(_eraserMode, hasShape);
+}
+
+/** 지우개 ON/OFF 토글 */
+function _wmToggleEraser() {
+  var hasShape = _shapes.some(function(s) { return s && !s.pending; });
+  if (!hasShape) { _eraserMode = false; _wmSyncEraserBtn(); return; }
+  _eraserMode = !_eraserMode;
+  if (_eraserMode) {
+    // 지우개 중에는 지도 드래그로 그림이 그려지지 않도록 그리기 상태 정리
+    _isDrawing = false;
+    if (_map && _map.dragging) { try { _map.dragging.enable(); } catch(x) {} }
+    if (_drawLayer) { try { _map.removeLayer(_drawLayer); } catch(x) {} _drawLayer = null; }
+    _drawRawPts = [];
+  }
+  _wmSyncEraserBtn();
+}
+
+/** 지우개 강제 해제 (모드 전환·추가 버튼 등에서 호출) */
+function _wmEraserOff() {
+  if (!_eraserMode) return;
+  _eraserMode = false;
+  _wmSyncEraserBtn();
+}
+
+/**
+ * 클릭 허용 오차(도 단위) — 화면상 약 14px에 해당하는 경도 차이
+ * 선 모드처럼 얇은 도형도 손가락으로 집을 수 있게 하는 여유값
+ */
+function _wmClickTolDeg(latlng) {
+  try {
+    var p  = _map.latLngToLayerPoint(latlng);
+    var p2 = _map.layerPointToLatLng(L.point(p.x + 14, p.y));
+    var d  = Math.abs(p2.lng - latlng.lng);
+    return (isFinite(d) && d > 0) ? d : 0.0002;
+  } catch(e) { return 0.0002; }
+}
+
+/** 점 → ring(선분들) 최단거리 (도 단위 근사) */
+function _wmPointRingDist(pt, ring) {
+  var best = Infinity;
+  for (var i = 0; i < ring.length - 1; i++) {
+    var ax = ring[i][0],     ay = ring[i][1];
+    var bx = ring[i + 1][0], by = ring[i + 1][1];
+    var dx = bx - ax, dy = by - ay;
+    var len2 = dx * dx + dy * dy;
+    var t = len2 > 0 ? ((pt[0] - ax) * dx + (pt[1] - ay) * dy) / len2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    var cx = ax + t * dx, cy = ay + t * dy;
+    var d  = Math.sqrt((pt[0] - cx) * (pt[0] - cx) + (pt[1] - cy) * (pt[1] - cy));
+    if (d < best) best = d;
+  }
+  return best;
+}
+
+/**
+ * 도형 1개가 클릭 지점을 품고 있는지 판정
+ * ⚠️ _extractRing / _pointInRing 은 spatial.js의 전역 함수 (index.js보다 먼저 로드됨)
+ * @returns {boolean}
+ */
+function _wmShapeHitTest(shape, latlng, tolDeg) {
+  if (!shape || shape.pending) return false;
+  var pt = [latlng.lng, latlng.lat];
+
+  // 교차 판정에 쓰는 폴리곤 수집 (draw는 구간별 폴리곤 전부)
+  var polys = [];
+  if (shape.type === 'draw' && shape.segments && shape.segments.length) {
+    polys = shape.segments;
+  } else if (shape.polygon) {
+    polys = [shape.polygon];
+  }
+
+  for (var i = 0; i < polys.length; i++) {
+    var ring = (typeof _extractRing === 'function') ? _extractRing(polys[i]) : null;
+    if (!ring || ring.length < 3) continue;
+    if (typeof _pointInRing === 'function' && _pointInRing(pt, ring)) return true;
+    // 얇은 도형 보정: 외곽선 근처 클릭도 적중으로 인정
+    if (tolDeg > 0 && _wmPointRingDist(pt, ring) <= tolDeg) return true;
+  }
+  return false;
+}
+
+/**
+ * 지우개 클릭 처리 — 클릭 지점을 품은 도형 1개 삭제 후 교차 재계산
+ * @param {{lat,lng}} latlng
+ */
+function _wmEraseAt(latlng) {
+  if (!_isMapAlive() || !latlng) return;
+
+  var tol = _wmClickTolDeg(latlng);
+
+  // 나중에 그린 것이 위 → 역순 탐색, 첫 적중 1개만 삭제
+  var idx = -1;
+  for (var i = _shapes.length - 1; i >= 0; i--) {
+    if (_wmShapeHitTest(_shapes[i], latlng, tol)) { idx = i; break; }
+  }
+
+  if (idx === -1) {
+    // 빈 곳 클릭 — 아무것도 지우지 않음 (오동작 방지)
+    console.debug('[WorkMode] 지우개: 클릭 지점에 도형 없음');
+    return;
+  }
+
+  // 1. 해당 도형 레이어 제거 + 배열에서 삭제
+  var target = _shapes[idx];
+  if (target.layer) { try { _map.removeLayer(target.layer); } catch(e) {} }
+  _shapes.splice(idx, 1);
+
+  // 2. 부채꼴 끝점 동기화 (지운 게 마지막 부채꼴일 수 있음)
+  var lastFan = null;
+  for (var j = _shapes.length - 1; j >= 0; j--) {
+    if (_shapes[j].type === 'fan') { lastFan = _shapes[j]; break; }
+  }
+  _endPoint = lastFan ? lastFan.endPt : null;
+
+  // 3. 남은 도형 기준으로 교차 전체 재계산
+  //    → 겹쳐 있던 지역은 다른 도형이 덮고 있으면 그대로 남는다
+  _resultSet = new Set();
+  _wmRunIntersect();
+
+  // 4. 동/구 폴리곤 재정리 (교차필터 ON이면 지워진 지역 폴리곤도 함께 숨겨짐)
+  if (_dongVisible) _wmRenderDongs();
+
+  // 5. 결과창 + 클립보드 갱신
+  _wmUpdateUI();
+
+  // 6. 되돌리기 이력 기록 (지우개도 Ctrl+Z로 복구 가능)
+  _wmPushHistory();
+
+  // 7. 지울 도형이 더 없으면 지우개 자동 해제
+  if (!_shapes.some(function(s) { return s && !s.pending; })) {
+    _eraserMode = false;
+  }
+  _wmSyncEraserBtn();
 }
 
 /** 되돌리기 — 계속 누르면 도형이 하나도 없는 상태까지 간다 */
@@ -2771,6 +2971,7 @@ function _wmUnbindDrawEvents() {
 }
 
 function _wmDrawStart(e) {
+  if (_eraserMode) return;   // 지우개 ON 중에는 그리기 금지
   if (_currentMode !== 'draw') return;
   // 드래그 1회 완료 후 추가버튼 누르지 않으면 새 드래그 차단
   if (_drawDoneOnce) return;
@@ -2790,6 +2991,7 @@ function _wmDrawStart(e) {
 }
 
 function _wmDrawStartTouch(e) {
+  if (_eraserMode) return;   // 지우개 ON 중에는 그리기 금지
   if (_currentMode !== 'draw') return;
   if (_drawDoneOnce) return;
   e.preventDefault();
@@ -3225,6 +3427,7 @@ function _wmUpdateLastDraw() {
  * done-draw 상태에서 _drawDoneOnce를 리셋해 드래그 1회 더 허용
  */
 function _wmAddDrawChain() {
+  _wmEraserOff();   // 추가 버튼 사용 시 지우개 해제
   if (_currentMode !== 'draw' && _lastMode !== 'draw') return;
   var drawShapes = _shapes.filter(function(s){ return s.type === 'draw'; });
   if (!drawShapes.length) return;
@@ -3242,6 +3445,7 @@ function _wmAddDrawChain() {
  * (원형은 클릭마다 기존 원을 교체하므로 상태 전환만 하면 됨)
  */
 function _wmAddCircleChain() {
+  _wmEraserOff();   // 추가 버튼 사용 시 지우개 해제
   if (_currentMode !== 'circle' && _lastMode !== 'circle') return;
   // 원형추가 버튼 → 1회 제한 해제 → 다음 클릭으로 원 1개 추가 생성
   _circleDoneOnce = false;
